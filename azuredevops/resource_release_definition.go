@@ -2,6 +2,7 @@ package azuredevops
 
 import (
 	"fmt"
+	"github.com/microsoft/azure-devops-go-api/azuredevops/taskagent"
 	"strconv"
 	"strings"
 
@@ -12,7 +13,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
-	"github.com/microsoft/azure-devops-go-api/azuredevops/build"
+	"github.com/microsoft/azure-devops-go-api/azuredevops/release"
 )
 
 func resourceReleaseDefinition() *schema.Resource {
@@ -59,7 +60,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				Optional: true,
 				Default:  "",
 			},
-			// TODO : Abstract this because it is used by resource group and release definitions.
+			// TODO : Abstract this because it is used by variable group and release definitions.
 			"variables": {
 				Type: schema.TypeSet,
 				Elem: &schema.Resource{
@@ -141,55 +142,62 @@ func resourceReleaseDefinition() *schema.Resource {
 
 func resourceReleaseDefinitionCreate(d *schema.ResourceData, m interface{}) error {
 	clients := m.(*config.AggregatedClient)
-	buildDefinition, projectID, err := expandBuildDefinition(d)
+	releaseDefinition, err := expandReleaseDefinition(d)
 	if err != nil {
 		return fmt.Errorf("Error creating resource Build Definition: %+v", err)
 	}
 
-	createdBuildDefinition, err := createBuildDefinition(clients, buildDefinition, projectID)
+	createdReleaseDefinition, err := createReleaseDefinition(clients, releaseDefinition)
 	if err != nil {
 		return fmt.Errorf("Error creating resource Build Definition: %+v", err)
 	}
 
-	flattenBuildDefinition(d, createdBuildDefinition, projectID)
+	flattenReleaseDefinition(d, createdReleaseDefinition)
 	return nil
 }
 
-func flattenBuildDefinition(d *schema.ResourceData, buildDefinition *build.BuildDefinition, projectID string) {
-	d.SetId(strconv.Itoa(*buildDefinition.Id))
+func flattenReleaseDefinition(d *schema.ResourceData, releaseDefinition *release.ReleaseDefinition) {
+	d.SetId(strconv.Itoa(*releaseDefinition.Id))
 
-	d.Set("project_id", projectID)
-	d.Set("name", *buildDefinition.Name)
-	d.Set("repository", flattenRepository(buildDefinition))
-	d.Set("agent_pool_name", *buildDefinition.Queue.Pool.Name)
-
-	d.Set("variable_groups", flattenVariableGroups(buildDefinition))
+	d.Set("name", *releaseDefinition.Name)
+	d.Set("path", *releaseDefinition.Path)
+	d.Set("variable_groups", *releaseDefinition.VariableGroups)
+	d.Set("source", *releaseDefinition.Source)
+	d.Set("description", *releaseDefinition.Description)
+	d.Set("variables", flattenReleaseDefinitionVariables(releaseDefinition))
+	d.Set("releaseNameFormat", *releaseDefinition.ReleaseNameFormat)
+	d.Set("url", *releaseDefinition.Url)
+	d.Set("isDeleted", *releaseDefinition.IsDeleted)
 
 	revision := 0
-	if buildDefinition.Revision != nil {
-		revision = *buildDefinition.Revision
+	if releaseDefinition.Revision != nil {
+		revision = *releaseDefinition.Revision
 	}
 
 	d.Set("revision", revision)
 }
 
-func flattenVariableGroups(buildDefinition *build.BuildDefinition) []int {
-	if buildDefinition.VariableGroups == nil {
-		return nil
+// Convert AzDO Variables data structure to Terraform TypeSet
+func flattenReleaseDefinitionVariables(variableGroup *release.ReleaseDefinition) interface{} {
+	// Preallocate list of variable prop maps
+	variables := make([]map[string]interface{}, len(*variableGroup.Variables))
+
+	index := 0
+	for k, v := range *variableGroup.Variables {
+		variables[index] = map[string]interface{}{
+			"name":      k,
+			"value":     converter.ToString(v.Value, ""),
+			"is_secret": converter.ToBool(v.IsSecret, false),
+		}
+		index = index + 1
 	}
 
-	variableGroups := make([]int, len(*buildDefinition.VariableGroups))
-
-	for i, variableGroup := range *buildDefinition.VariableGroups {
-		variableGroups[i] = *variableGroup.Id
-	}
-
-	return variableGroups
+	return variables
 }
 
-func createBuildDefinition(clients *config.AggregatedClient, buildDefinition *build.BuildDefinition, project string) (*build.BuildDefinition, error) {
-	createdBuild, err := clients.BuildClient.CreateDefinition(clients.Ctx, build.CreateDefinitionArgs{
-		Definition: buildDefinition,
+func createReleaseDefinition(clients *config.AggregatedClient, releaseDefinition *release.ReleaseDefinition) (*release.ReleaseDefinition, error) {
+	createdBuild, err := clients.BuildClient.CreateDefinition(clients.Ctx, release.CreateDefinitionArgs{
+		Definition: releaseDefinition,
 		Project:    &project,
 	})
 
@@ -198,22 +206,22 @@ func createBuildDefinition(clients *config.AggregatedClient, buildDefinition *bu
 
 func resourceReleaseDefinitionRead(d *schema.ResourceData, m interface{}) error {
 	clients := m.(*config.AggregatedClient)
-	projectID, buildDefinitionID, err := tfhelper.ParseProjectIDAndResourceID(d)
+	projectID, releaseDefinitionID, err := tfhelper.ParseProjectIDAndResourceID(d)
 
 	if err != nil {
 		return err
 	}
 
-	buildDefinition, err := clients.BuildClient.GetDefinition(clients.Ctx, build.GetDefinitionArgs{
+	releaseDefinition, err := clients.BuildClient.GetDefinition(clients.Ctx, release.GetDefinitionArgs{
 		Project:      &projectID,
-		DefinitionId: &buildDefinitionID,
+		DefinitionId: &releaseDefinitionID,
 	})
 
 	if err != nil {
 		return err
 	}
 
-	flattenBuildDefinition(d, buildDefinition, projectID)
+	flattenReleaseDefinition(d, releaseDefinition, projectID)
 	return nil
 }
 
@@ -223,14 +231,14 @@ func resourceReleaseDefinitionDelete(d *schema.ResourceData, m interface{}) erro
 	}
 
 	clients := m.(*config.AggregatedClient)
-	projectID, buildDefinitionID, err := tfhelper.ParseProjectIDAndResourceID(d)
+	projectID, releaseDefinitionID, err := tfhelper.ParseProjectIDAndResourceID(d)
 	if err != nil {
 		return err
 	}
 
-	err = clients.BuildClient.DeleteDefinition(m.(*config.AggregatedClient).Ctx, build.DeleteDefinitionArgs{
+	err = clients.BuildClient.DeleteDefinition(m.(*config.AggregatedClient).Ctx, release.DeleteReleaseDefinitionArgs{
 		Project:      &projectID,
-		DefinitionId: &buildDefinitionID,
+		DefinitionId: &releaseDefinitionID,
 	})
 
 	return err
@@ -238,26 +246,26 @@ func resourceReleaseDefinitionDelete(d *schema.ResourceData, m interface{}) erro
 
 func resourceReleaseDefinitionUpdate(d *schema.ResourceData, m interface{}) error {
 	clients := m.(*config.AggregatedClient)
-	buildDefinition, projectID, err := expandBuildDefinition(d)
+	releaseDefinition, projectID, err := expandReleaseDefinition(d)
 	if err != nil {
 		return err
 	}
 
-	updatedBuildDefinition, err := clients.BuildClient.UpdateDefinition(m.(*config.AggregatedClient).Ctx, build.UpdateDefinitionArgs{
-		Definition:   buildDefinition,
+	updatedReleaseDefinition, err := clients.BuildClient.UpdateDefinition(m.(*config.AggregatedClient).Ctx, release.UpdateDefinitionArgs{
+		Definition:   releaseDefinition,
 		Project:      &projectID,
-		DefinitionId: buildDefinition.Id,
+		DefinitionId: releaseDefinition.Id,
 	})
 
 	if err != nil {
 		return err
 	}
 
-	flattenBuildDefinition(d, updatedBuildDefinition, projectID)
+	flattenReleaseDefinition(d, updatedReleaseDefinition, projectID)
 	return nil
 }
 
-func flattenRepository(buildDefiniton *build.BuildDefinition) interface{} {
+func flattenRepository(buildDefiniton *release.ReleaseDefinition) interface{} {
 	yamlFilePath := ""
 
 	// The process member can be of many types -- the only typing information
@@ -267,7 +275,7 @@ func flattenRepository(buildDefiniton *build.BuildDefinition) interface{} {
 		yamlFilePath = processMap["yamlFilename"].(string)
 	}
 
-	if yamlProcess, ok := buildDefiniton.Process.(*build.YamlProcess); ok {
+	if yamlProcess, ok := buildDefiniton.Process.(*release.YamlProcess); ok {
 		yamlFilePath = *yamlProcess.YamlFilename
 	}
 
@@ -280,77 +288,44 @@ func flattenRepository(buildDefiniton *build.BuildDefinition) interface{} {
 	}}
 }
 
-func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, string, error) {
-	projectID := d.Get("project_id").(string)
+func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition, error) {
 	repositories := d.Get("repository").(*schema.Set).List()
 
 	variableGroupsInterface := d.Get("variable_groups").(*schema.Set).List()
-	variableGroups := make([]build.VariableGroup, len(variableGroupsInterface))
-
-	for i, variableGroup := range variableGroupsInterface {
-		variableGroups[i] = *buildVariableGroup(variableGroup.(int))
-	}
+	variableGroups := make([]int, len(variableGroupsInterface))
 
 	// Note: If configured, this will be of length 1 based on the schema definition above.
-	if len(repositories) != 1 {
-		return nil, "", fmt.Errorf("Unexpectedly did not find repository metadata in the resource data")
-	}
-
-	repository := repositories[0].(map[string]interface{})
-
-	repoName := repository["repo_name"].(string)
-	repoType := repository["repo_type"].(string)
-	repoURL := ""
-	if strings.EqualFold(repoType, "github") {
-		repoURL = fmt.Sprintf("https://github.com/%s.git", repoName)
-	}
+	//if len(repositories) != 1 {
+	//	return nil, fmt.Errorf("unexpectedly did not find repository metadata in the resource data")
+	//}
 
 	// Look for the ID. This may not exist if we are within the context of a "create" operation,
 	// so it is OK if it is missing.
-	buildDefinitionID, err := strconv.Atoi(d.Id())
-	var buildDefinitionReference *int
+	releaseDefinitionID, err := strconv.Atoi(d.Id())
+	var releaseDefinitionReference *int
 	if err == nil {
-		buildDefinitionReference = &buildDefinitionID
+		releaseDefinitionReference = &releaseDefinitionID
 	} else {
-		buildDefinitionReference = nil
+		releaseDefinitionReference = nil
 	}
 
-	agentPoolName := d.Get("agent_pool_name").(string)
-	buildDefinition := build.BuildDefinition{
-		Id:       buildDefinitionReference,
+	releaseDefinition := release.ReleaseDefinition{
+		Id:       releaseDefinitionReference,
 		Name:     converter.String(d.Get("name").(string)),
 		Path:     converter.String(d.Get("path").(string)),
 		Revision: converter.Int(d.Get("revision").(int)),
-		Repository: &build.BuildRepository{
-			Url:           &repoURL,
-			Id:            &repoName,
-			Name:          &repoName,
-			DefaultBranch: converter.String(repository["branch_name"].(string)),
-			Type:          &repoType,
-			Properties: &map[string]string{
-				"connectedServiceId": repository["service_connection_id"].(string),
-			},
-		},
-		Process: &build.YamlProcess{
-			YamlFilename: converter.String(repository["yml_path"].(string)),
-		},
-		Queue: &build.AgentPoolQueue{
-			Name: &agentPoolName,
-			Pool: &build.TaskAgentPoolReference{
-				Name: &agentPoolName,
-			},
-		},
-		QueueStatus:    &build.DefinitionQueueStatusValues.Enabled,
-		Type:           &build.DefinitionTypeValues.Build,
-		Quality:        &build.DefinitionQualityValues.Definition,
-		VariableGroups: &variableGroups,
+		// Source: release.ReleaseDefinitionSourceValues.RestApi,
+		Description: converter.String(d.Get("description").(string)),
+		// Variables:
+		ReleaseNameFormat: converter.String(d.Get("releaseNameFormat").(string)),
+		VariableGroups:    d.Get("variableGroups").(*[]int),
 	}
 
-	return &buildDefinition, projectID, nil
+	return &releaseDefinition, nil
 }
 
-func buildVariableGroup(id int) *build.VariableGroup {
-	return &build.VariableGroup{
+func buildVariableGroup(id int) *release.VariableGroup {
+	return &release.VariableGroup{
 		Id: &id,
 	}
 }

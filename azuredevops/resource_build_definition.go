@@ -117,6 +117,7 @@ func flattenBuildDefinition(d *schema.ResourceData, buildDefinition *build.Build
 	d.Set("name", *buildDefinition.Name)
 	d.Set("repository", flattenRepository(buildDefinition))
 	d.Set("agent_pool_name", *buildDefinition.Queue.Pool.Name)
+	d.Set("path", *buildDefinition.Path)
 
 	d.Set("variable_groups", flattenVariableGroups(buildDefinition))
 
