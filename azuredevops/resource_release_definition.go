@@ -91,7 +91,7 @@ func resourceReleaseDefinition() *schema.Resource {
 					return schema.HashString(item["name"].(string))
 				},
 			},
-			"releaseNameFormat": {
+			"release_name_format": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  "Release-$(rev:r)",
@@ -135,7 +135,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"isDeleted": {
+			"is_deleted": {
 				Type:     schema.TypeBool,
 				Computed: true,
 			},
@@ -169,9 +169,9 @@ func flattenReleaseDefinition(d *schema.ResourceData, releaseDefinition *release
 	d.Set("source", *releaseDefinition.Source)
 	d.Set("description", *releaseDefinition.Description)
 	d.Set("variables", flattenReleaseDefinitionVariables(releaseDefinition))
-	d.Set("releaseNameFormat", *releaseDefinition.ReleaseNameFormat)
+	d.Set("release_name_format", *releaseDefinition.ReleaseNameFormat)
 	d.Set("url", *releaseDefinition.Url)
-	d.Set("isDeleted", *releaseDefinition.IsDeleted)
+	d.Set("is_deleted", *releaseDefinition.IsDeleted)
 
 	revision := 0
 	if releaseDefinition.Revision != nil {
@@ -287,14 +287,14 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 	}
 
 	releaseDefinition := release.ReleaseDefinition{
-		Id:       releaseDefinitionReference,
-		Name:     converter.String(d.Get("name").(string)),
-		Path:     converter.String(d.Get("path").(string)),
-		Revision: converter.Int(d.Get("revision").(int)),
-		// Source: release.ReleaseDefinitionSourceValues.RestApi,
+		Id:          releaseDefinitionReference,
+		Name:        converter.String(d.Get("name").(string)),
+		Path:        converter.String(d.Get("path").(string)),
+		Revision:    converter.Int(d.Get("revision").(int)),
+		Source:      &release.ReleaseDefinitionSourceValues.RestApi,
 		Description: converter.String(d.Get("description").(string)),
 		// Variables:
-		ReleaseNameFormat: converter.String(d.Get("releaseNameFormat").(string)),
+		ReleaseNameFormat: converter.String(d.Get("release_name_format").(string)),
 		VariableGroups:    d.Get("variableGroups").(*[]int),
 	}
 
