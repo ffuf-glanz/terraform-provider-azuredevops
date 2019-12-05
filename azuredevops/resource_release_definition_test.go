@@ -179,13 +179,13 @@ func TestAccAzureDevOpsReleaseDefinition_CreateAndUpdate(t *testing.T) {
 	projectName := testAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	releaseDefinitionPathEmpty := ""
 	releaseDefinitionNameFirst := testAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
-	releaseDefinitionNameSecond := testAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	//releaseDefinitionNameSecond := testAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 
-	releaseDefinitionPathFirst := `\` + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
-	releaseDefinitionPathSecond := `\` + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
-
-	releaseDefinitionPathThird := releaseDefinitionNameFirst + `\` + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
-	releaseDefinitionPathFourth := releaseDefinitionNameSecond + `\` + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	//releaseDefinitionPathFirst := `\` + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	//releaseDefinitionPathSecond := `\` + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	//
+	//releaseDefinitionPathThird := releaseDefinitionNameFirst + `\` + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	//releaseDefinitionPathFourth := releaseDefinitionNameSecond + `\` + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 
 	tfReleaseDefNode := "azuredevops_build_definition.build"
 	resource.Test(t, resource.TestCase{
@@ -202,53 +202,54 @@ func TestAccAzureDevOpsReleaseDefinition_CreateAndUpdate(t *testing.T) {
 					resource.TestCheckResourceAttr(tfReleaseDefNode, "path", releaseDefinitionPathEmpty),
 					testAccCheckReleaseDefinitionResourceExists(releaseDefinitionNameFirst),
 				),
-			}, {
-				Config: testAccReleaseDefinitionResource(projectName, releaseDefinitionNameSecond, releaseDefinitionPathEmpty),
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttrSet(tfReleaseDefNode, "project_id"),
-					resource.TestCheckResourceAttrSet(tfReleaseDefNode, "revision"),
-					resource.TestCheckResourceAttr(tfReleaseDefNode, "name", releaseDefinitionNameSecond),
-					resource.TestCheckResourceAttr(tfReleaseDefNode, "path", releaseDefinitionPathEmpty),
-					testAccCheckReleaseDefinitionResourceExists(releaseDefinitionNameSecond),
-				),
-			}, {
-				Config: testAccReleaseDefinitionResource(projectName, releaseDefinitionNameFirst, releaseDefinitionPathFirst),
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttrSet(tfReleaseDefNode, "project_id"),
-					resource.TestCheckResourceAttrSet(tfReleaseDefNode, "revision"),
-					resource.TestCheckResourceAttr(tfReleaseDefNode, "name", releaseDefinitionNameFirst),
-					resource.TestCheckResourceAttr(tfReleaseDefNode, "path", releaseDefinitionPathFirst),
-					testAccCheckReleaseDefinitionResourceExists(releaseDefinitionNameFirst),
-				),
-			}, {
-				Config: testAccReleaseDefinitionResource(projectName, releaseDefinitionNameFirst,
-					releaseDefinitionPathSecond),
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttrSet(tfReleaseDefNode, "project_id"),
-					resource.TestCheckResourceAttrSet(tfReleaseDefNode, "revision"),
-					resource.TestCheckResourceAttr(tfReleaseDefNode, "name", releaseDefinitionNameFirst),
-					resource.TestCheckResourceAttr(tfReleaseDefNode, "path", releaseDefinitionPathSecond),
-					testAccCheckReleaseDefinitionResourceExists(releaseDefinitionNameFirst),
-				),
-			}, {
-				Config: testAccReleaseDefinitionResource(projectName, releaseDefinitionNameFirst, releaseDefinitionPathThird),
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttrSet(tfReleaseDefNode, "project_id"),
-					resource.TestCheckResourceAttrSet(tfReleaseDefNode, "revision"),
-					resource.TestCheckResourceAttr(tfReleaseDefNode, "name", releaseDefinitionNameFirst),
-					resource.TestCheckResourceAttr(tfReleaseDefNode, "path", releaseDefinitionPathThird),
-					testAccCheckReleaseDefinitionResourceExists(releaseDefinitionNameFirst),
-				),
-			}, {
-				Config: testAccReleaseDefinitionResource(projectName, releaseDefinitionNameFirst, releaseDefinitionPathFourth),
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttrSet(tfReleaseDefNode, "project_id"),
-					resource.TestCheckResourceAttrSet(tfReleaseDefNode, "revision"),
-					resource.TestCheckResourceAttr(tfReleaseDefNode, "name", releaseDefinitionNameFirst),
-					resource.TestCheckResourceAttr(tfReleaseDefNode, "path", releaseDefinitionPathFourth),
-					testAccCheckReleaseDefinitionResourceExists(releaseDefinitionNameFirst),
-				),
 			},
+			//, {
+			//	Config: testAccReleaseDefinitionResource(projectName, releaseDefinitionNameSecond, releaseDefinitionPathEmpty),
+			//	Check: resource.ComposeTestCheckFunc(
+			//		resource.TestCheckResourceAttrSet(tfReleaseDefNode, "project_id"),
+			//		resource.TestCheckResourceAttrSet(tfReleaseDefNode, "revision"),
+			//		resource.TestCheckResourceAttr(tfReleaseDefNode, "name", releaseDefinitionNameSecond),
+			//		resource.TestCheckResourceAttr(tfReleaseDefNode, "path", releaseDefinitionPathEmpty),
+			//		testAccCheckReleaseDefinitionResourceExists(releaseDefinitionNameSecond),
+			//	),
+			//}, {
+			//	Config: testAccReleaseDefinitionResource(projectName, releaseDefinitionNameFirst, releaseDefinitionPathFirst),
+			//	Check: resource.ComposeTestCheckFunc(
+			//		resource.TestCheckResourceAttrSet(tfReleaseDefNode, "project_id"),
+			//		resource.TestCheckResourceAttrSet(tfReleaseDefNode, "revision"),
+			//		resource.TestCheckResourceAttr(tfReleaseDefNode, "name", releaseDefinitionNameFirst),
+			//		resource.TestCheckResourceAttr(tfReleaseDefNode, "path", releaseDefinitionPathFirst),
+			//		testAccCheckReleaseDefinitionResourceExists(releaseDefinitionNameFirst),
+			//	),
+			//}, {
+			//	Config: testAccReleaseDefinitionResource(projectName, releaseDefinitionNameFirst,
+			//		releaseDefinitionPathSecond),
+			//	Check: resource.ComposeTestCheckFunc(
+			//		resource.TestCheckResourceAttrSet(tfReleaseDefNode, "project_id"),
+			//		resource.TestCheckResourceAttrSet(tfReleaseDefNode, "revision"),
+			//		resource.TestCheckResourceAttr(tfReleaseDefNode, "name", releaseDefinitionNameFirst),
+			//		resource.TestCheckResourceAttr(tfReleaseDefNode, "path", releaseDefinitionPathSecond),
+			//		testAccCheckReleaseDefinitionResourceExists(releaseDefinitionNameFirst),
+			//	),
+			//}, {
+			//	Config: testAccReleaseDefinitionResource(projectName, releaseDefinitionNameFirst, releaseDefinitionPathThird),
+			//	Check: resource.ComposeTestCheckFunc(
+			//		resource.TestCheckResourceAttrSet(tfReleaseDefNode, "project_id"),
+			//		resource.TestCheckResourceAttrSet(tfReleaseDefNode, "revision"),
+			//		resource.TestCheckResourceAttr(tfReleaseDefNode, "name", releaseDefinitionNameFirst),
+			//		resource.TestCheckResourceAttr(tfReleaseDefNode, "path", releaseDefinitionPathThird),
+			//		testAccCheckReleaseDefinitionResourceExists(releaseDefinitionNameFirst),
+			//	),
+			//}, {
+			//	Config: testAccReleaseDefinitionResource(projectName, releaseDefinitionNameFirst, releaseDefinitionPathFourth),
+			//	Check: resource.ComposeTestCheckFunc(
+			//		resource.TestCheckResourceAttrSet(tfReleaseDefNode, "project_id"),
+			//		resource.TestCheckResourceAttrSet(tfReleaseDefNode, "revision"),
+			//		resource.TestCheckResourceAttr(tfReleaseDefNode, "name", releaseDefinitionNameFirst),
+			//		resource.TestCheckResourceAttr(tfReleaseDefNode, "path", releaseDefinitionPathFourth),
+			//		testAccCheckReleaseDefinitionResourceExists(releaseDefinitionNameFirst),
+			//	),
+			//},
 		},
 	})
 }
@@ -256,18 +257,10 @@ func TestAccAzureDevOpsReleaseDefinition_CreateAndUpdate(t *testing.T) {
 // HCL describing an AzDO build definition
 func testAccReleaseDefinitionResource(projectName string, releaseDefinitionName string, buildPath string) string {
 	releaseDefinitionResource := fmt.Sprintf(`
-resource "azuredevops_build_definition" "build" {
+resource "azuredevops_release_definition" "release" {
 	project_id      = azuredevops_project.project.id
 	name            = "%s"
-	agent_pool_name = "Hosted Ubuntu 1604"
 	path			= "%s"
-  
-	repository {
-	  repo_type             = "GitHub"
-	  repo_name             = "repoOrg/repoName"
-	  branch_name           = "branch"
-	  yml_path              = "path/to/yaml"
-	}
 }`, releaseDefinitionName, strings.ReplaceAll(buildPath, `\`, `\\`))
 
 	projectResource := testAccProjectResource(projectName)

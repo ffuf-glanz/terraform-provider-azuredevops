@@ -272,11 +272,6 @@ func resourceReleaseDefinitionUpdate(d *schema.ResourceData, m interface{}) erro
 func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition, string, error) {
 	projectID := d.Get("project_id").(string)
 
-	// Note: If configured, this will be of length 1 based on the schema definition above.
-	//if len(repositories) != 1 {
-	//	return nil, fmt.Errorf("unexpectedly did not find repository metadata in the resource data")
-	//}
-
 	// Look for the ID. This may not exist if we are within the context of a "create" operation,
 	// so it is OK if it is missing.
 	releaseDefinitionID, err := strconv.Atoi(d.Id())
@@ -285,6 +280,12 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		releaseDefinitionReference = &releaseDefinitionID
 	} else {
 		releaseDefinitionReference = nil
+	}
+
+	variableGroups := d.Get("variable_groups").(*schema.Set).List()
+	variableGroupsMap := make([]int, len(variableGroups))
+	for i, variableGroup := range variableGroups {
+		variableGroupsMap[i] = variableGroup.(int)
 	}
 
 	releaseDefinition := release.ReleaseDefinition{
@@ -296,11 +297,11 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		Description: converter.String(d.Get("description").(string)),
 		// Variables:
 		ReleaseNameFormat: converter.String(d.Get("release_name_format").(string)),
-		VariableGroups:    d.Get("variableGroups").(*[]int),
+		VariableGroups:    &variableGroupsMap,
 	}
 
-	data, err := json.Marshal(releaseDefinition)
-	fmt.Print(data)
+	data, err := json.MarshalIndent(releaseDefinition, "", "\t")
+	fmt.Println(string(data))
 
 	return &releaseDefinition, projectID, nil
 }
