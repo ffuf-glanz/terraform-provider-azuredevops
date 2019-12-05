@@ -12,6 +12,7 @@ import (
 	"github.com/microsoft/azure-devops-go-api/azuredevops/graph"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/memberentitlementmanagement"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/operations"
+	"github.com/microsoft/azure-devops-go-api/azuredevops/release"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/serviceendpoint"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/taskagent"
 )
@@ -29,6 +30,7 @@ type AggregatedClient struct {
 	GitReposClient                git.Client
 	GraphClient                   graph.Client
 	OperationsClient              operations.Client
+	ReleaseClient                 release.Client
 	ServiceEndpointClient         serviceendpoint.Client
 	TaskAgentClient               taskagent.Client
 	MemberEntitleManagementClient memberentitlementmanagement.Client

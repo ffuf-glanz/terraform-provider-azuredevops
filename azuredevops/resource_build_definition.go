@@ -98,12 +98,12 @@ func resourceBuildDefinitionCreate(d *schema.ResourceData, m interface{}) error 
 	clients := m.(*config.AggregatedClient)
 	buildDefinition, projectID, err := expandBuildDefinition(d)
 	if err != nil {
-		return fmt.Errorf("Error creating resource Build Definition: %+v", err)
+		return fmt.Errorf("error creating resource Build Definition: %+v", err)
 	}
 
 	createdBuildDefinition, err := createBuildDefinition(clients, buildDefinition, projectID)
 	if err != nil {
-		return fmt.Errorf("Error creating resource Build Definition: %+v", err)
+		return fmt.Errorf("error creating resource Build Definition: %+v", err)
 	}
 
 	flattenBuildDefinition(d, createdBuildDefinition, projectID)
@@ -213,26 +213,26 @@ func resourceBuildDefinitionUpdate(d *schema.ResourceData, m interface{}) error 
 	return nil
 }
 
-func flattenRepository(buildDefiniton *build.BuildDefinition) interface{} {
+func flattenRepository(buildDefinition *build.BuildDefinition) interface{} {
 	yamlFilePath := ""
 
 	// The process member can be of many types -- the only typing information
 	// available from the compiler is `interface{}` so we can probe for known
 	// implementations
-	if processMap, ok := buildDefiniton.Process.(map[string]interface{}); ok {
+	if processMap, ok := buildDefinition.Process.(map[string]interface{}); ok {
 		yamlFilePath = processMap["yamlFilename"].(string)
 	}
 
-	if yamlProcess, ok := buildDefiniton.Process.(*build.YamlProcess); ok {
+	if yamlProcess, ok := buildDefinition.Process.(*build.YamlProcess); ok {
 		yamlFilePath = *yamlProcess.YamlFilename
 	}
 
 	return []map[string]interface{}{{
 		"yml_path":              yamlFilePath,
-		"repo_name":             *buildDefiniton.Repository.Name,
-		"repo_type":             *buildDefiniton.Repository.Type,
-		"branch_name":           *buildDefiniton.Repository.DefaultBranch,
-		"service_connection_id": (*buildDefiniton.Repository.Properties)["connectedServiceId"],
+		"repo_name":             *buildDefinition.Repository.Name,
+		"repo_type":             *buildDefinition.Repository.Type,
+		"branch_name":           *buildDefinition.Repository.DefaultBranch,
+		"service_connection_id": (*buildDefinition.Repository.Properties)["connectedServiceId"],
 	}}
 }
 

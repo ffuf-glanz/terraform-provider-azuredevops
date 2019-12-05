@@ -2,9 +2,7 @@ package azuredevops
 
 import (
 	"fmt"
-	"github.com/microsoft/azure-devops-go-api/azuredevops/taskagent"
 	"strconv"
-	"strings"
 
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/config"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
@@ -24,6 +22,11 @@ func resourceReleaseDefinition() *schema.Resource {
 		Delete: resourceReleaseDefinitionDelete,
 
 		Schema: map[string]*schema.Schema{
+			"project_id": {
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
+			},
 			"revision": {
 				Type:     schema.TypeInt,
 				Computed: true,
@@ -142,23 +145,24 @@ func resourceReleaseDefinition() *schema.Resource {
 
 func resourceReleaseDefinitionCreate(d *schema.ResourceData, m interface{}) error {
 	clients := m.(*config.AggregatedClient)
-	releaseDefinition, err := expandReleaseDefinition(d)
+	releaseDefinition, projectID, err := expandReleaseDefinition(d)
 	if err != nil {
-		return fmt.Errorf("Error creating resource Build Definition: %+v", err)
+		return fmt.Errorf("error creating resource Build Definition: %+v", err)
 	}
 
-	createdReleaseDefinition, err := createReleaseDefinition(clients, releaseDefinition)
+	createdReleaseDefinition, err := createReleaseDefinition(clients, releaseDefinition, projectID)
 	if err != nil {
-		return fmt.Errorf("Error creating resource Build Definition: %+v", err)
+		return fmt.Errorf("error creating resource Build Definition: %+v", err)
 	}
 
-	flattenReleaseDefinition(d, createdReleaseDefinition)
+	flattenReleaseDefinition(d, createdReleaseDefinition, projectID)
 	return nil
 }
 
-func flattenReleaseDefinition(d *schema.ResourceData, releaseDefinition *release.ReleaseDefinition) {
+func flattenReleaseDefinition(d *schema.ResourceData, releaseDefinition *release.ReleaseDefinition, projectID string) {
 	d.SetId(strconv.Itoa(*releaseDefinition.Id))
 
+	d.Set("project_id", projectID)
 	d.Set("name", *releaseDefinition.Name)
 	d.Set("path", *releaseDefinition.Path)
 	d.Set("variable_groups", *releaseDefinition.VariableGroups)
@@ -195,10 +199,10 @@ func flattenReleaseDefinitionVariables(variableGroup *release.ReleaseDefinition)
 	return variables
 }
 
-func createReleaseDefinition(clients *config.AggregatedClient, releaseDefinition *release.ReleaseDefinition) (*release.ReleaseDefinition, error) {
-	createdBuild, err := clients.BuildClient.CreateDefinition(clients.Ctx, release.CreateDefinitionArgs{
-		Definition: releaseDefinition,
-		Project:    &project,
+func createReleaseDefinition(clients *config.AggregatedClient, releaseDefinition *release.ReleaseDefinition, project string) (*release.ReleaseDefinition, error) {
+	createdBuild, err := clients.ReleaseClient.CreateReleaseDefinition(clients.Ctx, release.CreateReleaseDefinitionArgs{
+		ReleaseDefinition: releaseDefinition,
+		Project:           &project,
 	})
 
 	return createdBuild, err
@@ -212,7 +216,7 @@ func resourceReleaseDefinitionRead(d *schema.ResourceData, m interface{}) error 
 		return err
 	}
 
-	releaseDefinition, err := clients.BuildClient.GetDefinition(clients.Ctx, release.GetDefinitionArgs{
+	releaseDefinition, err := clients.ReleaseClient.GetReleaseDefinition(clients.Ctx, release.GetReleaseDefinitionArgs{
 		Project:      &projectID,
 		DefinitionId: &releaseDefinitionID,
 	})
@@ -236,7 +240,7 @@ func resourceReleaseDefinitionDelete(d *schema.ResourceData, m interface{}) erro
 		return err
 	}
 
-	err = clients.BuildClient.DeleteDefinition(m.(*config.AggregatedClient).Ctx, release.DeleteReleaseDefinitionArgs{
+	err = clients.ReleaseClient.DeleteReleaseDefinition(m.(*config.AggregatedClient).Ctx, release.DeleteReleaseDefinitionArgs{
 		Project:      &projectID,
 		DefinitionId: &releaseDefinitionID,
 	})
@@ -251,10 +255,9 @@ func resourceReleaseDefinitionUpdate(d *schema.ResourceData, m interface{}) erro
 		return err
 	}
 
-	updatedReleaseDefinition, err := clients.BuildClient.UpdateDefinition(m.(*config.AggregatedClient).Ctx, release.UpdateDefinitionArgs{
-		Definition:   releaseDefinition,
-		Project:      &projectID,
-		DefinitionId: releaseDefinition.Id,
+	updatedReleaseDefinition, err := clients.ReleaseClient.UpdateReleaseDefinition(m.(*config.AggregatedClient).Ctx, release.UpdateReleaseDefinitionArgs{
+		ReleaseDefinition: releaseDefinition,
+		Project:           &projectID,
 	})
 
 	if err != nil {
@@ -265,34 +268,8 @@ func resourceReleaseDefinitionUpdate(d *schema.ResourceData, m interface{}) erro
 	return nil
 }
 
-func flattenRepository(buildDefiniton *release.ReleaseDefinition) interface{} {
-	yamlFilePath := ""
-
-	// The process member can be of many types -- the only typing information
-	// available from the compiler is `interface{}` so we can probe for known
-	// implementations
-	if processMap, ok := buildDefiniton.Process.(map[string]interface{}); ok {
-		yamlFilePath = processMap["yamlFilename"].(string)
-	}
-
-	if yamlProcess, ok := buildDefiniton.Process.(*release.YamlProcess); ok {
-		yamlFilePath = *yamlProcess.YamlFilename
-	}
-
-	return []map[string]interface{}{{
-		"yml_path":              yamlFilePath,
-		"repo_name":             *buildDefiniton.Repository.Name,
-		"repo_type":             *buildDefiniton.Repository.Type,
-		"branch_name":           *buildDefiniton.Repository.DefaultBranch,
-		"service_connection_id": (*buildDefiniton.Repository.Properties)["connectedServiceId"],
-	}}
-}
-
-func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition, error) {
-	repositories := d.Get("repository").(*schema.Set).List()
-
-	variableGroupsInterface := d.Get("variable_groups").(*schema.Set).List()
-	variableGroups := make([]int, len(variableGroupsInterface))
+func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition, string, error) {
+	projectID := d.Get("project_id").(string)
 
 	// Note: If configured, this will be of length 1 based on the schema definition above.
 	//if len(repositories) != 1 {
@@ -321,11 +298,5 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		VariableGroups:    d.Get("variableGroups").(*[]int),
 	}
 
-	return &releaseDefinition, nil
-}
-
-func buildVariableGroup(id int) *release.VariableGroup {
-	return &release.VariableGroup{
-		Id: &id,
-	}
+	return &releaseDefinition, projectID, nil
 }
