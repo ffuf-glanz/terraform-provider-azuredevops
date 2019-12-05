@@ -1,6 +1,7 @@
 package azuredevops
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -63,9 +64,9 @@ func resourceReleaseDefinition() *schema.Resource {
 				Optional: true,
 				Default:  "",
 			},
-			// TODO : Abstract this because it is used by variable group and release definitions.
 			"variables": {
 				Type: schema.TypeSet,
+				// TODO : Abstract this because it is used by variable group and release definitions.
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"name": {
@@ -84,7 +85,7 @@ func resourceReleaseDefinition() *schema.Resource {
 						},
 					},
 				},
-				Required: true,
+				Optional: true,
 				MinItems: 1,
 				Set: func(i interface{}) int {
 					item := i.(map[string]interface{})
@@ -297,6 +298,9 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		ReleaseNameFormat: converter.String(d.Get("release_name_format").(string)),
 		VariableGroups:    d.Get("variableGroups").(*[]int),
 	}
+
+	data, err := json.Marshal(releaseDefinition)
+	fmt.Print(data)
 
 	return &releaseDefinition, projectID, nil
 }
