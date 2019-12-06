@@ -144,10 +144,53 @@ func resourceReleaseDefinition() *schema.Resource {
 	}
 
 	approvals := &schema.Schema{
-		Type:     schema.TypeList,
+		Type:     schema.TypeSet,
 		Optional: true,
 		Elem: &schema.Resource{
 			Schema: releaseDefinitionApprovalStep,
+		},
+	}
+
+	releaseDefinitionGatesOptions := &schema.Schema{
+		Type:     schema.TypeSet,
+		Required: true,
+		MinItems: 1,
+		MaxItems: 1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"is_enabled": {
+					Type:     schema.TypeBool,
+					Optional: true,
+				},
+				"minimum_success_duration": {
+					Type:     schema.TypeInt,
+					Optional: true,
+				},
+				"sampling_interval": {
+					Type:     schema.TypeInt,
+					Optional: true,
+				},
+				"stabilization_time": {
+					Type:     schema.TypeInt,
+					Optional: true,
+				},
+				"timeout": {
+					Type:     schema.TypeInt,
+					Optional: true,
+				},
+			},
+		},
+	}
+
+	releaseDefinitionGate := map[string]*schema.Schema{
+		"tasks": workflowTasks,
+	}
+
+	releaseDefinitionGates := &schema.Schema{
+		Type:     schema.TypeSet,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: releaseDefinitionGate,
 		},
 	}
 
@@ -164,7 +207,18 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 	}
 
-	releaseDefinitionGatesStep := &schema.Schema{}
+	releaseDefinitionGatesStep := &schema.Schema{
+		Type:     schema.TypeSet,
+		Required: true,
+		MinItems: 1,
+		MaxItems: 1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"gates":         releaseDefinitionGates,
+				"gates_options": releaseDefinitionGatesOptions,
+			},
+		},
+	}
 
 	deployPhase := map[string]*schema.Schema{
 		"name": {
@@ -326,6 +380,38 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 	}
 
+	propertiesCollection := &schema.Schema{
+		Type: schema.TypeMap,
+		Elem: &schema.Schema{
+			Type: schema.TypeString,
+		},
+	}
+
+	environmentTrigger := map[string]*schema.Schema{
+		"definition_environment_id": {
+			Type: schema.TypeInt,
+		},
+		"release_definition_id": {
+			Type: schema.TypeInt,
+		},
+		"trigger_content": {
+			Type: schema.TypeString,
+		},
+		"trigger_type": {
+			Type:         schema.TypeString,
+			Required:     true,
+			ValidateFunc: validation.StringInSlice([]string{"deploymentGroupRedeploy", "rollbackRedeploy"}, false),
+		},
+	}
+
+	environmentTriggers := &schema.Schema{
+		Type:     schema.TypeSet,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: environmentTrigger,
+		},
+	}
+
 	releaseDefinitionEnvironment := &schema.Schema{
 		Type:     schema.TypeList,
 		Required: true,
@@ -352,7 +438,14 @@ func resourceReleaseDefinition() *schema.Resource {
 				"conditions":            conditions,
 				"execution_policy":      environmentExecutionPolicy,
 				"schedules":             schedules,
+				"properties":            propertiesCollection,
+				"pre_deployment_gates":  releaseDefinitionGatesStep,
 				"post_deployment_gates": releaseDefinitionGatesStep,
+				"environmentTriggers":   environmentTriggers,
+				"badge_url": {
+					Type:     schema.TypeString,
+					Computed: true,
+				},
 			},
 		},
 	}
