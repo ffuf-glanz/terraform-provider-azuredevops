@@ -25,32 +25,21 @@ func resourceReleaseDefinition() *schema.Resource {
 		Optional: true,
 	}
 
-	configurationVariableValue := &schema.Schema{
-		Type: schema.TypeSet,
-		// TODO : Abstract this because it is used by variable group and release definitions.
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"value": {
-					Type:     schema.TypeString,
-					Optional: true,
-					Default:  "",
-				},
-				"allow_override": {
-					Type:     schema.TypeBool,
-					Optional: true,
-					Default:  false,
-				},
-				"is_secret": {
-					Type:     schema.TypeBool,
-					Optional: true,
-					Default:  false,
-				},
-			},
+	configurationVariableValue := map[string]*schema.Schema{
+		"value": {
+			Type:     schema.TypeString,
+			Optional: true,
+			Default:  "",
 		},
-		Optional: true,
-		Set: func(i interface{}) int {
-			item := i.(map[string]interface{})
-			return schema.HashString(item["name"].(string))
+		"allow_override": {
+			Type:     schema.TypeBool,
+			Optional: true,
+			Default:  false,
+		},
+		"is_secret": {
+			Type:     schema.TypeBool,
+			Optional: true,
+			Default:  false,
 		},
 	}
 
@@ -102,6 +91,7 @@ func resourceReleaseDefinition() *schema.Resource {
 		Type:     schema.TypeSet,
 		Required: true,
 		MinItems: 1,
+		MaxItems: 1,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"auto_triggered_and_previous_environment_approved_can_be_skipped": {
@@ -115,7 +105,6 @@ func resourceReleaseDefinition() *schema.Resource {
 				"execution_order": {
 					Type:         schema.TypeString,
 					Required:     true,
-					Default:      "beforeGates",
 					ValidateFunc: validation.StringInSlice([]string{"afterGatesAlways", "afterSuccessfulGates", "beforeGates"}, false),
 				},
 				"release_creator_can_be_approver": {
@@ -134,29 +123,31 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 	}
 
-	releaseDefinitionApprovalStep := &schema.Schema{
+	releaseDefinitionApprovalStep := map[string]*schema.Schema{
+		// TODO : wire this up.
+		"approver_id": {
+			Type:     schema.TypeString,
+			Optional: true,
+			// TODO : validation - is this a UUID or int?
+		},
+		"rank": rank,
+		"isAutomated": {
+			Type:     schema.TypeBool,
+			Required: true,
+			Default:  true,
+		},
+		"isNotificationOn": {
+			Type:     schema.TypeBool,
+			Required: true,
+			Default:  false,
+		},
+	}
+
+	approvals := &schema.Schema{
 		Type:     schema.TypeList,
 		Optional: true,
 		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				// TODO : wire this up.
-				"approver_id": {
-					Type:     schema.TypeString,
-					Optional: true,
-					// TODO : validation - is this a UUID or int?
-				},
-				"rank": rank,
-				"isAutomated": {
-					Type:     schema.TypeBool,
-					Required: true,
-					Default:  true,
-				},
-				"isNotificationOn": {
-					Type:     schema.TypeBool,
-					Required: true,
-					Default:  false,
-				},
-			},
+			Schema: releaseDefinitionApprovalStep,
 		},
 	}
 
@@ -167,9 +158,171 @@ func resourceReleaseDefinition() *schema.Resource {
 		MaxItems: 1,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
-				"approvals":        releaseDefinitionApprovalStep,
+				"approvals":        approvals,
 				"approval_options": approvalOptions,
 			},
+		},
+	}
+
+	releaseDefinitionGatesStep := &schema.Schema{}
+
+	deployPhase := map[string]*schema.Schema{
+		"name": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+		"phase_type": {
+			Type:         schema.TypeString,
+			Required:     true,
+			ValidateFunc: validation.StringInSlice([]string{"agentBasedDeployment", "deploymentGates", "machineGroupBasedDeployment", "runOnServer"}, false),
+		},
+		"rank": rank,
+		"refName": {
+			Type:     schema.TypeString,
+			Optional: true,
+		},
+		"workflow_tasks": workflowTasks,
+		// TODO : This is missing from the docs
+		// "deploymentInput": deploymentInput
+	}
+
+	deployPhases := &schema.Schema{
+		Type:     schema.TypeList,
+		Required: true,
+		MinItems: 1,
+		Elem: &schema.Resource{
+			Schema: deployPhase,
+		},
+	}
+
+	environmentOptions := &schema.Schema{
+		Type:     schema.TypeSet,
+		Optional: true,
+		MinItems: 1,
+		MaxItems: 1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"auto_link_work_items": {
+					Type:     schema.TypeBool,
+					Optional: true,
+					Default:  false,
+				},
+				"badge_enabled": {
+					Type:     schema.TypeBool,
+					Optional: true,
+					Default:  false,
+				},
+				"publish_deployment_status": {
+					Type:     schema.TypeBool,
+					Optional: true,
+					Default:  false,
+				},
+				"pull_request_deployment_enabled": {
+					Type:     schema.TypeBool,
+					Optional: true,
+					Default:  false,
+				},
+			},
+		},
+	}
+
+	demand := map[string]*schema.Schema{
+		"name": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+		"value": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+	}
+
+	demands := &schema.Schema{
+		Type:     schema.TypeSet,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: demand,
+		},
+	}
+
+	condition := map[string]*schema.Schema{
+		"condition_type": {
+			Type:         schema.TypeString,
+			Required:     true,
+			ValidateFunc: validation.StringInSlice([]string{"artifact", "environmentState", "event"}, false),
+		},
+		"name": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+		"value": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+	}
+
+	conditions := &schema.Schema{
+		Type:     schema.TypeSet,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: condition,
+		},
+	}
+
+	environmentExecutionPolicy := &schema.Schema{
+		Type:     schema.TypeSet,
+		Required: true,
+		MinItems: 1,
+		MaxItems: 1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"concurrency_count": {
+					Type:     schema.TypeInt,
+					Optional: true,
+					Default:  1,
+				},
+				"queue_depth_count": {
+					Type:     schema.TypeInt,
+					Optional: true,
+					Default:  0,
+				},
+			},
+		},
+	}
+
+	schedule := map[string]*schema.Schema{
+		"days_to_release": {
+			Type:         schema.TypeString,
+			Required:     true,
+			ValidateFunc: validation.StringInSlice([]string{"all", "friday", "monday", "none", "saturday", "sunday", "thursday", "tuesday", "wednesday"}, false),
+		},
+		"job_id": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+		"schedule_only_with_changes": {
+			Type:     schema.TypeBool,
+			Required: true,
+		},
+		"start_hours": {
+			Type:     schema.TypeInt,
+			Required: true,
+		},
+		"start_minutes": {
+			Type:     schema.TypeInt,
+			Required: true,
+		},
+		"time_zone_id": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+	}
+
+	schedules := &schema.Schema{
+		Type:     schema.TypeSet,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: schedule,
 		},
 	}
 
@@ -184,11 +337,22 @@ func resourceReleaseDefinition() *schema.Resource {
 					Required: true,
 				},
 				"rank": rank,
+				// TODO : Is this something you would want to set
 				// "owner": owner
-				"variables":            configurationVariableMap,
-				"variable_groups":      variableGroups,
-				"pre_deploy_approvals": releaseDefinitionApprovals,
-				"deploy_step":          releaseDefinitionDeployStep,
+				"variables":             configurationVariableMap,
+				"variable_groups":       variableGroups,
+				"pre_deploy_approvals":  releaseDefinitionApprovals,
+				"deploy_step":           releaseDefinitionDeployStep,
+				"post_deploy_approvals": releaseDefinitionApprovals,
+				"deploy_phases":         deployPhases,
+				// TODO : This is missing from the docs
+				// "runOptions": runOptions
+				"environmentOptions":    environmentOptions,
+				"demands":               demands,
+				"conditions":            conditions,
+				"execution_policy":      environmentExecutionPolicy,
+				"schedules":             schedules,
+				"post_deployment_gates": releaseDefinitionGatesStep,
 			},
 		},
 	}
