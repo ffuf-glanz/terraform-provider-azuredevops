@@ -16,6 +16,48 @@ import (
 )
 
 func resourceReleaseDefinition() *schema.Resource {
+	variables := &schema.Schema{
+		Type: schema.TypeSet,
+		// TODO : Abstract this because it is used by variable group and release definitions.
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"name": {
+					Type:     schema.TypeString,
+					Required: true,
+				},
+				"value": {
+					Type:     schema.TypeString,
+					Optional: true,
+					Default:  "",
+				},
+				"is_secret": {
+					Type:     schema.TypeBool,
+					Optional: true,
+					Default:  false,
+				},
+			},
+		},
+		Optional: true,
+		Set: func(i interface{}) int {
+			item := i.(map[string]interface{})
+			return schema.HashString(item["name"].(string))
+		},
+	}
+
+	variableGroups := &schema.Schema{
+		Type: schema.TypeSet,
+		Elem: &schema.Schema{
+			Type:         schema.TypeInt,
+			ValidateFunc: validation.IntAtLeast(1),
+		},
+		Optional: true,
+	}
+
+	rank := &schema.Schema{
+		Type:     schema.TypeInt,
+		Required: true,
+	}
+
 	return &schema.Resource{
 		Create: resourceReleaseDefinitionCreate,
 		Read:   resourceReleaseDefinitionRead,
@@ -45,15 +87,7 @@ func resourceReleaseDefinition() *schema.Resource {
 			},
 
 			// TODO : Abstract this because it is used by build definitions and release definitions.
-			"variable_groups": {
-				Type: schema.TypeSet,
-				Elem: &schema.Schema{
-					Type:         schema.TypeInt,
-					ValidateFunc: validation.IntAtLeast(1),
-				},
-				MinItems: 1,
-				Optional: true,
-			},
+			"variable_groups": variableGroups,
 			"source": {
 				Type:         schema.TypeString,
 				Optional:     true,
@@ -64,73 +98,72 @@ func resourceReleaseDefinition() *schema.Resource {
 				Optional: true,
 				Default:  "",
 			},
-			"variables": {
-				Type: schema.TypeSet,
-				// TODO : Abstract this because it is used by variable group and release definitions.
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"name": {
-							Type:     schema.TypeString,
-							Required: true,
-						},
-						"value": {
-							Type:     schema.TypeString,
-							Optional: true,
-							Default:  "",
-						},
-						"is_secret": {
-							Type:     schema.TypeBool,
-							Optional: true,
-							Default:  false,
-						},
-					},
-				},
-				Optional: true,
-				MinItems: 1,
-				Set: func(i interface{}) int {
-					item := i.(map[string]interface{})
-					return schema.HashString(item["name"].(string))
-				},
-			},
+			"variables": variables,
 			"release_name_format": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  "Release-$(rev:r)",
 			},
 
-			//"repository": {
-			//	Type:     schema.TypeSet,
-			//	Required: true,
-			//	MinItems: 1,
-			//	MaxItems: 1,
-			//	Elem: &schema.Resource{
-			//		Schema: map[string]*schema.Schema{
-			//			"yml_path": {
-			//				Type:     schema.TypeString,
-			//				Required: true,
-			//			},
-			//			"repo_name": {
-			//				Type:     schema.TypeString,
-			//				Required: true,
-			//			},
-			//			"repo_type": {
-			//				Type:         schema.TypeString,
-			//				Required:     true,
-			//				ValidateFunc: validation.StringInSlice([]string{"GitHub", "TfsGit"}, false),
-			//			},
-			//			"branch_name": {
-			//				Type:     schema.TypeString,
-			//				Optional: true,
-			//				Default:  "master",
-			//			},
-			//			"service_connection_id": {
-			//				Type:     schema.TypeString,
-			//				Optional: true,
-			//				Default:  "",
-			//			},
-			//		},
-			//	},
-			//},
+			"environments": {
+				Type:     schema.TypeSet,
+				Required: true,
+				MinItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"name": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"rank":            rank,
+						// "owner": owner
+						"variables":       variables,
+						"variable_groups": variableGroups,
+						"pre_deploy_approvals": {
+							Type:     schema.TypeSet,
+							Required: true,
+							MinItems: 1,
+							MaxItems: 1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"approvals": {
+										Type:     schema.TypeSet,
+										Optional: true,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"rank": rank,
+												"isAutomated": {
+													Type: schema.TypeBool,
+													Required: true,
+													Default: true,
+												},
+												"isNotificationOn": {
+													Type: schema.TypeBool,
+													Required: true,
+													Default: false,
+												},
+											},
+										},
+									},
+									"approval_options": {
+										Type:     schema.TypeSet,
+										Required: true,
+										MinItems: 1,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"execution_order": {
+													Type:     schema.TypeInt,
+													Required: true
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 
 			"url": {
 				Type:     schema.TypeString,
@@ -142,6 +175,23 @@ func resourceReleaseDefinition() *schema.Resource {
 			},
 		},
 	}
+
+	/*
+		"rename_me": {
+			Type:     schema.TypeSet,
+			Required: true,
+			MinItems: 1,
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"rename_me": {
+						Type:     schema.TypeString,
+						Required: true,
+					},
+				},
+			},
+		},
+	*/
+
 }
 
 func resourceReleaseDefinitionCreate(d *schema.ResourceData, m interface{}) error {
