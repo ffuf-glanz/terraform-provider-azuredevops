@@ -17,7 +17,7 @@ import (
 
 func resourceReleaseDefinition() *schema.Resource {
 	variableGroups := &schema.Schema{
-		Type: schema.TypeSet,
+		Type: schema.TypeList,
 		Elem: &schema.Schema{
 			Type:         schema.TypeInt,
 			ValidateFunc: validation.IntAtLeast(1),
@@ -59,10 +59,138 @@ func resourceReleaseDefinition() *schema.Resource {
 		Elem: configurationVariableValue,
 	}
 
+	taskInputValidation := map[string]*schema.Schema{
+		"expression": {
+			Type:     schema.TypeString,
+			Required: true,
+			Default:  "",
+		},
+		"message": {
+			Type:     schema.TypeString,
+			Optional: true,
+			Default:  "",
+		},
+	}
+
+	workflowTasks := &schema.Schema{
+		Type:     schema.TypeList,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: taskInputValidation,
+		},
+	}
+
+	releaseDefinitionDeployStep := &schema.Schema{
+		Type:     schema.TypeSet,
+		Required: true,
+		MinItems: 1,
+		MaxItems: 1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"tasks": workflowTasks,
+			},
+		},
+	}
+
 	rank := &schema.Schema{
 		Type:     schema.TypeInt,
 		Required: true,
 		Default:  1,
+	}
+
+	approvalOptions := &schema.Schema{
+		Type:     schema.TypeSet,
+		Required: true,
+		MinItems: 1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"auto_triggered_and_previous_environment_approved_can_be_skipped": {
+					Type:     schema.TypeBool,
+					Optional: true,
+				},
+				"enforce_identity_revalidation": {
+					Type:     schema.TypeBool,
+					Optional: true,
+				},
+				"execution_order": {
+					Type:         schema.TypeString,
+					Required:     true,
+					Default:      "beforeGates",
+					ValidateFunc: validation.StringInSlice([]string{"afterGatesAlways", "afterSuccessfulGates", "beforeGates"}, false),
+				},
+				"release_creator_can_be_approver": {
+					Type:     schema.TypeBool,
+					Optional: true,
+				},
+				"required_approver_count": {
+					Type:     schema.TypeInt,
+					Optional: true,
+				},
+				"timeout_in_minutes": {
+					Type:     schema.TypeInt,
+					Optional: true,
+				},
+			},
+		},
+	}
+
+	releaseDefinitionApprovalStep := &schema.Schema{
+		Type:     schema.TypeList,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				// TODO : wire this up.
+				"approver_id": {
+					Type:     schema.TypeString,
+					Optional: true,
+					// TODO : validation - is this a UUID or int?
+				},
+				"rank": rank,
+				"isAutomated": {
+					Type:     schema.TypeBool,
+					Required: true,
+					Default:  true,
+				},
+				"isNotificationOn": {
+					Type:     schema.TypeBool,
+					Required: true,
+					Default:  false,
+				},
+			},
+		},
+	}
+
+	releaseDefinitionApprovals := &schema.Schema{
+		Type:     schema.TypeSet,
+		Required: true,
+		MinItems: 1,
+		MaxItems: 1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"approvals":        releaseDefinitionApprovalStep,
+				"approval_options": approvalOptions,
+			},
+		},
+	}
+
+	releaseDefinitionEnvironment := &schema.Schema{
+		Type:     schema.TypeList,
+		Required: true,
+		MinItems: 1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"name": {
+					Type:     schema.TypeString,
+					Required: true,
+				},
+				"rank": rank,
+				// "owner": owner
+				"variables":            configurationVariableMap,
+				"variable_groups":      variableGroups,
+				"pre_deploy_approvals": releaseDefinitionApprovals,
+				"deploy_step":          releaseDefinitionDeployStep,
+			},
+		},
 	}
 
 	return &schema.Resource{
@@ -92,8 +220,6 @@ func resourceReleaseDefinition() *schema.Resource {
 				Default:      "\\",
 				ValidateFunc: validate.FilePathOrEmpty,
 			},
-
-			// TODO : Abstract this because it is used by build definitions and release definitions.
 			"variable_groups": variableGroups,
 			"source": {
 				Type:         schema.TypeString,
@@ -111,153 +237,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				Optional: true,
 				Default:  "Release-$(rev:r)",
 			},
-
-			"environments": {
-				Type:     schema.TypeSet,
-				Required: true,
-				MinItems: 1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"name": {
-							Type:     schema.TypeString,
-							Required: true,
-						},
-						"rank": rank,
-						// "owner": owner
-						"variables":       configurationVariableMap,
-						"variable_groups": variableGroups,
-						"pre_deploy_approvals": {
-							Type:     schema.TypeSet,
-							Required: true,
-							MinItems: 1,
-							MaxItems: 1,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"approvals": {
-										Type:     schema.TypeSet,
-										Optional: true,
-										Elem: &schema.Resource{
-											Schema: map[string]*schema.Schema{
-												"rank": rank,
-												"isAutomated": {
-													Type:     schema.TypeBool,
-													Required: true,
-													Default:  true,
-												},
-												"isNotificationOn": {
-													Type:     schema.TypeBool,
-													Required: true,
-													Default:  false,
-												},
-											},
-										},
-									},
-									"approval_options": {
-										Type:     schema.TypeSet,
-										Required: true,
-										MinItems: 1,
-										Elem: &schema.Resource{
-											Schema: map[string]*schema.Schema{
-												"auto_triggered_and_previous_environment_approved_can_be_skipped": {
-													Type:     schema.TypeBool,
-													Optional: true,
-												},
-												"enforce_identity_revalidation": {
-													Type:     schema.TypeBool,
-													Optional: true,
-												},
-												"execution_order": {
-													Type:         schema.TypeString,
-													Required:     true,
-													Default:      "beforeGates",
-													ValidateFunc: validation.StringInSlice([]string{"afterGatesAlways", "afterSuccessfulGates", "beforeGates"}, false),
-												},
-												"release_creator_can_be_approver": {
-													Type:     schema.TypeBool,
-													Optional: true,
-												},
-												"required_approver_count": {
-													Type:     schema.TypeInt,
-													Optional: true,
-												},
-												"timeout_in_minutes": {
-													Type:     schema.TypeInt,
-													Optional: true,
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-
-						"deploy_step": {
-							Type:     schema.TypeSet,
-							Required: true,
-							MinItems: 1,
-							MaxItems: 1,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"approvals": {
-										Type:     schema.TypeSet,
-										Optional: true,
-										Elem: &schema.Resource{
-											Schema: map[string]*schema.Schema{
-												"rank": rank,
-												"isAutomated": {
-													Type:     schema.TypeBool,
-													Required: true,
-													Default:  true,
-												},
-												"isNotificationOn": {
-													Type:     schema.TypeBool,
-													Required: true,
-													Default:  false,
-												},
-											},
-										},
-									},
-									"approval_options": {
-										Type:     schema.TypeSet,
-										Required: true,
-										MinItems: 1,
-										Elem: &schema.Resource{
-											Schema: map[string]*schema.Schema{
-												"auto_triggered_and_previous_environment_approved_can_be_skipped": {
-													Type:     schema.TypeBool,
-													Optional: true,
-												},
-												"enforce_identity_revalidation": {
-													Type:     schema.TypeBool,
-													Optional: true,
-												},
-												"execution_order": {
-													Type:         schema.TypeString,
-													Required:     true,
-													Default:      "beforeGates",
-													ValidateFunc: validation.StringInSlice([]string{"afterGatesAlways", "afterSuccessfulGates", "beforeGates"}, false),
-												},
-												"release_creator_can_be_approver": {
-													Type:     schema.TypeBool,
-													Optional: true,
-												},
-												"required_approver_count": {
-													Type:     schema.TypeInt,
-													Optional: true,
-												},
-												"timeout_in_minutes": {
-													Type:     schema.TypeInt,
-													Optional: true,
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			"environments": releaseDefinitionEnvironment,
 
 			"url": {
 				Type:     schema.TypeString,
