@@ -16,19 +16,29 @@ import (
 )
 
 func resourceReleaseDefinition() *schema.Resource {
-	variables := &schema.Schema{
+	variableGroups := &schema.Schema{
+		Type: schema.TypeSet,
+		Elem: &schema.Schema{
+			Type:         schema.TypeInt,
+			ValidateFunc: validation.IntAtLeast(1),
+		},
+		Optional: true,
+	}
+
+	configurationVariableValue := &schema.Schema{
 		Type: schema.TypeSet,
 		// TODO : Abstract this because it is used by variable group and release definitions.
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
-				"name": {
-					Type:     schema.TypeString,
-					Required: true,
-				},
 				"value": {
 					Type:     schema.TypeString,
 					Optional: true,
 					Default:  "",
+				},
+				"allow_override": {
+					Type:     schema.TypeBool,
+					Optional: true,
+					Default:  false,
 				},
 				"is_secret": {
 					Type:     schema.TypeBool,
@@ -44,18 +54,15 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 	}
 
-	variableGroups := &schema.Schema{
-		Type: schema.TypeSet,
-		Elem: &schema.Schema{
-			Type:         schema.TypeInt,
-			ValidateFunc: validation.IntAtLeast(1),
-		},
-		Optional: true,
+	configurationVariableMap := &schema.Schema{
+		Type: schema.TypeMap,
+		Elem: configurationVariableValue,
 	}
 
 	rank := &schema.Schema{
 		Type:     schema.TypeInt,
 		Required: true,
+		Default:  1,
 	}
 
 	return &schema.Resource{
@@ -98,7 +105,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				Optional: true,
 				Default:  "",
 			},
-			"variables": variables,
+			"variables": configurationVariableMap,
 			"release_name_format": {
 				Type:     schema.TypeString,
 				Optional: true,
@@ -115,9 +122,9 @@ func resourceReleaseDefinition() *schema.Resource {
 							Type:     schema.TypeString,
 							Required: true,
 						},
-						"rank":            rank,
+						"rank": rank,
 						// "owner": owner
-						"variables":       variables,
+						"variables":       configurationVariableMap,
 						"variable_groups": variableGroups,
 						"pre_deploy_approvals": {
 							Type:     schema.TypeSet,
@@ -133,14 +140,14 @@ func resourceReleaseDefinition() *schema.Resource {
 											Schema: map[string]*schema.Schema{
 												"rank": rank,
 												"isAutomated": {
-													Type: schema.TypeBool,
+													Type:     schema.TypeBool,
 													Required: true,
-													Default: true,
+													Default:  true,
 												},
 												"isNotificationOn": {
-													Type: schema.TypeBool,
+													Type:     schema.TypeBool,
 													Required: true,
-													Default: false,
+													Default:  false,
 												},
 											},
 										},
@@ -151,9 +158,96 @@ func resourceReleaseDefinition() *schema.Resource {
 										MinItems: 1,
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
+												"auto_triggered_and_previous_environment_approved_can_be_skipped": {
+													Type:     schema.TypeBool,
+													Optional: true,
+												},
+												"enforce_identity_revalidation": {
+													Type:     schema.TypeBool,
+													Optional: true,
+												},
 												"execution_order": {
+													Type:         schema.TypeString,
+													Required:     true,
+													Default:      "beforeGates",
+													ValidateFunc: validation.StringInSlice([]string{"afterGatesAlways", "afterSuccessfulGates", "beforeGates"}, false),
+												},
+												"release_creator_can_be_approver": {
+													Type:     schema.TypeBool,
+													Optional: true,
+												},
+												"required_approver_count": {
 													Type:     schema.TypeInt,
-													Required: true
+													Optional: true,
+												},
+												"timeout_in_minutes": {
+													Type:     schema.TypeInt,
+													Optional: true,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+
+						"deploy_step": {
+							Type:     schema.TypeSet,
+							Required: true,
+							MinItems: 1,
+							MaxItems: 1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"approvals": {
+										Type:     schema.TypeSet,
+										Optional: true,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"rank": rank,
+												"isAutomated": {
+													Type:     schema.TypeBool,
+													Required: true,
+													Default:  true,
+												},
+												"isNotificationOn": {
+													Type:     schema.TypeBool,
+													Required: true,
+													Default:  false,
+												},
+											},
+										},
+									},
+									"approval_options": {
+										Type:     schema.TypeSet,
+										Required: true,
+										MinItems: 1,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"auto_triggered_and_previous_environment_approved_can_be_skipped": {
+													Type:     schema.TypeBool,
+													Optional: true,
+												},
+												"enforce_identity_revalidation": {
+													Type:     schema.TypeBool,
+													Optional: true,
+												},
+												"execution_order": {
+													Type:         schema.TypeString,
+													Required:     true,
+													Default:      "beforeGates",
+													ValidateFunc: validation.StringInSlice([]string{"afterGatesAlways", "afterSuccessfulGates", "beforeGates"}, false),
+												},
+												"release_creator_can_be_approver": {
+													Type:     schema.TypeBool,
+													Optional: true,
+												},
+												"required_approver_count": {
+													Type:     schema.TypeInt,
+													Optional: true,
+												},
+												"timeout_in_minutes": {
+													Type:     schema.TypeInt,
+													Optional: true,
 												},
 											},
 										},
