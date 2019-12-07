@@ -802,13 +802,27 @@ func buildReleaseDefinitionEnvironment(d map[string]interface{}) (*release.Relea
 		}
 	}
 
+	var postDeployApprovalsMap *release.ReleaseDefinitionApprovals
+	if d["post_deploy_approvals"] != nil {
+		postDeployApprovals := d["post_deploy_approvals"].(*schema.Set).List()
+		if len(postDeployApprovals) != 1 {
+			return nil, fmt.Errorf("unexpectedly did not find a retention policy in the environment data")
+		}
+		environmentRetentionPolicy, err := buildReleaseDefinitionApprovals(postDeployApprovals[0].(map[string]interface{}))
+		postDeployApprovalsMap = environmentRetentionPolicy
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	releaseDefinitionEnvironment := release.ReleaseDefinitionEnvironment{
-		Id:                 converter.Int(d["id"].(int)),
-		Name:               converter.String(d["name"].(string)),
-		Rank:               converter.Int(d["rank"].(int)),
-		RetentionPolicy:    retentionPolicyMap,
-		PreDeployApprovals: preDeployApprovalsMap,
-		VariableGroups:     &variableGroupsMap,
+		Id:                  converter.Int(d["id"].(int)),
+		Name:                converter.String(d["name"].(string)),
+		Rank:                converter.Int(d["rank"].(int)),
+		RetentionPolicy:     retentionPolicyMap,
+		PreDeployApprovals:  preDeployApprovalsMap,
+		PostDeployApprovals: postDeployApprovalsMap,
+		VariableGroups:      &variableGroupsMap,
 	}
 
 	return &releaseDefinitionEnvironment, nil
