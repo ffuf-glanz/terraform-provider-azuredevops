@@ -200,7 +200,6 @@ func resourceReleaseDefinition() *schema.Resource {
 			Optional: true,
 			Default:  0,
 		},
-		// TODO : wire this up.
 		"approver_id": {
 			Type:     schema.TypeString,
 			Optional: true,
