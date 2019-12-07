@@ -137,6 +137,29 @@ resource "azuredevops_build_definition" "build" {
 	return fmt.Sprintf("%s\n%s", projectResource, buildDefinitionResource)
 }
 
+// HCL describing an AzDO release definition
+func TestAccReleaseDefinitionResource(projectName string, releaseDefinitionName string, releasePath string) string {
+	releaseDefinitionResource := fmt.Sprintf(`
+resource "azuredevops_release_definition" "release" {
+	project_id      = azuredevops_project.project.id
+	name            = "%s"
+	path			= "%s"
+
+	environments {
+		name = "Test release pipeline"
+
+		deploy_phases {
+			name = "Test Job"
+			phase_type = "agentBasedDeployment"
+		}
+	}
+	
+}`, releaseDefinitionName, strings.ReplaceAll(releasePath, `\`, `\\`))
+
+	projectResource := TestAccProjectResource(projectName)
+	return fmt.Sprintf("%s\n%s", projectResource, releaseDefinitionResource)
+}
+
 // TestAccGroupMembershipResource full terraform stanza to standup a group membership
 func TestAccGroupMembershipResource(projectName, groupName, userPrincipalName string) string {
 	membershipDependenciesStanza := TestAccGroupMembershipDependencies(projectName, groupName, userPrincipalName)

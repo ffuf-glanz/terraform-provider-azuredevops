@@ -9,7 +9,6 @@ import (
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/testhelper"
 	"strconv"
-	"strings"
 	"testing"
 
 	//"github.com/golang/mock/gomock"
@@ -196,7 +195,7 @@ func TestAccAzureDevOpsReleaseDefinition_CreateAndUpdate(t *testing.T) {
 		CheckDestroy: testAccReleaseDefinitionCheckDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccReleaseDefinitionResource(projectName, releaseDefinitionNameFirst, releaseDefinitionPathEmpty),
+				Config: testhelper.TestAccReleaseDefinitionResource(projectName, releaseDefinitionNameFirst, releaseDefinitionPathEmpty),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttrSet(tfReleaseDefNode, "project_id"),
 					resource.TestCheckResourceAttrSet(tfReleaseDefNode, "revision"),
@@ -254,19 +253,6 @@ func TestAccAzureDevOpsReleaseDefinition_CreateAndUpdate(t *testing.T) {
 			//},
 		},
 	})
-}
-
-// HCL describing an AzDO release definition
-func testAccReleaseDefinitionResource(projectName string, releaseDefinitionName string, releasePath string) string {
-	releaseDefinitionResource := fmt.Sprintf(`
-resource "azuredevops_release_definition" "release" {
-	project_id      = azuredevops_project.project.id
-	name            = "%s"
-	path			= "%s"
-}`, releaseDefinitionName, strings.ReplaceAll(releasePath, `\`, `\\`))
-
-	projectResource := testhelper.TestAccProjectResource(projectName)
-	return fmt.Sprintf("%s\n%s", projectResource, releaseDefinitionResource)
 }
 
 // Given the name of an AzDO release definition, this will return a function that will check whether

@@ -72,11 +72,16 @@ func resourceReleaseDefinition() *schema.Resource {
 
 	releaseDefinitionDeployStep := &schema.Schema{
 		Type:     schema.TypeSet,
-		Required: true,
+		Optional: true,
 		MinItems: 1,
 		MaxItems: 1,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
+				"id": {
+					Type:     schema.TypeString,
+					Optional: true,
+					Default:  0,
+				},
 				"tasks": workflowTasks,
 			},
 		},
@@ -125,6 +130,11 @@ func resourceReleaseDefinition() *schema.Resource {
 	}
 
 	releaseDefinitionApprovalStep := map[string]*schema.Schema{
+		"id": {
+			Type:     schema.TypeString,
+			Optional: true,
+			Default:  0,
+		},
 		// TODO : wire this up.
 		"approver_id": {
 			Type:     schema.TypeString,
@@ -197,7 +207,7 @@ func resourceReleaseDefinition() *schema.Resource {
 
 	releaseDefinitionApprovals := &schema.Schema{
 		Type:     schema.TypeSet,
-		Required: true,
+		Optional: true,
 		MinItems: 1,
 		MaxItems: 1,
 		Elem: &schema.Resource{
@@ -210,11 +220,16 @@ func resourceReleaseDefinition() *schema.Resource {
 
 	releaseDefinitionGatesStep := &schema.Schema{
 		Type:     schema.TypeSet,
-		Required: true,
+		Optional: true,
 		MinItems: 1,
 		MaxItems: 1,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
+				"id": {
+					Type:     schema.TypeString,
+					Optional: true,
+					Default:  0,
+				},
 				"gates":         releaseDefinitionGates,
 				"gates_options": releaseDefinitionGatesOptions,
 			},
@@ -243,7 +258,7 @@ func resourceReleaseDefinition() *schema.Resource {
 
 	deployPhases := &schema.Schema{
 		Type:     schema.TypeList,
-		Required: true,
+		Optional: true,
 		MinItems: 1,
 		Elem: &schema.Resource{
 			Schema: deployPhase,
@@ -326,7 +341,7 @@ func resourceReleaseDefinition() *schema.Resource {
 
 	environmentExecutionPolicy := &schema.Schema{
 		Type:     schema.TypeSet,
-		Required: true,
+		Optional: true,
 		MinItems: 1,
 		MaxItems: 1,
 		Elem: &schema.Resource{
@@ -383,7 +398,7 @@ func resourceReleaseDefinition() *schema.Resource {
 
 	propertiesCollection := &schema.Schema{
 		Type:     schema.TypeMap,
-		Required: true,
+		Optional: true,
 		Elem: &schema.Schema{
 			Type: schema.TypeString,
 		},
