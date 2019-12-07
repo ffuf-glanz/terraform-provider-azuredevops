@@ -201,9 +201,9 @@ func resourceReleaseDefinition() *schema.Resource {
 			Default:  0,
 		},
 		"approver_id": {
-			Type:     schema.TypeString,
-			Optional: true,
-			// TODO : validation - is this a UUID or int?
+			Type:         schema.TypeString,
+			Optional:     true,
+			ValidateFunc: validate.UUID,
 		},
 		"rank": rank,
 		"is_automated": {
