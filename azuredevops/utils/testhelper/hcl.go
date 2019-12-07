@@ -152,6 +152,9 @@ resource "azuredevops_release_definition" "release" {
 			name = "Test Job"
 			phase_type = "agentBasedDeployment"
 		}
+
+		retention_policy {
+		}
 	}
 	
 }`, releaseDefinitionName, strings.ReplaceAll(releasePath, `\`, `\\`))

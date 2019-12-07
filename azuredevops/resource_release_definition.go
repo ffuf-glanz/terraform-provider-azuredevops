@@ -236,6 +236,32 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 	}
 
+	environmentRetentionPolicy := &schema.Schema{
+		Type:     schema.TypeSet,
+		Required: true,
+		MinItems: 1,
+		MaxItems: 1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"days_to_keep": {
+					Type:     schema.TypeInt,
+					Optional: true,
+					Default:  30,
+				},
+				"releases_to_keep": {
+					Type:     schema.TypeInt,
+					Optional: true,
+					Default:  3,
+				},
+				"retain_build": {
+					Type:     schema.TypeBool,
+					Optional: true,
+					Default:  true,
+				},
+			},
+		},
+	}
+
 	deployPhase := map[string]*schema.Schema{
 		"name": {
 			Type:     schema.TypeString,
@@ -467,6 +493,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				"pre_deployment_gates":  releaseDefinitionGatesStep,
 				"post_deployment_gates": releaseDefinitionGatesStep,
 				"environment_triggers":  environmentTriggers,
+				"retention_policy":      environmentRetentionPolicy,
 				"badge_url": {
 					Type:     schema.TypeString,
 					Computed: true,
@@ -681,9 +708,10 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 	environmentsMap := make([]release.ReleaseDefinitionEnvironment, len(environments))
 	for i, environment := range environments {
 		env, err := expandReleaseDefinitionEnvironment(environment.(map[string]interface{}))
-		if err == nil {
-			environmentsMap[i] = env
+		if err != nil {
+			return nil, "", err
 		}
+		environmentsMap[i] = *env
 	}
 
 	releaseDefinition := release.ReleaseDefinition{
@@ -705,19 +733,42 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 	return &releaseDefinition, projectID, nil
 }
 
-func expandReleaseDefinitionEnvironment(d map[string]interface{}) (release.ReleaseDefinitionEnvironment, error) {
+func expandReleaseDefinitionEnvironment(d map[string]interface{}) (*release.ReleaseDefinitionEnvironment, error) {
 	variableGroups := d["variable_groups"].([]interface{})
 	variableGroupsMap := make([]int, len(variableGroups))
 	for i, variableGroup := range variableGroups {
 		variableGroupsMap[i] = variableGroup.(int)
 	}
 
-	releaseDefinitionEnvironment := release.ReleaseDefinitionEnvironment{
-		Id:             converter.Int(d["id"].(int)),
-		Name:           converter.String(d["name"].(string)),
-		Rank:           converter.Int(d["rank"].(int)),
-		VariableGroups: &variableGroupsMap,
+	var retentionPolicyMap *release.EnvironmentRetentionPolicy
+	if d["retention_policy"] != nil {
+		retentionPolicy := d["retention_policy"].(*schema.Set).List()
+		if len(retentionPolicy) != 1 {
+			return nil, fmt.Errorf("unexpectedly did not find a retention policy in the environment data")
+		}
+		environmentRetentionPolicy, err := expandEnvironmentRetentionPolicy(retentionPolicy[0].(map[string]interface{}))
+		retentionPolicyMap = environmentRetentionPolicy
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return releaseDefinitionEnvironment, nil
+	releaseDefinitionEnvironment := release.ReleaseDefinitionEnvironment{
+		Id:              converter.Int(d["id"].(int)),
+		Name:            converter.String(d["name"].(string)),
+		Rank:            converter.Int(d["rank"].(int)),
+		RetentionPolicy: retentionPolicyMap,
+		VariableGroups:  &variableGroupsMap,
+	}
+
+	return &releaseDefinitionEnvironment, nil
+}
+
+func expandEnvironmentRetentionPolicy(d map[string]interface{}) (*release.EnvironmentRetentionPolicy, error) {
+	releaseDefinitionEnvironment := release.EnvironmentRetentionPolicy{
+		DaysToKeep:     converter.Int(d["days_to_keep"].(int)),
+		RetainBuild:    converter.Bool(d["retain_build"].(bool)),
+		ReleasesToKeep: converter.Int(d["releases_to_keep"].(int)),
+	}
+	return &releaseDefinitionEnvironment, nil
 }
