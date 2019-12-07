@@ -56,7 +56,7 @@ func TestAzureDevOpsReleaseDefinition_PathInvalidCharacterListIsError(t *testing
 	}
 }
 
-// verifies that the flatten/expand round trip yields the same build definition
+// verifies that the flatten/expand round trip yields the same release definition
 func TestAzureDevOpsReleaseDefinition_ExpandFlatten_Roundtrip(t *testing.T) {
 	resourceData := schema.TestResourceDataRaw(t, resourceReleaseDefinition().Schema, nil)
 	flattenReleaseDefinition(resourceData, &testReleaseDefinition, testProjectID)
@@ -83,11 +83,11 @@ func TestAzureDevOpsReleaseDefinition_Create_DoesNotSwallowError(t *testing.T) {
 	resourceData := schema.TestResourceDataRaw(t, resourceReleaseDefinition().Schema, nil)
 	flattenReleaseDefinition(resourceData, &testReleaseDefinition, testProjectID)
 
-	buildClient := azdosdkmocks.NewMockReleaseClient(ctrl)
-	clients := &config.AggregatedClient{ReleaseClient: buildClient, Ctx: context.Background()}
+	releaseClient := azdosdkmocks.NewMockReleaseClient(ctrl)
+	clients := &config.AggregatedClient{ReleaseClient: releaseClient, Ctx: context.Background()}
 
 	expectedArgs := release.CreateDefinitionArgs{Definition: &testReleaseDefinition, Project: &testProjectID}
-	buildClient.
+	releaseClient.
 		EXPECT().
 		CreateDefinition(clients.Ctx, expectedArgs).
 		Return(nil, errors.New("CreateDefinition() Failed")).
@@ -105,11 +105,11 @@ func TestAzureDevOpsReleaseDefinition_Read_DoesNotSwallowError(t *testing.T) {
 	resourceData := schema.TestResourceDataRaw(t, resourceReleaseDefinition().Schema, nil)
 	flattenReleaseDefinition(resourceData, &testReleaseDefinition, testProjectID)
 
-	buildClient := azdosdkmocks.NewMockReleaseClient(ctrl)
-	clients := &config.AggregatedClient{ReleaseClient: buildClient, Ctx: context.Background()}
+	releaseClient := azdosdkmocks.NewMockReleaseClient(ctrl)
+	clients := &config.AggregatedClient{ReleaseClient: releaseClient, Ctx: context.Background()}
 
 	expectedArgs := release.GetDefinitionArgs{DefinitionId: testReleaseDefinition.Id, Project: &testProjectID}
-	buildClient.
+	releaseClient.
 		EXPECT().
 		GetDefinition(clients.Ctx, expectedArgs).
 		Return(nil, errors.New("GetDefinition() Failed")).
@@ -127,11 +127,11 @@ func TestAzureDevOpsReleaseDefinition_Delete_DoesNotSwallowError(t *testing.T) {
 	resourceData := schema.TestResourceDataRaw(t, resourceReleaseDefinition().Schema, nil)
 	flattenReleaseDefinition(resourceData, &testReleaseDefinition, testProjectID)
 
-	buildClient := azdosdkmocks.NewMockReleaseClient(ctrl)
-	clients := &config.AggregatedClient{ReleaseClient: buildClient, Ctx: context.Background()}
+	releaseClient := azdosdkmocks.NewMockReleaseClient(ctrl)
+	clients := &config.AggregatedClient{ReleaseClient: releaseClient, Ctx: context.Background()}
 
 	expectedArgs := release.DeleteDefinitionArgs{DefinitionId: testReleaseDefinition.Id, Project: &testProjectID}
-	buildClient.
+	releaseClient.
 		EXPECT().
 		DeleteDefinition(clients.Ctx, expectedArgs).
 		Return(errors.New("DeleteDefinition() Failed")).
@@ -149,8 +149,8 @@ func TestAzureDevOpsReleaseDefinition_Update_DoesNotSwallowError(t *testing.T) {
 	resourceData := schema.TestResourceDataRaw(t, resourceReleaseDefinition().Schema, nil)
 	flattenReleaseDefinition(resourceData, &testReleaseDefinition, testProjectID)
 
-	buildClient := azdosdkmocks.NewMockReleaseClient(ctrl)
-	clients := &config.AggregatedClient{ReleaseClient: buildClient, Ctx: context.Background()}
+	releaseClient := azdosdkmocks.NewMockReleaseClient(ctrl)
+	clients := &config.AggregatedClient{ReleaseClient: releaseClient, Ctx: context.Background()}
 
 	expectedArgs := release.UpdateDefinitionArgs{
 		Definition:   &testReleaseDefinition,
@@ -158,7 +158,7 @@ func TestAzureDevOpsReleaseDefinition_Update_DoesNotSwallowError(t *testing.T) {
 		Project:      &testProjectID,
 	}
 
-	buildClient.
+	releaseClient.
 		EXPECT().
 		UpdateDefinition(clients.Ctx, expectedArgs).
 		Return(nil, errors.New("UpdateDefinition() Failed")).
@@ -187,7 +187,7 @@ func TestAccAzureDevOpsReleaseDefinition_CreateAndUpdate(t *testing.T) {
 	//releaseDefinitionPathThird := releaseDefinitionNameFirst + `\` + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	//releaseDefinitionPathFourth := releaseDefinitionNameSecond + `\` + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 
-	tfReleaseDefNode := "azuredevops_build_definition.build"
+	tfReleaseDefNode := "azuredevops_release_definition.build"
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
@@ -254,26 +254,26 @@ func TestAccAzureDevOpsReleaseDefinition_CreateAndUpdate(t *testing.T) {
 	})
 }
 
-// HCL describing an AzDO build definition
-func testAccReleaseDefinitionResource(projectName string, releaseDefinitionName string, buildPath string) string {
+// HCL describing an AzDO release definition
+func testAccReleaseDefinitionResource(projectName string, releaseDefinitionName string, releasePath string) string {
 	releaseDefinitionResource := fmt.Sprintf(`
 resource "azuredevops_release_definition" "release" {
 	project_id      = azuredevops_project.project.id
 	name            = "%s"
 	path			= "%s"
-}`, releaseDefinitionName, strings.ReplaceAll(buildPath, `\`, `\\`))
+}`, releaseDefinitionName, strings.ReplaceAll(releasePath, `\`, `\\`))
 
 	projectResource := testAccProjectResource(projectName)
 	return fmt.Sprintf("%s\n%s", projectResource, releaseDefinitionResource)
 }
 
-// Given the name of an AzDO build definition, this will return a function that will check whether
+// Given the name of an AzDO release definition, this will return a function that will check whether
 // or not the definition (1) exists in the state and (2) exist in AzDO and (3) has the correct name
 func testAccCheckReleaseDefinitionResourceExists(expectedName string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		releaseDef, ok := s.RootModule().Resources["azuredevops_build_definition.build"]
+		releaseDef, ok := s.RootModule().Resources["azuredevops_release_definition.release"]
 		if !ok {
-			return fmt.Errorf("Did not find a build definition in the TF state")
+			return fmt.Errorf("Did not find a release definition in the TF state")
 		}
 
 		releaseDefinition, err := getReleaseDefinitionFromResource(releaseDef)
@@ -289,24 +289,24 @@ func testAccCheckReleaseDefinitionResourceExists(expectedName string) resource.T
 	}
 }
 
-// verifies that all build definitions referenced in the state are destroyed. This will be invoked
+// verifies that all release definitions referenced in the state are destroyed. This will be invoked
 // *after* terrafform destroys the resource but *before* the state is wiped clean.
 func testAccReleaseDefinitionCheckDestroy(s *terraform.State) error {
 	for _, resource := range s.RootModule().Resources {
-		if resource.Type != "azuredevops_build_definition" {
+		if resource.Type != "azuredevops_release_definition" {
 			continue
 		}
 
-		// indicates the build definition still exists - this should fail the test
+		// indicates the release definition still exists - this should fail the test
 		if _, err := getReleaseDefinitionFromResource(resource); err == nil {
-			return fmt.Errorf("Unexpectedly found a build definition that should be deleted")
+			return fmt.Errorf("Unexpectedly found a release definition that should be deleted")
 		}
 	}
 
 	return nil
 }
 
-// given a resource from the state, return a build definition (and error)
+// given a resource from the state, return a release definition (and error)
 func getReleaseDefinitionFromResource(resource *terraform.ResourceState) (*release.ReleaseDefinition, error) {
 	releaseDefID, err := strconv.Atoi(resource.Primary.ID)
 	if err != nil {

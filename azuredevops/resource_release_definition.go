@@ -663,7 +663,7 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		releaseDefinitionReference = nil
 	}
 
-	variableGroups := d.Get("variable_groups").(*schema.Set).List()
+	variableGroups := d.Get("variable_groups").([]interface{})
 	variableGroupsMap := make([]int, len(variableGroups))
 	for i, variableGroup := range variableGroups {
 		variableGroupsMap[i] = variableGroup.(int)
