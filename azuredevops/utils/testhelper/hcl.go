@@ -153,6 +153,9 @@ resource "azuredevops_release_definition" "release" {
 			phase_type = "agentBasedDeployment"
 		}
 
+		deploy_step {
+		}
+
 		retention_policy {
 		}
 

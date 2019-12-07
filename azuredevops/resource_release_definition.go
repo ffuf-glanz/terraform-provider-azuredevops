@@ -3,7 +3,7 @@ package azuredevops
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/microsoft/azure-devops-go-api/azuredevops/webapi"
+	"github.com/google/uuid"
 	"strconv"
 
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/config"
@@ -13,7 +13,9 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
+
 	"github.com/microsoft/azure-devops-go-api/azuredevops/release"
+	"github.com/microsoft/azure-devops-go-api/azuredevops/webapi"
 )
 
 func resourceReleaseDefinition() *schema.Resource {
@@ -52,14 +54,72 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 	}
 
-	taskInputValidation := map[string]*schema.Schema{
-		"expression": {
+	//taskInputValidation := map[string]*schema.Schema{
+	//	"expression": {
+	//		Type:     schema.TypeString,
+	//		Required: true,
+	//	},
+	//	"message": {
+	//		Type:     schema.TypeString,
+	//		Optional: true,
+	//	},
+	//}
+
+	workFlowTask := map[string]*schema.Schema{
+		"always_run": {
+			Type:     schema.TypeBool,
+			Required: true,
+		},
+		"condition": {
 			Type:     schema.TypeString,
 			Required: true,
 		},
-		"message": {
+		"continue_on_error": {
+			Type:     schema.TypeBool,
+			Required: true,
+		},
+		"definition_type": {
 			Type:     schema.TypeString,
-			Optional: true,
+			Required: true,
+		},
+		"enabled": {
+			Type:     schema.TypeBool,
+			Required: true,
+		},
+		// TODO : Define obj
+		"environment": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+		// TODO : Define obj
+		"inputs": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+		"name": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+		// TODO : Define obj
+		"override_inputs": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+		"ref_name": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+		"task_id": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+		"timeout_in_minutes": {
+			Type:     schema.TypeInt,
+			Required: true,
+		},
+		"version": {
+			Type:     schema.TypeString,
+			Required: true,
 		},
 	}
 
@@ -67,7 +127,7 @@ func resourceReleaseDefinition() *schema.Resource {
 		Type:     schema.TypeList,
 		Optional: true,
 		Elem: &schema.Resource{
-			Schema: taskInputValidation,
+			Schema: workFlowTask,
 		},
 	}
 
@@ -793,7 +853,7 @@ func buildReleaseDefinitionEnvironment(d map[string]interface{}) (*release.Relea
 	if d["pre_deploy_approvals"] != nil {
 		preDeployApprovals := d["pre_deploy_approvals"].(*schema.Set).List()
 		if len(preDeployApprovals) != 1 {
-			return nil, fmt.Errorf("unexpectedly did not find a retention policy in the environment data")
+			return nil, fmt.Errorf("unexpectedly did not find a pre deploy approval in the environment data")
 		}
 		environmentRetentionPolicy, err := buildReleaseDefinitionApprovals(preDeployApprovals[0].(map[string]interface{}))
 		preDeployApprovalsMap = environmentRetentionPolicy
@@ -806,10 +866,23 @@ func buildReleaseDefinitionEnvironment(d map[string]interface{}) (*release.Relea
 	if d["post_deploy_approvals"] != nil {
 		postDeployApprovals := d["post_deploy_approvals"].(*schema.Set).List()
 		if len(postDeployApprovals) != 1 {
-			return nil, fmt.Errorf("unexpectedly did not find a retention policy in the environment data")
+			return nil, fmt.Errorf("unexpectedly did not find a post deploy approval in the environment data")
 		}
 		environmentRetentionPolicy, err := buildReleaseDefinitionApprovals(postDeployApprovals[0].(map[string]interface{}))
 		postDeployApprovalsMap = environmentRetentionPolicy
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var deployStepMap *release.ReleaseDefinitionDeployStep
+	if d["deploy_step"] != nil {
+		deployStep := d["deploy_step"].(*schema.Set).List()
+		if len(deployStep) != 1 {
+			return nil, fmt.Errorf("unexpectedly did not find a deploy step in the environment data")
+		}
+		releaseDefinitionDeployStep, err := buildReleaseDefinitionDeployStep(deployStep[0].(map[string]interface{}))
+		deployStepMap = releaseDefinitionDeployStep
 		if err != nil {
 			return nil, err
 		}
@@ -822,10 +895,56 @@ func buildReleaseDefinitionEnvironment(d map[string]interface{}) (*release.Relea
 		RetentionPolicy:     retentionPolicyMap,
 		PreDeployApprovals:  preDeployApprovalsMap,
 		PostDeployApprovals: postDeployApprovalsMap,
+		DeployStep:          deployStepMap,
 		VariableGroups:      &variableGroupsMap,
 	}
 
 	return &releaseDefinitionEnvironment, nil
+}
+
+func buildReleaseDefinitionDeployStep(d map[string]interface{}) (*release.ReleaseDefinitionDeployStep, error) {
+	if d["tasks"] == nil {
+		return nil, nil
+	}
+
+	tasks := d["tasks"].([]interface{})
+	tasksMap := make([]release.WorkflowTask, len(tasks))
+
+	for i, approval := range tasks {
+		releaseApproval, err := buildWorkflowTask(approval.(map[string]interface{}))
+		if err != nil {
+			return nil, err
+		}
+		tasksMap[i] = *releaseApproval
+	}
+
+	return &release.ReleaseDefinitionDeployStep{
+		Id:    converter.Int(d["id"].(int)),
+		Tasks: &tasksMap,
+	}, nil
+}
+
+func buildWorkflowTask(d map[string]interface{}) (*release.WorkflowTask, error) {
+	taskId, err := uuid.Parse(d["task_id"].(string))
+	if err != nil {
+		return nil, fmt.Errorf("error parsing task_id: %s. %v", d["task_id"].(string), err)
+	}
+
+	return &release.WorkflowTask{
+		AlwaysRun:       converter.Bool(d["always_run"].(bool)),
+		Condition:       converter.String(d["condition"].(string)),
+		ContinueOnError: converter.Bool(d["continue_on_error"].(bool)),
+		DefinitionType:  converter.String(d["definition_type"].(string)),
+		Enabled:         converter.Bool(d["enabled"].(bool)),
+		// Environment:      converter.String(d["environment"].(string)),
+		//Inputs:           converter.Int(d["inputs"].(int)),
+		Name: converter.String(d["name"].(string)),
+		//OverrideInputs:   converter.Int(d["override_inputs"].(int)),
+		RefName:          converter.String(d["ref_name"].(string)),
+		TaskId:           &taskId,
+		TimeoutInMinutes: converter.Int(d["timeout_in_minutes"].(int)),
+		Version:          converter.String(d["version"].(string)),
+	}, nil
 }
 
 func buildEnvironmentRetentionPolicy(d map[string]interface{}) (*release.EnvironmentRetentionPolicy, error) {
