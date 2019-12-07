@@ -44,8 +44,11 @@ func resourceReleaseDefinition() *schema.Resource {
 	}
 
 	configurationVariableMap := &schema.Schema{
-		Type: schema.TypeMap,
-		Elem: configurationVariableValue,
+		Type:     schema.TypeMap,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: configurationVariableValue,
+		},
 	}
 
 	taskInputValidation := map[string]*schema.Schema{
@@ -425,7 +428,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				"rank": rank,
 				// TODO : Is this something you would want to set
 				// "owner": owner
-				"variables":             configurationVariableMap,
+				//"variables":             configurationVariableMap,
 				"variable_groups":       variableGroups,
 				"pre_deploy_approvals":  releaseDefinitionApprovals,
 				"deploy_step":           releaseDefinitionDeployStep,
@@ -449,6 +452,8 @@ func resourceReleaseDefinition() *schema.Resource {
 			},
 		},
 	}
+
+	fmt.Print(releaseDefinitionEnvironment)
 
 	return &schema.Resource{
 		Create: resourceReleaseDefinitionCreate,
@@ -494,7 +499,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				Optional: true,
 				Default:  "Release-$(rev:r)",
 			},
-			"environments": releaseDefinitionEnvironment,
+			//"environments": releaseDefinitionEnvironment,
 
 			"url": {
 				Type:     schema.TypeString,
