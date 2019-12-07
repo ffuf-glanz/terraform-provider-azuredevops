@@ -14,7 +14,7 @@ func calcSecretHashKey(secretKey string) string {
 	return secretKey + "_hash"
 }
 
-// DiffFuncSupressSecretChanged is used to supress unneeded `apply` updates to a resource.
+// DiffFuncSuppressSecretChanged is used to suppress unneeded `apply` updates to a resource.
 //
 // It returns `true` when `new` appears to be the same value
 // as a previously stored and bcrypt'd value stored in state during a previous `apply`.
@@ -73,7 +73,7 @@ func ParseProjectIDAndResourceID(d *schema.ResourceData) (string, int, error) {
 	return projectID, resourceID, err
 }
 
-//PrettyPrint json
+// PrettyPrint json
 func PrettyPrint(v interface{}) (err error) {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err == nil {

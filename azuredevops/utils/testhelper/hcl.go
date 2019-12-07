@@ -155,6 +155,18 @@ resource "azuredevops_release_definition" "release" {
 
 		retention_policy {
 		}
+
+		pre_deploy_approvals {
+			approval_options {
+				execution_order = "beforeGates"
+			}
+		}
+		
+		post_deploy_approvals {
+			approval_options {
+				execution_order = "afterSuccessfulGates"
+			}
+		}
 	}
 	
 }`, releaseDefinitionName, strings.ReplaceAll(releasePath, `\`, `\\`))

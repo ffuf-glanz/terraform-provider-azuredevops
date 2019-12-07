@@ -109,9 +109,13 @@ func resourceReleaseDefinition() *schema.Resource {
 					Optional: true,
 				},
 				"execution_order": {
-					Type:         schema.TypeString,
-					Required:     true,
-					ValidateFunc: validation.StringInSlice([]string{"afterGatesAlways", "afterSuccessfulGates", "beforeGates"}, false),
+					Type:     schema.TypeString,
+					Required: true,
+					ValidateFunc: validation.StringInSlice([]string{
+						string(release.ApprovalExecutionOrderValues.AfterGatesAlways),
+						string(release.ApprovalExecutionOrderValues.AfterSuccessfulGates),
+						string(release.ApprovalExecutionOrderValues.BeforeGates),
+					}, false),
 				},
 				"release_creator_can_be_approver": {
 					Type:     schema.TypeBool,
@@ -207,7 +211,7 @@ func resourceReleaseDefinition() *schema.Resource {
 
 	releaseDefinitionApprovals := &schema.Schema{
 		Type:     schema.TypeSet,
-		Optional: true,
+		Required: true,
 		MinItems: 1,
 		MaxItems: 1,
 		Elem: &schema.Resource{
@@ -268,9 +272,15 @@ func resourceReleaseDefinition() *schema.Resource {
 			Required: true,
 		},
 		"phase_type": {
-			Type:         schema.TypeString,
-			Required:     true,
-			ValidateFunc: validation.StringInSlice([]string{"agentBasedDeployment", "deploymentGates", "machineGroupBasedDeployment", "runOnServer"}, false),
+			Type:     schema.TypeString,
+			Required: true,
+			ValidateFunc: validation.StringInSlice([]string{
+				string(release.DeployPhaseTypesValues.AgentBasedDeployment),
+				string(release.DeployPhaseTypesValues.DeploymentGates),
+				string(release.DeployPhaseTypesValues.MachineGroupBasedDeployment),
+				string(release.DeployPhaseTypesValues.RunOnServer),
+				string(release.DeployPhaseTypesValues.Undefined),
+			}, false),
 		},
 		"rank": rank,
 		"ref_name": {
@@ -343,9 +353,14 @@ func resourceReleaseDefinition() *schema.Resource {
 
 	condition := map[string]*schema.Schema{
 		"condition_type": {
-			Type:         schema.TypeString,
-			Required:     true,
-			ValidateFunc: validation.StringInSlice([]string{"artifact", "environmentState", "event"}, false),
+			Type:     schema.TypeString,
+			Required: true,
+			ValidateFunc: validation.StringInSlice([]string{
+				string(release.ConditionTypeValues.Undefined),
+				string(release.ConditionTypeValues.Artifact),
+				string(release.ConditionTypeValues.EnvironmentState),
+				string(release.ConditionTypeValues.Event),
+			}, false),
 		},
 		"name": {
 			Type:     schema.TypeString,
@@ -388,9 +403,19 @@ func resourceReleaseDefinition() *schema.Resource {
 
 	schedule := map[string]*schema.Schema{
 		"days_to_release": {
-			Type:         schema.TypeString,
-			Required:     true,
-			ValidateFunc: validation.StringInSlice([]string{"all", "friday", "monday", "none", "saturday", "sunday", "thursday", "tuesday", "wednesday"}, false),
+			Type:     schema.TypeString,
+			Required: true,
+			ValidateFunc: validation.StringInSlice([]string{
+				string(release.ScheduleDaysValues.All),
+				string(release.ScheduleDaysValues.Friday),
+				string(release.ScheduleDaysValues.Monday),
+				string(release.ScheduleDaysValues.None),
+				string(release.ScheduleDaysValues.Saturday),
+				string(release.ScheduleDaysValues.Sunday),
+				string(release.ScheduleDaysValues.Thursday),
+				string(release.ScheduleDaysValues.Tuesday),
+				string(release.ScheduleDaysValues.Wednesday),
+			}, false),
 		},
 		"job_id": {
 			Type:     schema.TypeString,
@@ -444,9 +469,13 @@ func resourceReleaseDefinition() *schema.Resource {
 			Optional: true,
 		},
 		"trigger_type": {
-			Type:         schema.TypeString,
-			Required:     true,
-			ValidateFunc: validation.StringInSlice([]string{"deploymentGroupRedeploy", "rollbackRedeploy"}, false),
+			Type:     schema.TypeString,
+			Required: true,
+			ValidateFunc: validation.StringInSlice([]string{
+				string(release.EnvironmentTriggerTypeValues.Undefined),
+				string(release.EnvironmentTriggerTypeValues.DeploymentGroupRedeploy),
+				string(release.EnvironmentTriggerTypeValues.RollbackRedeploy),
+			}, false),
 		},
 	}
 
@@ -531,9 +560,15 @@ func resourceReleaseDefinition() *schema.Resource {
 			},
 			"variable_groups": variableGroups,
 			"source": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				ValidateFunc: validation.StringInSlice([]string{"ibiza", "portalExtensionApi", "restApi", "undefined", "userInterface"}, false),
+				Type:     schema.TypeString,
+				Optional: true,
+				ValidateFunc: validation.StringInSlice([]string{
+					string(release.ReleaseDefinitionSourceValues.Undefined),
+					string(release.ReleaseDefinitionSourceValues.RestApi),
+					string(release.ReleaseDefinitionSourceValues.PortalExtensionApi),
+					string(release.ReleaseDefinitionSourceValues.Ibiza),
+					string(release.ReleaseDefinitionSourceValues.UserInterface),
+				}, false),
 			},
 			"description": {
 				Type:     schema.TypeString,
@@ -753,22 +788,59 @@ func expandReleaseDefinitionEnvironment(d map[string]interface{}) (*release.Rele
 		}
 	}
 
+	var preDeployApprovalsMap *release.ReleaseDefinitionApprovals
+	if d["pre_deploy_approvals"] != nil {
+		preDeployApprovals := d["pre_deploy_approvals"].(*schema.Set).List()
+		if len(preDeployApprovals) != 1 {
+			return nil, fmt.Errorf("unexpectedly did not find a retention policy in the environment data")
+		}
+		environmentRetentionPolicy, err := expandReleaseDefinitionApprovals(preDeployApprovals[0].(map[string]interface{}))
+		preDeployApprovalsMap = environmentRetentionPolicy
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	releaseDefinitionEnvironment := release.ReleaseDefinitionEnvironment{
-		Id:              converter.Int(d["id"].(int)),
-		Name:            converter.String(d["name"].(string)),
-		Rank:            converter.Int(d["rank"].(int)),
-		RetentionPolicy: retentionPolicyMap,
-		VariableGroups:  &variableGroupsMap,
+		Id:                 converter.Int(d["id"].(int)),
+		Name:               converter.String(d["name"].(string)),
+		Rank:               converter.Int(d["rank"].(int)),
+		RetentionPolicy:    retentionPolicyMap,
+		PreDeployApprovals: preDeployApprovalsMap,
+		VariableGroups:     &variableGroupsMap,
 	}
 
 	return &releaseDefinitionEnvironment, nil
 }
 
 func expandEnvironmentRetentionPolicy(d map[string]interface{}) (*release.EnvironmentRetentionPolicy, error) {
-	releaseDefinitionEnvironment := release.EnvironmentRetentionPolicy{
+	environmentRetentionPolicy := release.EnvironmentRetentionPolicy{
 		DaysToKeep:     converter.Int(d["days_to_keep"].(int)),
 		RetainBuild:    converter.Bool(d["retain_build"].(bool)),
 		ReleasesToKeep: converter.Int(d["releases_to_keep"].(int)),
 	}
-	return &releaseDefinitionEnvironment, nil
+	return &environmentRetentionPolicy, nil
+}
+
+func expandReleaseDefinitionApprovals(d map[string]interface{}) (*release.ReleaseDefinitionApprovals, error) {
+
+	approvalOptions := d["approval_options"].(*schema.Set).List()
+	if len(approvalOptions) != 1 {
+		return nil, fmt.Errorf("unexpectedly did not find a approval options in the approvals data")
+	}
+	d2 := approvalOptions[0].(map[string]interface{})
+
+	executionOrder := release.ApprovalExecutionOrder(d2["execution_order"].(string))
+
+	releaseDefinitionApprovals := release.ReleaseDefinitionApprovals{
+		ApprovalOptions: &release.ApprovalOptions{
+			AutoTriggeredAndPreviousEnvironmentApprovedCanBeSkipped: converter.Bool(d2["auto_triggered_and_previous_environment_approved_can_be_skipped"].(bool)),
+			EnforceIdentityRevalidation:                             converter.Bool(d2["enforce_identity_revalidation"].(bool)),
+			ExecutionOrder:                                          &executionOrder,
+			ReleaseCreatorCanBeApprover:                             converter.Bool(d2["release_creator_can_be_approver"].(bool)),
+			RequiredApproverCount:                                   converter.Int(d2["required_approver_count"].(int)),
+			TimeoutInMinutes:                                        converter.Int(d2["timeout_in_minutes"].(int)),
+		},
+	}
+	return &releaseDefinitionApprovals, nil
 }
