@@ -4,8 +4,10 @@ import (
 	//"context"
 	//"errors"
 	"fmt"
+
 	//"github.com/microsoft/terraform-provider-azuredevops/azdosdkmocks"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
+	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/testhelper"
 	"strconv"
 	"strings"
 	"testing"
@@ -189,7 +191,7 @@ func TestAccAzureDevOpsReleaseDefinition_CreateAndUpdate(t *testing.T) {
 
 	tfReleaseDefNode := "azuredevops_release_definition.build"
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t) },
+		PreCheck:     func() { testhelper.TestAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testAccReleaseDefinitionCheckDestroy,
 		Steps: []resource.TestStep{
@@ -263,7 +265,7 @@ resource "azuredevops_release_definition" "release" {
 	path			= "%s"
 }`, releaseDefinitionName, strings.ReplaceAll(releasePath, `\`, `\\`))
 
-	projectResource := testAccProjectResource(projectName)
+	projectResource := testhelper.TestAccProjectResource(projectName)
 	return fmt.Sprintf("%s\n%s", projectResource, releaseDefinitionResource)
 }
 
