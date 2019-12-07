@@ -78,7 +78,7 @@ func resourceReleaseDefinition() *schema.Resource {
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"id": {
-					Type:     schema.TypeString,
+					Type:     schema.TypeInt,
 					Optional: true,
 					Default:  0,
 				},
@@ -131,7 +131,7 @@ func resourceReleaseDefinition() *schema.Resource {
 
 	releaseDefinitionApprovalStep := map[string]*schema.Schema{
 		"id": {
-			Type:     schema.TypeString,
+			Type:     schema.TypeInt,
 			Optional: true,
 			Default:  0,
 		},
@@ -226,7 +226,7 @@ func resourceReleaseDefinition() *schema.Resource {
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"id": {
-					Type:     schema.TypeString,
+					Type:     schema.TypeInt,
 					Optional: true,
 					Default:  0,
 				},
@@ -438,6 +438,11 @@ func resourceReleaseDefinition() *schema.Resource {
 		MinItems: 1,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
+				"id": {
+					Type:     schema.TypeInt,
+					Optional: true,
+					Default:  0,
+				},
 				"name": {
 					Type:     schema.TypeString,
 					Required: true,
@@ -526,23 +531,6 @@ func resourceReleaseDefinition() *schema.Resource {
 			},
 		},
 	}
-
-	/*
-		"rename_me": {
-			Type:     schema.TypeSet,
-			Required: true,
-			MinItems: 1,
-			Elem: &schema.Resource{
-				Schema: map[string]*schema.Schema{
-					"rename_me": {
-						Type:     schema.TypeString,
-						Required: true,
-					},
-				},
-			},
-		},
-	*/
-
 }
 
 func resourceReleaseDefinitionCreate(d *schema.ResourceData, m interface{}) error {
@@ -689,13 +677,23 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		variableGroupsMap[i] = variableGroup.(int)
 	}
 
+	environments := d.Get("environments").([]interface{})
+	environmentsMap := make([]release.ReleaseDefinitionEnvironment, len(environments))
+	for i, environment := range environments {
+		env, err := expandReleaseDefinitionEnvironment(environment.(map[string]interface{}))
+		if err == nil {
+			environmentsMap[i] = env
+		}
+	}
+
 	releaseDefinition := release.ReleaseDefinition{
-		Id:          releaseDefinitionReference,
-		Name:        converter.String(d.Get("name").(string)),
-		Path:        converter.String(d.Get("path").(string)),
-		Revision:    converter.Int(d.Get("revision").(int)),
-		Source:      &release.ReleaseDefinitionSourceValues.RestApi,
-		Description: converter.String(d.Get("description").(string)),
+		Id:           releaseDefinitionReference,
+		Name:         converter.String(d.Get("name").(string)),
+		Path:         converter.String(d.Get("path").(string)),
+		Revision:     converter.Int(d.Get("revision").(int)),
+		Source:       &release.ReleaseDefinitionSourceValues.RestApi,
+		Description:  converter.String(d.Get("description").(string)),
+		Environments: &environmentsMap,
 		// Variables:
 		ReleaseNameFormat: converter.String(d.Get("release_name_format").(string)),
 		VariableGroups:    &variableGroupsMap,
@@ -705,4 +703,21 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 	fmt.Println(string(data))
 
 	return &releaseDefinition, projectID, nil
+}
+
+func expandReleaseDefinitionEnvironment(d map[string]interface{}) (release.ReleaseDefinitionEnvironment, error) {
+	variableGroups := d["variable_groups"].([]interface{})
+	variableGroupsMap := make([]int, len(variableGroups))
+	for i, variableGroup := range variableGroups {
+		variableGroupsMap[i] = variableGroup.(int)
+	}
+
+	releaseDefinitionEnvironment := release.ReleaseDefinitionEnvironment{
+		Id:             converter.Int(d["id"].(int)),
+		Name:           converter.String(d["name"].(string)),
+		Rank:           converter.Int(d["rank"].(int)),
+		VariableGroups: &variableGroupsMap,
+	}
+
+	return releaseDefinitionEnvironment, nil
 }
