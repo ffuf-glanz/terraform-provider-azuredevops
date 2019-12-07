@@ -55,12 +55,10 @@ func resourceReleaseDefinition() *schema.Resource {
 		"expression": {
 			Type:     schema.TypeString,
 			Required: true,
-			Default:  "",
 		},
 		"message": {
 			Type:     schema.TypeString,
 			Optional: true,
-			Default:  "",
 		},
 	}
 
@@ -86,7 +84,7 @@ func resourceReleaseDefinition() *schema.Resource {
 
 	rank := &schema.Schema{
 		Type:     schema.TypeInt,
-		Required: true,
+		Optional: true,
 		Default:  1,
 	}
 
@@ -134,14 +132,14 @@ func resourceReleaseDefinition() *schema.Resource {
 			// TODO : validation - is this a UUID or int?
 		},
 		"rank": rank,
-		"isAutomated": {
+		"is_automated": {
 			Type:     schema.TypeBool,
-			Required: true,
+			Optional: true,
 			Default:  true,
 		},
-		"isNotificationOn": {
+		"is_notification_on": {
 			Type:     schema.TypeBool,
-			Required: true,
+			Optional: true,
 			Default:  false,
 		},
 	}
@@ -234,7 +232,7 @@ func resourceReleaseDefinition() *schema.Resource {
 			ValidateFunc: validation.StringInSlice([]string{"agentBasedDeployment", "deploymentGates", "machineGroupBasedDeployment", "runOnServer"}, false),
 		},
 		"rank": rank,
-		"refName": {
+		"ref_name": {
 			Type:     schema.TypeString,
 			Optional: true,
 		},
@@ -384,7 +382,8 @@ func resourceReleaseDefinition() *schema.Resource {
 	}
 
 	propertiesCollection := &schema.Schema{
-		Type: schema.TypeMap,
+		Type:     schema.TypeMap,
+		Required: true,
 		Elem: &schema.Schema{
 			Type: schema.TypeString,
 		},
@@ -392,13 +391,16 @@ func resourceReleaseDefinition() *schema.Resource {
 
 	environmentTrigger := map[string]*schema.Schema{
 		"definition_environment_id": {
-			Type: schema.TypeInt,
+			Type:     schema.TypeInt,
+			Optional: true,
 		},
 		"release_definition_id": {
-			Type: schema.TypeInt,
+			Type:     schema.TypeInt,
+			Optional: true,
 		},
 		"trigger_content": {
-			Type: schema.TypeString,
+			Type:     schema.TypeString,
+			Optional: true,
 		},
 		"trigger_type": {
 			Type:         schema.TypeString,
@@ -428,7 +430,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				"rank": rank,
 				// TODO : Is this something you would want to set
 				// "owner": owner
-				//"variables":             configurationVariableMap,
+				"variables":             configurationVariableMap,
 				"variable_groups":       variableGroups,
 				"pre_deploy_approvals":  releaseDefinitionApprovals,
 				"deploy_step":           releaseDefinitionDeployStep,
@@ -436,7 +438,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				"deploy_phases":         deployPhases,
 				// TODO : This is missing from the docs
 				// "runOptions": runOptions
-				"environmentOptions":    environmentOptions,
+				"environment_options":   environmentOptions,
 				"demands":               demands,
 				"conditions":            conditions,
 				"execution_policy":      environmentExecutionPolicy,
@@ -444,7 +446,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				"properties":            propertiesCollection,
 				"pre_deployment_gates":  releaseDefinitionGatesStep,
 				"post_deployment_gates": releaseDefinitionGatesStep,
-				"environmentTriggers":   environmentTriggers,
+				"environment_triggers":  environmentTriggers,
 				"badge_url": {
 					Type:     schema.TypeString,
 					Computed: true,
@@ -452,8 +454,6 @@ func resourceReleaseDefinition() *schema.Resource {
 			},
 		},
 	}
-
-	fmt.Print(releaseDefinitionEnvironment)
 
 	return &schema.Resource{
 		Create: resourceReleaseDefinitionCreate,
@@ -499,7 +499,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				Optional: true,
 				Default:  "Release-$(rev:r)",
 			},
-			//"environments": releaseDefinitionEnvironment,
+			"environments": releaseDefinitionEnvironment,
 
 			"url": {
 				Type:     schema.TypeString,
