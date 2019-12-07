@@ -157,12 +157,16 @@ resource "azuredevops_release_definition" "release" {
 		}
 
 		pre_deploy_approvals {
+			approvals {
+			}
 			approval_options {
 				execution_order = "beforeGates"
 			}
 		}
 		
 		post_deploy_approvals {
+			approvals {
+			}
 			approval_options {
 				execution_order = "afterSuccessfulGates"
 			}

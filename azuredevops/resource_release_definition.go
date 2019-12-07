@@ -3,6 +3,7 @@ package azuredevops
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/microsoft/azure-devops-go-api/azuredevops/webapi"
 	"strconv"
 
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/config"
@@ -742,7 +743,7 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 	environments := d.Get("environments").([]interface{})
 	environmentsMap := make([]release.ReleaseDefinitionEnvironment, len(environments))
 	for i, environment := range environments {
-		env, err := expandReleaseDefinitionEnvironment(environment.(map[string]interface{}))
+		env, err := buildReleaseDefinitionEnvironment(environment.(map[string]interface{}))
 		if err != nil {
 			return nil, "", err
 		}
@@ -768,7 +769,7 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 	return &releaseDefinition, projectID, nil
 }
 
-func expandReleaseDefinitionEnvironment(d map[string]interface{}) (*release.ReleaseDefinitionEnvironment, error) {
+func buildReleaseDefinitionEnvironment(d map[string]interface{}) (*release.ReleaseDefinitionEnvironment, error) {
 	variableGroups := d["variable_groups"].([]interface{})
 	variableGroupsMap := make([]int, len(variableGroups))
 	for i, variableGroup := range variableGroups {
@@ -781,7 +782,7 @@ func expandReleaseDefinitionEnvironment(d map[string]interface{}) (*release.Rele
 		if len(retentionPolicy) != 1 {
 			return nil, fmt.Errorf("unexpectedly did not find a retention policy in the environment data")
 		}
-		environmentRetentionPolicy, err := expandEnvironmentRetentionPolicy(retentionPolicy[0].(map[string]interface{}))
+		environmentRetentionPolicy, err := buildEnvironmentRetentionPolicy(retentionPolicy[0].(map[string]interface{}))
 		retentionPolicyMap = environmentRetentionPolicy
 		if err != nil {
 			return nil, err
@@ -794,7 +795,7 @@ func expandReleaseDefinitionEnvironment(d map[string]interface{}) (*release.Rele
 		if len(preDeployApprovals) != 1 {
 			return nil, fmt.Errorf("unexpectedly did not find a retention policy in the environment data")
 		}
-		environmentRetentionPolicy, err := expandReleaseDefinitionApprovals(preDeployApprovals[0].(map[string]interface{}))
+		environmentRetentionPolicy, err := buildReleaseDefinitionApprovals(preDeployApprovals[0].(map[string]interface{}))
 		preDeployApprovalsMap = environmentRetentionPolicy
 		if err != nil {
 			return nil, err
@@ -813,7 +814,7 @@ func expandReleaseDefinitionEnvironment(d map[string]interface{}) (*release.Rele
 	return &releaseDefinitionEnvironment, nil
 }
 
-func expandEnvironmentRetentionPolicy(d map[string]interface{}) (*release.EnvironmentRetentionPolicy, error) {
+func buildEnvironmentRetentionPolicy(d map[string]interface{}) (*release.EnvironmentRetentionPolicy, error) {
 	environmentRetentionPolicy := release.EnvironmentRetentionPolicy{
 		DaysToKeep:     converter.Int(d["days_to_keep"].(int)),
 		RetainBuild:    converter.Bool(d["retain_build"].(bool)),
@@ -822,17 +823,27 @@ func expandEnvironmentRetentionPolicy(d map[string]interface{}) (*release.Enviro
 	return &environmentRetentionPolicy, nil
 }
 
-func expandReleaseDefinitionApprovals(d map[string]interface{}) (*release.ReleaseDefinitionApprovals, error) {
+func buildReleaseDefinitionApprovals(d map[string]interface{}) (*release.ReleaseDefinitionApprovals, error) {
+	approvals := d["approvals"].(*schema.Set).List()
+	approvalsMap := make([]release.ReleaseDefinitionApprovalStep, len(approvals))
+
+	for i, approval := range approvals {
+		releaseApproval, err := buildReleaseApproval(approval.(map[string]interface{}))
+		if err != nil {
+			return nil, err
+		}
+		approvalsMap[i] = *releaseApproval
+	}
 
 	approvalOptions := d["approval_options"].(*schema.Set).List()
 	if len(approvalOptions) != 1 {
 		return nil, fmt.Errorf("unexpectedly did not find a approval options in the approvals data")
 	}
 	d2 := approvalOptions[0].(map[string]interface{})
-
 	executionOrder := release.ApprovalExecutionOrder(d2["execution_order"].(string))
 
 	releaseDefinitionApprovals := release.ReleaseDefinitionApprovals{
+		Approvals: &approvalsMap,
 		ApprovalOptions: &release.ApprovalOptions{
 			AutoTriggeredAndPreviousEnvironmentApprovedCanBeSkipped: converter.Bool(d2["auto_triggered_and_previous_environment_approved_can_be_skipped"].(bool)),
 			EnforceIdentityRevalidation:                             converter.Bool(d2["enforce_identity_revalidation"].(bool)),
@@ -843,4 +854,23 @@ func expandReleaseDefinitionApprovals(d map[string]interface{}) (*release.Releas
 		},
 	}
 	return &releaseDefinitionApprovals, nil
+}
+
+func buildReleaseApproval(d map[string]interface{}) (*release.ReleaseDefinitionApprovalStep, error) {
+	approver := d["approver"]
+	var approverMap *webapi.IdentityRef
+	if approver != nil {
+		approverMap = &webapi.IdentityRef{
+			Id: converter.String(d["approver_id"].(string)),
+		}
+	}
+
+	releaseDefinitionApprovalStep := release.ReleaseDefinitionApprovalStep{
+		Id:               converter.Int(d["id"].(int)),
+		Approver:         approverMap,
+		IsAutomated:      converter.Bool(d["is_automated"].(bool)),
+		IsNotificationOn: converter.Bool(d["is_notification_on"].(bool)),
+		Rank:             converter.Int(d["rank"].(int)),
+	}
+	return &releaseDefinitionApprovalStep, nil
 }
