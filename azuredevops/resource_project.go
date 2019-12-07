@@ -49,7 +49,7 @@ func resourceProject() *schema.Resource {
 			"visibility": {
 				Type:     schema.TypeString,
 				Optional: true,
-				Default:  "private",
+				Default:  core.ProjectVisibilityValues.Private,
 				ValidateFunc: validation.StringInSlice([]string{
 					string(core.ProjectVisibilityValues.Private),
 					string(core.ProjectVisibilityValues.Public),
@@ -59,7 +59,7 @@ func resourceProject() *schema.Resource {
 				Type:     schema.TypeString,
 				ForceNew: true,
 				Optional: true,
-				Default:  "Git",
+				Default:  core.SourceControlTypesValues.Git,
 				ValidateFunc: validation.StringInSlice([]string{
 					string(core.SourceControlTypesValues.Git),
 					string(core.SourceControlTypesValues.Tfvc),

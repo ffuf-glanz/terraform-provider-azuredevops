@@ -41,7 +41,7 @@ func resourceUserEntitlement() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 				ForceNew: true,
-				Default:  "express",
+				Default:  licensing.AccountLicenseTypeValues.Express,
 				ValidateFunc: validation.StringInSlice([]string{
 					string(licensing.AccountLicenseTypeValues.None),
 					string(licensing.AccountLicenseTypeValues.Advanced),

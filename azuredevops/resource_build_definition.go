@@ -3,7 +3,6 @@ package azuredevops
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/config"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
@@ -14,6 +13,18 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/build"
 )
+
+type RepoType string
+
+type repoTypeValuesType struct {
+	GitHub RepoType
+	TfsGit RepoType
+}
+
+var RepoTypeValues = repoTypeValuesType{
+	GitHub: "GitHub",
+	TfsGit: "TfsGit",
+}
 
 func resourceBuildDefinition() *schema.Resource {
 	return &schema.Resource{
@@ -73,9 +84,12 @@ func resourceBuildDefinition() *schema.Resource {
 							Required: true,
 						},
 						"repo_type": {
-							Type:         schema.TypeString,
-							Required:     true,
-							ValidateFunc: validation.StringInSlice([]string{"GitHub", "TfsGit"}, false),
+							Type:     schema.TypeString,
+							Required: true,
+							ValidateFunc: validation.StringInSlice([]string{
+								string(RepoTypeValues.GitHub),
+								string(RepoTypeValues.TfsGit),
+							}, false),
 						},
 						"branch_name": {
 							Type:     schema.TypeString,
@@ -255,9 +269,9 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 	repository := repositories[0].(map[string]interface{})
 
 	repoName := repository["repo_name"].(string)
-	repoType := repository["repo_type"].(string)
+	repoType := RepoType(repository["repo_type"].(string))
 	repoURL := ""
-	if strings.EqualFold(repoType, "github") {
+	if repoType == RepoTypeValues.GitHub {
 		repoURL = fmt.Sprintf("https://github.com/%s.git", repoName)
 	}
 
@@ -282,7 +296,7 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 			Id:            &repoName,
 			Name:          &repoName,
 			DefaultBranch: converter.String(repository["branch_name"].(string)),
-			Type:          &repoType,
+			Type:          converter.String(string(repoType)),
 			Properties: &map[string]string{
 				"connectedServiceId": repository["service_connection_id"].(string),
 			},

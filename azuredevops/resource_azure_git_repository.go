@@ -11,6 +11,22 @@ import (
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
 )
 
+type RepoInitType string
+
+type repoInitTypeValuesType struct {
+	Uninitialized RepoInitType
+	Clean         RepoInitType
+	Fork          RepoInitType
+	Import        RepoInitType
+}
+
+var RepoInitTypeValues = repoInitTypeValuesType{
+	Uninitialized: "Uninitialized",
+	Clean:         "Clean",
+	Fork:          "Fork",
+	Import:        "Import",
+}
+
 func resourceAzureGitRepository() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceAzureGitRepositoryCreate,
@@ -64,9 +80,14 @@ func resourceAzureGitRepository() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"init_type": {
-							Type:         schema.TypeString,
-							Required:     true,
-							ValidateFunc: validation.StringInSlice([]string{"Uninitialized", "Clean", "Fork", "Import"}, false),
+							Type:     schema.TypeString,
+							Required: true,
+							ValidateFunc: validation.StringInSlice([]string{
+								string(RepoInitTypeValues.Clean),
+								string(RepoInitTypeValues.Fork),
+								string(RepoInitTypeValues.Import),
+								string(RepoInitTypeValues.Uninitialized),
+							}, false),
 						},
 						"source_type": {
 							Type:     schema.TypeString,
