@@ -18,6 +18,12 @@ import (
 	"github.com/microsoft/azure-devops-go-api/azuredevops/webapi"
 )
 
+type Properties struct {
+	DefinitionCreationSource *string
+	IntegrateJiraWorkItems   *bool
+	IntegrateBoardsWorkItems *bool
+}
+
 type ReleaseDeployPhaseRequest struct {
 	// Dynamic based on PhaseType
 	DeploymentInput interface{} `json:"deploymentInput,omitempty"`
@@ -684,7 +690,9 @@ func resourceReleaseDefinition() *schema.Resource {
 
 	properties := &schema.Schema{
 		Type:     schema.TypeSet,
-		Optional: true,
+		Required: true,
+		MinItems: 1,
+		MaxItems: 1,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"definition_creation_source": {
@@ -1036,6 +1044,18 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 	fmt.Println(string(data))
 
 	return &releaseDefinition, projectID, nil
+}
+
+func buildProperties(d []interface{}) (interface{}, error) {
+	if len(d) != 1 {
+		return nil, fmt.Errorf("unexpectedly did not find a properties block in the env")
+	}
+	asMap := d[0].(map[string]interface{})
+	return &Properties{
+		DefinitionCreationSource: converter.String(asMap["definition_creation_source"].(string)),
+		IntegrateJiraWorkItems:   converter.Bool(asMap["integrate_jira_work_items"].(bool)),
+		IntegrateBoardsWorkItems: converter.Bool(asMap["integrate_boards_work_items"].(bool)),
+	}, nil
 }
 
 func buildEnvironments(environments []interface{}) ([]release.ReleaseDefinitionEnvironment, error) {

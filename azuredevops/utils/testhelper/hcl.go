@@ -145,20 +145,20 @@ resource "azuredevops_release_definition" "release" {
 	name            = "%s"
 	path			= "%s"
 
-	variable {
-		name = "one"
-		value = "ONE"
-	}
-	variable {
-		name = "two"
-		value = "TWO"
-		allow_override = true
-	}
-	variable {
-		name = "three"
-		value = "THREE"
-		is_secret = true
-	}
+	//variable {
+	//	name = "one"
+	//	value = "ONE"
+	//}
+	//variable {
+	//	name = "two"
+	//	value = "TWO"
+	//	allow_override = true
+	//}
+	//variable {
+	//	name = "three"
+	//	value = "THREE"
+	//	is_secret = true
+	//}
 
 	environments {
 		name = "Test release pipeline"
@@ -194,10 +194,10 @@ resource "azuredevops_release_definition" "release" {
 				execution_order = "afterSuccessfulGates"
 			}
 		}
-
-		
 	}
 	
+	properties {
+	}
 }`, releaseDefinitionName, strings.ReplaceAll(releasePath, `\`, `\\`))
 
 	projectResource := TestAccProjectResource(projectName)
