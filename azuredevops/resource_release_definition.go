@@ -688,7 +688,7 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 	}
 
-	properties := &schema.Schema{
+	releaseDefinitionProperties := &schema.Schema{
 		Type:     schema.TypeSet,
 		Required: true,
 		MinItems: 1,
@@ -711,6 +711,15 @@ func resourceReleaseDefinition() *schema.Resource {
 					Default:  false,
 				},
 			},
+		},
+	}
+
+	releaseDefinitionEnvironmentProperties := &schema.Schema{
+		Type:     schema.TypeList,
+		Required: true,
+		Elem: &schema.Schema{
+			Type:         schema.TypeString,
+			ValidateFunc: validation.IntAtLeast(1),
 		},
 	}
 
@@ -788,7 +797,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				"conditions":            conditions,
 				"execution_policy":      environmentExecutionPolicy,
 				"schedules":             schedules,
-				"properties":            properties,
+				"properties":            releaseDefinitionEnvironmentProperties,
 				"pre_deployment_gates":  releaseDefinitionGatesStep,
 				"post_deployment_gates": releaseDefinitionGatesStep,
 				"environment_triggers":  environmentTriggers,
@@ -871,8 +880,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-
-			"properties": properties,
+			"properties": releaseDefinitionProperties,
 		},
 	}
 }
@@ -1027,6 +1035,11 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		return nil, "", variablesError
 	}
 
+	properties, propertiesErrors := buildReleaseDefinitionsProperties(d.Get("properties").(*schema.Set).List())
+	if propertiesErrors != nil {
+		return nil, "", propertiesErrors
+	}
+
 	releaseDefinition := release.ReleaseDefinition{
 		Id:                releaseDefinitionReference,
 		Name:              converter.String(d.Get("name").(string)),
@@ -1038,6 +1051,7 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		Variables:         &variables,
 		ReleaseNameFormat: converter.String(d.Get("release_name_format").(string)),
 		VariableGroups:    &variableGroups,
+		Properties:        &properties,
 	}
 
 	data, err := json.MarshalIndent(releaseDefinition, "", "\t")
@@ -1046,7 +1060,7 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 	return &releaseDefinition, projectID, nil
 }
 
-func buildProperties(d []interface{}) (interface{}, error) {
+func buildReleaseDefinitionsProperties(d []interface{}) (interface{}, error) {
 	if len(d) != 1 {
 		return nil, fmt.Errorf("unexpectedly did not find a properties block in the env")
 	}
@@ -1202,14 +1216,14 @@ func buildReleaseDefinitionEnvironment(d map[string]interface{}) (*release.Relea
 		PreDeployApprovals:  preDeployApprovalsMap,
 		PreDeploymentGates:  nil,
 		ProcessParameters:   nil,
-		Properties:          nil,
-		QueueId:             nil,
-		Rank:                converter.Int(d["rank"].(int)),
-		RetentionPolicy:     retentionPolicyMap,
-		RunOptions:          nil,
-		Schedules:           nil,
-		VariableGroups:      &variableGroupsMap,
-		Variables:           &variables,
+		// Properties:          &releaseDefinitionEnvironmentProperties,
+		QueueId:         nil,
+		Rank:            converter.Int(d["rank"].(int)),
+		RetentionPolicy: retentionPolicyMap,
+		RunOptions:      nil,
+		Schedules:       nil,
+		VariableGroups:  &variableGroupsMap,
+		Variables:       &variables,
 	}
 
 	return &releaseDefinitionEnvironment, nil

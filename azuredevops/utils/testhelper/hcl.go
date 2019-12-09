@@ -194,6 +194,8 @@ resource "azuredevops_release_definition" "release" {
 				execution_order = "afterSuccessfulGates"
 			}
 		}
+
+		properties = []
 	}
 	
 	properties {
