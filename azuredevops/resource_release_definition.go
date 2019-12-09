@@ -20,7 +20,7 @@ import (
 
 type ReleaseDeployPhaseRequest struct {
 	// Dynamic based on PhaseType
-	DeploymentInput interface{}
+	DeploymentInput interface{} `json:"deploymentInput,omitempty"`
 	// WorkflowTasks
 	WorkflowTasks *[]release.WorkflowTask `json:"workflowTasks,omitempty"`
 	// Gets or sets the reference name of the task.
@@ -147,6 +147,9 @@ func resourceReleaseDefinition() *schema.Resource {
 	artifactItems := &schema.Schema{
 		Type:     schema.TypeSet,
 		Optional: true,
+		Elem: &schema.Schema{
+			Type: schema.TypeString,
+		},
 	}
 
 	artifactDownloadInputBase := &schema.Schema{
@@ -185,14 +188,14 @@ func resourceReleaseDefinition() *schema.Resource {
 		MaxItems: 1,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
-				"artifact download input base": artifactDownloadInputBase,
+				"artifact_download_input_base": artifactDownloadInputBase,
 			},
 		},
 	}
 
 	overrideInputs := &schema.Schema{
 		Type:     schema.TypeString,
-		Required: true,
+		Optional: true,
 	}
 
 	workFlowTask := map[string]*schema.Schema{
@@ -490,20 +493,24 @@ func resourceReleaseDefinition() *schema.Resource {
 					Optional: true,
 					Default:  false,
 				},
-				//"agent_specification": {
-				//	Type:     schema.TypeBool,
-				//	Optional: true,
-				//	Default:  true,
-				//},
+				"agent_specification_identifier": {
+					Type:     schema.TypeString,
+					Required: true,
+				},
 				"image_id": {
 					Type:     schema.TypeInt,
 					Optional: true,
 				},
-				//"parallel_execution": {
-				//	Type:     schema.TypeBool,
-				//	Optional: true,
-				//	Default:  true,
-				//},
+				"parallel_execution_type": {
+					Type:     schema.TypeString,
+					Optional: true,
+					Default:  release.ParallelExecutionTypesValues.None,
+					ValidateFunc: validation.StringInSlice([]string{
+						string(release.ParallelExecutionTypesValues.None),
+						string(release.ParallelExecutionTypesValues.MultiConfiguration),
+						string(release.ParallelExecutionTypesValues.MultiMachine),
+					}, false),
+				},
 			},
 		},
 	}
@@ -678,8 +685,24 @@ func resourceReleaseDefinition() *schema.Resource {
 	properties := &schema.Schema{
 		Type:     schema.TypeSet,
 		Optional: true,
-		Elem: &schema.Schema{
-			Type: schema.TypeString,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"definition_creation_source": {
+					Type:     schema.TypeString,
+					Optional: true,
+					Default:  "ReleaseNew",
+				},
+				"integrate_jira_work_items": {
+					Type:     schema.TypeBool,
+					Optional: true,
+					Default:  false,
+				},
+				"integrate_boards_work_items": {
+					Type:     schema.TypeBool,
+					Optional: true,
+					Default:  false,
+				},
+			},
 		},
 	}
 
@@ -840,6 +863,8 @@ func resourceReleaseDefinition() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+
+			"properties": properties,
 		},
 	}
 }
@@ -848,12 +873,12 @@ func resourceReleaseDefinitionCreate(d *schema.ResourceData, m interface{}) erro
 	clients := m.(*config.AggregatedClient)
 	releaseDefinition, projectID, err := expandReleaseDefinition(d)
 	if err != nil {
-		return fmt.Errorf("error creating resource Build Definition: %+v", err)
+		return fmt.Errorf("error creating resource Release Definition: %+v", err)
 	}
 
 	createdReleaseDefinition, err := createReleaseDefinition(clients, releaseDefinition, projectID)
 	if err != nil {
-		return fmt.Errorf("error creating resource Build Definition: %+v", err)
+		return fmt.Errorf("error creating resource Release Definition: %+v", err)
 	}
 
 	flattenReleaseDefinition(d, createdReleaseDefinition, projectID)
@@ -1134,7 +1159,7 @@ func buildReleaseDefinitionEnvironment(d map[string]interface{}) (*release.Relea
 		return nil, demandsError
 	}
 
-	deployPhases, deployPhasesError := buildDeployPhases(d["deploy_phases"].(*schema.Set).List())
+	deployPhases, deployPhasesError := buildDeployPhases(d["deploy_phases"].([]interface{}))
 	if deployPhasesError != nil {
 		return nil, deployPhasesError
 	}
@@ -1212,7 +1237,7 @@ func buildDeployPhase(d map[string]interface{}) (interface{}, error) {
 	switch phaseType {
 	case release.DeployPhaseTypesValues.AgentBasedDeployment:
 
-		agentDeploymentInput := d["approval_options"].(*schema.Set).List()
+		agentDeploymentInput := d["agent_deployment_input"].(*schema.Set).List()
 		if len(agentDeploymentInput) != 1 {
 			return nil, fmt.Errorf("unexpectedly did not find a agent deployment input in the deploy phases data")
 		}
@@ -1236,28 +1261,45 @@ func buildDeployPhase(d map[string]interface{}) (interface{}, error) {
 
 func buildAgentDeploymentInput(d map[string]interface{}) (interface{}, error) {
 	artifactsDownloadInput, err := buildArtifactsDownloadInput(d["artifacts_download_input"].(*schema.Set).List())
+	if err != nil {
+		return nil, err
+	}
+
+	demands, demandsError := buildDemands(d["demands"].(*schema.Set).List())
+	if demandsError != nil {
+		return nil, demandsError
+	}
+
+	parallelExecutionType := release.ParallelExecutionTypes(d["parallel_execution_type"].(string))
 
 	return release.AgentDeploymentInput{
-		Condition:                 converter.String(d["name"].(string)),
-		JobCancelTimeoutInMinutes: converter.Int(d["name"].(int)),
+		Condition:                 converter.String(d["condition"].(string)),
+		JobCancelTimeoutInMinutes: converter.Int(d["job_cancel_timeout_in_minutes"].(int)),
 		OverrideInputs:            nil, // TODO : OverrideInputs
-		TimeoutInMinutes:          converter.Int(d["name"].(int)),
-		ArtifactsDownloadInput:    converter.Bool(d["name"].(bool)),
-		Demands:                   converter.String(d["name"].(string)),
-		EnableAccessToken:         converter.String(d["name"].(string)),
-		QueueId:                   converter.String(d["name"].(string)),
-		SkipArtifactsDownload:     converter.String(d["name"].(string)),
-		AgentSpecification:        converter.String(d["name"].(string)),
-		ImageId:                   converter.String(d["name"].(string)),
-		ParallelExecution:         converter.String(d["name"].(string)),
+		TimeoutInMinutes:          converter.Int(d["timeout_in_minutes"].(int)),
+		ArtifactsDownloadInput:    artifactsDownloadInput,
+		Demands:                   &demands,
+		EnableAccessToken:         converter.Bool(d["enable_access_token"].(bool)),
+		QueueId:                   converter.Int(d["queue_id"].(int)),
+		SkipArtifactsDownload:     converter.Bool(d["skip_artifacts_download"].(bool)),
+		AgentSpecification: &release.AgentSpecification{
+			Identifier: converter.String(d["agent_specification_identifier"].(string)),
+		},
+		ImageId: converter.Int(d["image_id"].(int)),
+		ParallelExecution: &release.ExecutionInput{
+			ParallelExecutionType: &parallelExecutionType,
+		},
 	}, nil
 }
 
 func buildArtifactsDownloadInput(d []interface{}) (*release.ArtifactsDownloadInput, error) {
+	if len(d) == 0 {
+		return nil, nil
+	}
 	if len(d) != 1 {
 		return nil, fmt.Errorf("unexpectedly did not find an artifacts download input")
 	}
-	downloadInputs, err := buildArtifactDownloadInputBases(d[0].(map[string]interface{}))
+	downloadInputs, err := buildArtifactDownloadInputBases(d[0].([]interface{}))
 	if err != nil {
 		return nil, err
 	}

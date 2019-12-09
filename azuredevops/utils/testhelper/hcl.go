@@ -166,6 +166,11 @@ resource "azuredevops_release_definition" "release" {
 		deploy_phases {
 			name = "Test Job"
 			phase_type = "agentBasedDeployment"
+
+			agent_deployment_input {
+				queue_id = 52 // TODO : how to get this value?
+				agent_specification_identifier = "ubuntu-18.04" // TODO : how to get this value? 
+			}
 		}
 
 		deploy_step {
@@ -189,6 +194,8 @@ resource "azuredevops_release_definition" "release" {
 				execution_order = "afterSuccessfulGates"
 			}
 		}
+
+		
 	}
 	
 }`, releaseDefinitionName, strings.ReplaceAll(releasePath, `\`, `\\`))
