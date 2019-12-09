@@ -571,7 +571,11 @@ func resourceReleaseDefinition() *schema.Resource {
 				},
 				"rank": rank,
 				// TODO : Is this something you would want to set
-				// "owner": owner
+				"owner_id": {
+					Type:         schema.TypeString,
+					Optional:     true,
+					ValidateFunc: validate.UUID,
+				},
 				"variable":              configurationVariables,
 				"variable_groups":       variableGroups,
 				"pre_deploy_approvals":  releaseDefinitionApprovals,
@@ -658,6 +662,16 @@ func resourceReleaseDefinition() *schema.Resource {
 				Type:     schema.TypeBool,
 				Computed: true,
 			},
+
+			"created_on": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+
+			"modified_on": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 		},
 	}
 }
@@ -691,6 +705,8 @@ func flattenReleaseDefinition(d *schema.ResourceData, releaseDefinition *release
 	d.Set("release_name_format", *releaseDefinition.ReleaseNameFormat)
 	d.Set("url", *releaseDefinition.Url)
 	d.Set("is_deleted", *releaseDefinition.IsDeleted)
+	d.Set("created_on", *releaseDefinition.CreatedOn)
+	d.Set("modified_on", *releaseDefinition.ModifiedOn)
 
 	revision := 0
 	if releaseDefinition.Revision != nil {
@@ -800,31 +816,14 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		releaseDefinitionReference = nil
 	}
 
-	variableGroups := d.Get("variable_groups").([]interface{})
-	variableGroupsMap := make([]int, len(variableGroups))
-	for i, variableGroup := range variableGroups {
-		variableGroupsMap[i] = variableGroup.(int)
+	variableGroups := buildVariableGroups(d.Get("variable_groups").([]interface{}))
+	environments, environmentsError := buildEnvironments(d.Get("environments").([]interface{}))
+	if environmentsError != nil {
+		return nil, "", environmentsError
 	}
-
-	environments := d.Get("environments").([]interface{})
-	environmentsMap := make([]release.ReleaseDefinitionEnvironment, len(environments))
-	for i, environment := range environments {
-		env, err := buildReleaseDefinitionEnvironment(environment.(map[string]interface{}))
-		if err != nil {
-			return nil, "", err
-		}
-		environmentsMap[i] = *env
-	}
-
-	variables := d.Get("variable").(*schema.Set).List()
-	variablesMap := make(map[string]release.ConfigurationVariableValue)
-	for _, variable := range variables {
-		asMap := variable.(map[string]interface{})
-		variablesMap[asMap["name"].(string)] = release.ConfigurationVariableValue{
-			AllowOverride: converter.Bool(asMap["allow_override"].(bool)),
-			Value:         converter.String(asMap["value"].(string)),
-			IsSecret:      converter.Bool(asMap["is_secret"].(bool)),
-		}
+	variables, variablesError := buildVariables(d.Get("variable").(*schema.Set).List())
+	if variablesError != nil {
+		return nil, "", variablesError
 	}
 
 	releaseDefinition := release.ReleaseDefinition{
@@ -834,16 +833,56 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		Revision:          converter.Int(d.Get("revision").(int)),
 		Source:            &release.ReleaseDefinitionSourceValues.RestApi,
 		Description:       converter.String(d.Get("description").(string)),
-		Environments:      &environmentsMap,
-		Variables:         &variablesMap,
+		Environments:      &environments,
+		Variables:         &variables,
 		ReleaseNameFormat: converter.String(d.Get("release_name_format").(string)),
-		VariableGroups:    &variableGroupsMap,
+		VariableGroups:    &variableGroups,
 	}
 
 	data, err := json.MarshalIndent(releaseDefinition, "", "\t")
 	fmt.Println(string(data))
 
 	return &releaseDefinition, projectID, nil
+}
+
+func buildEnvironments(environments []interface{}) ([]release.ReleaseDefinitionEnvironment, error) {
+	environmentsMap := make([]release.ReleaseDefinitionEnvironment, len(environments))
+	for i, environment := range environments {
+		env, err := buildReleaseDefinitionEnvironment(environment.(map[string]interface{}))
+		if err != nil {
+			return nil, err
+		}
+		environmentsMap[i] = *env
+	}
+	return environmentsMap, nil
+}
+
+func buildVariableGroups(variableGroups []interface{}) []int {
+	variableGroupsMap := make([]int, len(variableGroups))
+	for i, variableGroup := range variableGroups {
+		variableGroupsMap[i] = variableGroup.(int)
+	}
+	return variableGroupsMap
+}
+
+func buildVariables(variables []interface{}) (map[string]release.ConfigurationVariableValue, error) {
+	variablesMap := make(map[string]release.ConfigurationVariableValue)
+	for _, variable := range variables {
+		key, variableMap, err := buildVariable(variable.(map[string]interface{}))
+		if err != nil {
+			return nil, err
+		}
+		variablesMap[key] = variableMap
+	}
+	return variablesMap, nil
+}
+
+func buildVariable(d map[string]interface{}) (string, release.ConfigurationVariableValue, error) {
+	return d["name"].(string), release.ConfigurationVariableValue{
+		AllowOverride: converter.Bool(d["allow_override"].(bool)),
+		Value:         converter.String(d["value"].(string)),
+		IsSecret:      converter.Bool(d["is_secret"].(bool)),
+	}, nil
 }
 
 func buildReleaseDefinitionEnvironment(d map[string]interface{}) (*release.ReleaseDefinitionEnvironment, error) {
@@ -905,15 +944,50 @@ func buildReleaseDefinitionEnvironment(d map[string]interface{}) (*release.Relea
 		}
 	}
 
+	variables, variablesError := buildVariables(d["variable"].(*schema.Set).List())
+	if variablesError != nil {
+		return nil, variablesError
+	}
+
+	conditions := d["conditions"].(*schema.Set).List()
+	conditionsMap := make([]release.Condition, len(conditions))
+	for i, condition := range conditions {
+		asMap := condition.(map[string]interface{})
+		conditionType := release.ConditionType(asMap["condition_type"].(string))
+		conditionsMap[i] = release.Condition{
+			ConditionType: &conditionType,
+			Name:          converter.String(d["name"].(string)),
+			Value:         converter.String(d["value"].(string)),
+		}
+	}
+
 	releaseDefinitionEnvironment := release.ReleaseDefinitionEnvironment{
+		Conditions:          &conditionsMap,
+		CurrentRelease:      nil,
+		Demands:             nil,
+		DeployPhases:        nil,
+		DeployStep:          deployStepMap,
+		EnvironmentOptions:  nil,
+		EnvironmentTriggers: nil,
+		ExecutionPolicy:     nil,
 		Id:                  converter.Int(d["id"].(int)),
 		Name:                converter.String(d["name"].(string)),
+		Owner: &webapi.IdentityRef{
+			Id: converter.String(d["owner_id"].(string)),
+		},
+		PostDeployApprovals: postDeployApprovalsMap,
+		PostDeploymentGates: nil,
+		PreDeployApprovals:  preDeployApprovalsMap,
+		PreDeploymentGates:  nil,
+		ProcessParameters:   nil,
+		Properties:          nil,
+		QueueId:             nil,
 		Rank:                converter.Int(d["rank"].(int)),
 		RetentionPolicy:     retentionPolicyMap,
-		PreDeployApprovals:  preDeployApprovalsMap,
-		PostDeployApprovals: postDeployApprovalsMap,
-		DeployStep:          deployStepMap,
+		RunOptions:          nil,
+		Schedules:           nil,
 		VariableGroups:      &variableGroupsMap,
+		Variables:           &variables,
 	}
 
 	return &releaseDefinitionEnvironment, nil
@@ -924,9 +998,19 @@ func buildReleaseDefinitionDeployStep(d map[string]interface{}) (*release.Releas
 		return nil, nil
 	}
 
-	tasks := d["tasks"].([]interface{})
-	tasksMap := make([]release.WorkflowTask, len(tasks))
+	tasks, err := buildWorkFlowTasks(d["tasks"].([]interface{}))
+	if err != nil {
+		return nil, err
+	}
 
+	return &release.ReleaseDefinitionDeployStep{
+		Id:    converter.Int(d["id"].(int)),
+		Tasks: &tasks,
+	}, nil
+}
+
+func buildWorkFlowTasks(tasks []interface{}) ([]release.WorkflowTask, error) {
+	tasksMap := make([]release.WorkflowTask, len(tasks))
 	for i, approval := range tasks {
 		releaseApproval, err := buildWorkflowTask(approval.(map[string]interface{}))
 		if err != nil {
@@ -934,11 +1018,7 @@ func buildReleaseDefinitionDeployStep(d map[string]interface{}) (*release.Releas
 		}
 		tasksMap[i] = *releaseApproval
 	}
-
-	return &release.ReleaseDefinitionDeployStep{
-		Id:    converter.Int(d["id"].(int)),
-		Tasks: &tasksMap,
-	}, nil
+	return tasksMap, nil
 }
 
 func buildWorkflowTask(d map[string]interface{}) (*release.WorkflowTask, error) {
