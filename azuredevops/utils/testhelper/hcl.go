@@ -166,19 +166,19 @@ resource "azuredevops_release_definition" "release" {
 			name = "ReleaseStarted"
 		}
 
-		name = "Test release pipeline"
+		environment_options {
+		}
+
+		name = "Stage 1"
+		owner_id = "xxx"
 
 		deploy_phases {
-			name = "Test Job"
+			name = "Agent job"
 			phase_type = "agentBasedDeployment"
-
 			agent_deployment_input {
 				queue_id = 52 // TODO : how to get this value?
-				agent_specification  {
-					identifier = "vs2017-win2016" // TODO : how to get this value?
-					metadata_document = "https://mmsprodcus1.vstsmms.visualstudio.com/_apis/mms/images/VS2017/metadata" // TODO : how to get this value?
-					url = "https://mmsprodcus1.vstsmms.visualstudio.com/_apis/mms/images/VS2017" // TODO : how to get this value?
-				}
+				condition = "succeeded()"
+				agent_specification_identifier = "vs2017-win2016" // TODO : how to get this value?
 			}
 		}
 

@@ -564,7 +564,7 @@ func resourceReleaseDefinition() *schema.Resource {
 
 	environmentOptions := &schema.Schema{
 		Type:     schema.TypeSet,
-		Optional: true,
+		Required: true,
 		MinItems: 1,
 		MaxItems: 1,
 		Elem: &schema.Resource{
@@ -579,15 +579,40 @@ func resourceReleaseDefinition() *schema.Resource {
 					Optional: true,
 					Default:  false,
 				},
-				"publish_deployment_status": {
+				"email_notification_type": {
+					Type:     schema.TypeString,
+					Optional: true,
+					Default:  "OnlyOnFailure",
+				},
+				"email_recipients": {
+					Type:     schema.TypeString,
+					Optional: true,
+					Default:  "release.environment.owner;release.creator",
+				},
+				"enable_access_token": {
 					Type:     schema.TypeBool,
 					Optional: true,
 					Default:  false,
+				},
+				"publish_deployment_status": {
+					Type:     schema.TypeBool,
+					Optional: true,
+					Default:  true,
 				},
 				"pull_request_deployment_enabled": {
 					Type:     schema.TypeBool,
 					Optional: true,
 					Default:  false,
+				},
+				"skip_artifacts_download": {
+					Type:     schema.TypeBool,
+					Optional: true,
+					Default:  false,
+				},
+				"timeout_in_minutes": {
+					Type:     schema.TypeInt,
+					Optional: true,
+					Default:  0,
 				},
 			},
 		},
@@ -768,7 +793,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				"id": {
 					Type:     schema.TypeInt,
 					Optional: true,
-					Default:  0,
+					Default:  -1,
 				},
 				"name": {
 					Type:     schema.TypeString,
@@ -1125,7 +1150,7 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		CreatedOn: &now,
 	}
 
-	data, err := json.MarshalIndent(releaseDefinition, "", "\t")
+	data, err := json.Marshal(releaseDefinition)
 	fmt.Println(string(data))
 
 	return &releaseDefinition, projectID, nil
@@ -1283,12 +1308,12 @@ func buildReleaseDefinitionEnvironment(d map[string]interface{}) (*release.Relea
 		asMap := condition.(map[string]interface{})
 		conditionType := release.ConditionType(asMap["condition_type"].(string))
 		value := ""
-		if d["value"] != nil {
-			value = d["value"].(string)
+		if asMap["value"] != nil {
+			value = asMap["value"].(string)
 		}
 		conditionsMap[i] = release.Condition{
 			ConditionType: &conditionType,
-			Name:          converter.String(d["name"].(string)),
+			Name:          converter.String(asMap["name"].(string)),
 			Value:         converter.String(value),
 		}
 	}
@@ -1303,18 +1328,25 @@ func buildReleaseDefinitionEnvironment(d map[string]interface{}) (*release.Relea
 		return nil, deployPhasesError
 	}
 
+	environmentOptions, environmentOptionsError := buildEnvironmentOptions(d["environment_options"].(*schema.Set).List())
+	if environmentOptionsError != nil {
+		return nil, environmentOptionsError
+	}
+
 	releaseDefinitionEnvironment := release.ReleaseDefinitionEnvironment{
 		Conditions:          &conditionsMap,
 		Demands:             &demands,
 		DeployPhases:        &deployPhases,
 		DeployStep:          deployStepMap,
-		EnvironmentOptions:  nil,
+		EnvironmentOptions:  environmentOptions,
 		EnvironmentTriggers: nil,
 		ExecutionPolicy:     nil,
 		Id:                  converter.Int(d["id"].(int)),
 		Name:                converter.String(d["name"].(string)),
 		Owner: &webapi.IdentityRef{
-			Id: converter.String(d["owner_id"].(string)),
+			Id:            converter.String(d["owner_id"].(string)),
+			IsAadIdentity: converter.Bool(true),
+			IsContainer:   converter.Bool(false),
 		},
 		PostDeployApprovals: postDeployApprovalsMap,
 		PostDeploymentGates: nil,
@@ -1367,6 +1399,26 @@ func buildDeployPhases(deployPhases []interface{}) ([]interface{}, error) {
 		deployPhasesMap[i] = demandMap
 	}
 	return deployPhasesMap, nil
+}
+
+func buildEnvironmentOptions(d []interface{}) (*release.EnvironmentOptions, error) {
+	if len(d) != 1 {
+		return nil, fmt.Errorf("unexpectedly did not build environment options")
+	}
+	asMap := d[0].(map[string]interface{})
+
+	deployPhase := release.EnvironmentOptions{
+		AutoLinkWorkItems:            converter.Bool(asMap["auto_link_work_items"].(bool)),
+		BadgeEnabled:                 converter.Bool(asMap["badge_enabled"].(bool)),
+		EmailNotificationType:        converter.String(asMap["email_notification_type"].(string)),
+		EmailRecipients:              converter.String(asMap["email_recipients"].(string)),
+		EnableAccessToken:            converter.Bool(asMap["enable_access_token"].(bool)),
+		PublishDeploymentStatus:      converter.Bool(asMap["publish_deployment_status"].(bool)),
+		PullRequestDeploymentEnabled: converter.Bool(asMap["pull_request_deployment_enabled"].(bool)),
+		SkipArtifactsDownload:        converter.Bool(asMap["skip_artifacts_download"].(bool)),
+		TimeoutInMinutes:             converter.Int(asMap["timeout_in_minutes"].(int)),
+	}
+	return &deployPhase, nil
 }
 
 func buildDeployPhase(d map[string]interface{}) (interface{}, error) {
@@ -1424,7 +1476,7 @@ func buildAgentDeploymentInput(d map[string]interface{}) (interface{}, error) {
 		AgentSpecification: &release.AgentSpecification{
 			Identifier: converter.String(d["agent_specification_identifier"].(string)),
 		},
-		ImageId: converter.Int(d["image_id"].(int)),
+		// ImageId: converter.Int(d["image_id"].(int)),
 		ParallelExecution: &release.ExecutionInput{
 			ParallelExecutionType: &parallelExecutionType,
 		},
