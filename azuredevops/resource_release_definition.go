@@ -961,10 +961,14 @@ func buildReleaseDefinitionEnvironment(d map[string]interface{}) (*release.Relea
 		}
 	}
 
+	demands, demandsError := buildDemands(d["demands"].(*schema.Set).List())
+	if demandsError != nil {
+		return nil, demandsError
+	}
+
 	releaseDefinitionEnvironment := release.ReleaseDefinitionEnvironment{
 		Conditions:          &conditionsMap,
-		CurrentRelease:      nil,
-		Demands:             nil,
+		Demands:             &demands,
 		DeployPhases:        nil,
 		DeployStep:          deployStepMap,
 		EnvironmentOptions:  nil,
@@ -1007,6 +1011,33 @@ func buildReleaseDefinitionDeployStep(d map[string]interface{}) (*release.Releas
 		Id:    converter.Int(d["id"].(int)),
 		Tasks: &tasks,
 	}, nil
+}
+
+type ReleaseDefinitionDemand struct {
+	// Name of the demand.
+	Name *string `json:"name,omitempty"`
+	// The value of the demand.
+	Value *string `json:"value,omitempty"`
+}
+
+func buildDemands(demands []interface{}) ([]interface{}, error) {
+	demandsMap := make([]interface{}, len(demands))
+	for i, demand := range demands {
+		demandMap, err := buildDemand(demand.(map[string]interface{}))
+		if err != nil {
+			return nil, err
+		}
+		demandsMap[i] = demandMap
+	}
+	return demandsMap, nil
+}
+
+func buildDemand(d map[string]interface{}) (interface{}, error) {
+	demand := ReleaseDefinitionDemand{
+		Name:  converter.String(d["name"].(string)),
+		Value: converter.String(d["value"].(string)),
+	}
+	return demand, nil
 }
 
 func buildWorkFlowTasks(tasks []interface{}) ([]release.WorkflowTask, error) {
