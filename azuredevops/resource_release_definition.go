@@ -18,6 +18,59 @@ import (
 	"github.com/microsoft/azure-devops-go-api/azuredevops/webapi"
 )
 
+type ReleaseDeployPhaseRequest struct {
+	// Dynamic based on PhaseType
+	DeploymentInput interface{}
+	// WorkflowTasks
+	WorkflowTasks *[]release.WorkflowTask `json:"workflowTasks,omitempty"`
+	// Gets or sets the reference name of the task.
+	RefName *string `json:"refName,omitempty"`
+	// Name of the phase.
+	Name *string `json:"name,omitempty"`
+	// Type of the phase.
+	PhaseType *release.DeployPhaseTypes `json:"phaseType,omitempty"`
+	// Rank of the phase.
+	Rank *int `json:"rank,omitempty"`
+
+	// Deployment jobs of the phase.
+	//DeploymentJobs *[]release.DeploymentJob `json:"deploymentJobs,omitempty"`
+
+	// Phase execution error logs.
+	//ErrorLog *string `json:"errorLog,omitempty"`
+
+	// Deprecated:
+	//Id *int `json:"id,omitempty"`
+
+	// List of manual intervention tasks execution information in phase.
+	//ManualInterventions *[]release.ManualIntervention `json:"manualInterventions,omitempty"`
+
+	// ID of the phase.
+	//PhaseId *string `json:"phaseId,omitempty"`
+
+	// Run Plan ID of the phase.
+	//RunPlanId *uuid.UUID `json:"runPlanId,omitempty"`
+
+	// Phase start time.
+	//StartedOn *azuredevops.Time `json:"startedOn,omitempty"`
+
+	// Status of the phase.
+	//Status *release.DeployPhaseStatus `json:"status,omitempty"`
+}
+
+type ArtifactDownloadModeType string
+
+type artifactDownloadModeTypeValuesType struct {
+	Skip      ArtifactDownloadModeType
+	Selective ArtifactDownloadModeType
+	All       ArtifactDownloadModeType
+}
+
+var ArtifactDownloadModeTypeValues = artifactDownloadModeTypeValuesType{
+	Skip:      "Skip",
+	Selective: "Selective",
+	All:       "All",
+}
+
 func resourceReleaseDefinition() *schema.Resource {
 	variableGroups := &schema.Schema{
 		Type: schema.TypeList,
@@ -72,6 +125,76 @@ func resourceReleaseDefinition() *schema.Resource {
 	//	},
 	//}
 
+	demand := map[string]*schema.Schema{
+		"name": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+		"value": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+	}
+
+	demands := &schema.Schema{
+		Type:     schema.TypeSet,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: demand,
+		},
+	}
+
+	artifactItems := &schema.Schema{
+		Type:     schema.TypeSet,
+		Optional: true,
+	}
+
+	artifactDownloadInputBase := &schema.Schema{
+		Type:     schema.TypeSet,
+		Optional: true,
+		MinItems: 1,
+		MaxItems: 1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"alias": {
+					Type:     schema.TypeString,
+					Required: true,
+				},
+				"artifact_download_mode": {
+					Type:     schema.TypeString,
+					Required: true,
+					ValidateFunc: validation.StringInSlice([]string{
+						string(ArtifactDownloadModeTypeValues.All),
+						string(ArtifactDownloadModeTypeValues.Selective),
+						string(ArtifactDownloadModeTypeValues.Skip),
+					}, false),
+				},
+				"artifact_items": artifactItems,
+				"artifact_type": {
+					Type:     schema.TypeString,
+					Required: true,
+				},
+			},
+		},
+	}
+
+	artifactsDownloadInput := &schema.Schema{
+		Type:     schema.TypeSet,
+		Optional: true,
+		MinItems: 1,
+		MaxItems: 1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"artifact download input base": artifactDownloadInputBase,
+			},
+		},
+	}
+
+	overrideInputs := &schema.Schema{
+		Type:     schema.TypeString,
+		Required: true,
+	}
+
 	workFlowTask := map[string]*schema.Schema{
 		"always_run": {
 			Type:     schema.TypeBool,
@@ -108,10 +231,7 @@ func resourceReleaseDefinition() *schema.Resource {
 			Required: true,
 		},
 		// TODO : Define obj
-		"override_inputs": {
-			Type:     schema.TypeString,
-			Required: true,
-		},
+		"override_inputs": overrideInputs,
 		"ref_name": {
 			Type:     schema.TypeString,
 			Required: true,
@@ -333,6 +453,61 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 	}
 
+	agentDeploymentInput := &schema.Schema{
+		Type:     schema.TypeSet,
+		Optional: true,
+		MinItems: 1,
+		MaxItems: 1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"condition": {
+					Type:     schema.TypeString,
+					Optional: true,
+				},
+				"job_cancel_timeout_in_minutes": {
+					Type:     schema.TypeInt,
+					Optional: true,
+					Default:  1,
+				},
+				"override_inputs": overrideInputs,
+				"timeout_in_minutes": {
+					Type:     schema.TypeInt,
+					Optional: true,
+				},
+				"artifacts_download_input": artifactsDownloadInput,
+				"demands":                  demands,
+				"enable_access_token": {
+					Type:     schema.TypeBool,
+					Optional: true,
+					Default:  false,
+				},
+				"queue_id": {
+					Type:     schema.TypeInt,
+					Required: true,
+				},
+				"skip_artifacts_download": {
+					Type:     schema.TypeBool,
+					Optional: true,
+					Default:  false,
+				},
+				//"agent_specification": {
+				//	Type:     schema.TypeBool,
+				//	Optional: true,
+				//	Default:  true,
+				//},
+				"image_id": {
+					Type:     schema.TypeInt,
+					Optional: true,
+				},
+				//"parallel_execution": {
+				//	Type:     schema.TypeBool,
+				//	Optional: true,
+				//	Default:  true,
+				//},
+			},
+		},
+	}
+
 	deployPhase := map[string]*schema.Schema{
 		"name": {
 			Type:     schema.TypeString,
@@ -355,8 +530,13 @@ func resourceReleaseDefinition() *schema.Resource {
 			Optional: true,
 		},
 		"workflow_tasks": workflowTasks,
-		// TODO : This is missing from the docs
-		// "deploymentInput": deploymentInput
+
+		"agent_deployment_input": agentDeploymentInput,
+		// TODO : GatesDeployPhase, MachineGroupBasedDeployPhase, RunOnServerDeployPhase
+		// TODO : How to do Validation based on phase_type?
+		//"gates_deployment_input" : gatesDeploymentInput,
+		//"machine_group_deployment_input" : machineGroupDeploymentInput,
+		//"run_on_server_deploy_phase" : runOnServerDeployPhase,
 	}
 
 	deployPhases := &schema.Schema{
@@ -396,25 +576,6 @@ func resourceReleaseDefinition() *schema.Resource {
 					Default:  false,
 				},
 			},
-		},
-	}
-
-	demand := map[string]*schema.Schema{
-		"name": {
-			Type:     schema.TypeString,
-			Required: true,
-		},
-		"value": {
-			Type:     schema.TypeString,
-			Required: true,
-		},
-	}
-
-	demands := &schema.Schema{
-		Type:     schema.TypeSet,
-		Optional: true,
-		Elem: &schema.Resource{
-			Schema: demand,
 		},
 	}
 
@@ -584,8 +745,15 @@ func resourceReleaseDefinition() *schema.Resource {
 				"deploy_phases":         deployPhases,
 				// TODO : This is missing from the docs
 				// "runOptions": runOptions
-				"environment_options":   environmentOptions,
-				"demands":               demands,
+				"environment_options": environmentOptions,
+				"demands": &schema.Schema{
+					Type:       schema.TypeSet,
+					Optional:   true,
+					Deprecated: "Use DeploymentInput.Demands instead",
+					Elem: &schema.Resource{
+						Schema: demand,
+					},
+				},
 				"conditions":            conditions,
 				"execution_policy":      environmentExecutionPolicy,
 				"schedules":             schedules,
@@ -966,10 +1134,15 @@ func buildReleaseDefinitionEnvironment(d map[string]interface{}) (*release.Relea
 		return nil, demandsError
 	}
 
+	deployPhases, deployPhasesError := buildDeployPhases(d["deploy_phases"].(*schema.Set).List())
+	if deployPhasesError != nil {
+		return nil, deployPhasesError
+	}
+
 	releaseDefinitionEnvironment := release.ReleaseDefinitionEnvironment{
 		Conditions:          &conditionsMap,
 		Demands:             &demands,
-		DeployPhases:        nil,
+		DeployPhases:        &deployPhases,
 		DeployStep:          deployStepMap,
 		EnvironmentOptions:  nil,
 		EnvironmentTriggers: nil,
@@ -1018,6 +1191,106 @@ type ReleaseDefinitionDemand struct {
 	Name *string `json:"name,omitempty"`
 	// The value of the demand.
 	Value *string `json:"value,omitempty"`
+}
+
+func buildDeployPhases(deployPhases []interface{}) ([]interface{}, error) {
+	deployPhasesMap := make([]interface{}, len(deployPhases))
+	for i, deployPhase := range deployPhases {
+		demandMap, err := buildDeployPhase(deployPhase.(map[string]interface{}))
+		if err != nil {
+			return nil, err
+		}
+		deployPhasesMap[i] = demandMap
+	}
+	return deployPhasesMap, nil
+}
+
+func buildDeployPhase(d map[string]interface{}) (interface{}, error) {
+	var deploymentInput interface{}
+
+	phaseType := release.DeployPhaseTypes(d["phase_type"].(string))
+	switch phaseType {
+	case release.DeployPhaseTypesValues.AgentBasedDeployment:
+
+		agentDeploymentInput := d["approval_options"].(*schema.Set).List()
+		if len(agentDeploymentInput) != 1 {
+			return nil, fmt.Errorf("unexpectedly did not find a agent deployment input in the deploy phases data")
+		}
+		agentDeploymentInputMap, deploymentInputErrors := buildAgentDeploymentInput(agentDeploymentInput[0].(map[string]interface{}))
+		if deploymentInputErrors != nil {
+			return nil, deploymentInputErrors
+		}
+		deploymentInput = agentDeploymentInputMap
+	}
+
+	deployPhase := ReleaseDeployPhaseRequest{
+		DeploymentInput: &deploymentInput,
+		Rank:            converter.Int(d["rank"].(int)),
+		PhaseType:       &phaseType,
+		Name:            converter.String(d["name"].(string)),
+		RefName:         converter.String(d["ref_name"].(string)),
+		WorkflowTasks:   nil,
+	}
+	return deployPhase, nil
+}
+
+func buildAgentDeploymentInput(d map[string]interface{}) (interface{}, error) {
+	artifactsDownloadInput, err := buildArtifactsDownloadInput(d["artifacts_download_input"].(*schema.Set).List())
+
+	return release.AgentDeploymentInput{
+		Condition:                 converter.String(d["name"].(string)),
+		JobCancelTimeoutInMinutes: converter.Int(d["name"].(int)),
+		OverrideInputs:            nil, // TODO : OverrideInputs
+		TimeoutInMinutes:          converter.Int(d["name"].(int)),
+		ArtifactsDownloadInput:    converter.Bool(d["name"].(bool)),
+		Demands:                   converter.String(d["name"].(string)),
+		EnableAccessToken:         converter.String(d["name"].(string)),
+		QueueId:                   converter.String(d["name"].(string)),
+		SkipArtifactsDownload:     converter.String(d["name"].(string)),
+		AgentSpecification:        converter.String(d["name"].(string)),
+		ImageId:                   converter.String(d["name"].(string)),
+		ParallelExecution:         converter.String(d["name"].(string)),
+	}, nil
+}
+
+func buildArtifactsDownloadInput(d []interface{}) (*release.ArtifactsDownloadInput, error) {
+	if len(d) != 1 {
+		return nil, fmt.Errorf("unexpectedly did not find an artifacts download input")
+	}
+	downloadInputs, err := buildArtifactDownloadInputBases(d[0].(map[string]interface{}))
+	if err != nil {
+		return nil, err
+	}
+	return &release.ArtifactsDownloadInput{
+		DownloadInputs: downloadInputs,
+	}, nil
+}
+
+func buildArtifactDownloadInputBases(d []interface{}) (*[]release.ArtifactDownloadInputBase, error) {
+	artifactDownloadInputBases := make([]release.ArtifactDownloadInputBase, len(d))
+	for i, data := range d {
+		artifactDownloadInputBase, err := buildArtifactDownloadInputBase(data.(map[string]interface{}))
+		if err != nil {
+			return nil, err
+		}
+		artifactDownloadInputBases[i] = *artifactDownloadInputBase
+	}
+	return &artifactDownloadInputBases, nil
+}
+
+func buildArtifactDownloadInputBase(d map[string]interface{}) (*release.ArtifactDownloadInputBase, error) {
+	dataArtifactItems := d["artifact_items"].([]interface{})
+	artifactItems := make([]string, len(dataArtifactItems))
+	for i, dataArtifactItem := range dataArtifactItems {
+		artifactItems[i] = dataArtifactItem.(string)
+	}
+
+	return &release.ArtifactDownloadInputBase{
+		Alias:                converter.String(d["alias"].(string)),
+		ArtifactDownloadMode: converter.String(d["artifact_download_mode"].(string)),
+		ArtifactItems:        &artifactItems,
+		ArtifactType:         converter.String(d["artifact_type"].(string)),
+	}, nil
 }
 
 func buildDemands(demands []interface{}) ([]interface{}, error) {
