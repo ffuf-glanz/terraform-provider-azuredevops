@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
-	"strconv"
-
+	"github.com/microsoft/azure-devops-go-api/azuredevops"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/config"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/tfhelper"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/validate"
+	"strconv"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
@@ -609,13 +610,16 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 		"value": {
 			Type:     schema.TypeString,
-			Required: true,
+			Optional: true,
+			Default:  "",
 		},
 	}
 
 	conditions := &schema.Schema{
 		Type:     schema.TypeSet,
-		Optional: true,
+		MinItems: 1,
+		MaxItems: 1,
+		Required: true,
 		Elem: &schema.Resource{
 			Schema: condition,
 		},
@@ -810,6 +814,53 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 	}
 
+	artifact := map[string]*schema.Schema{
+		"alias": {
+			Type:     schema.TypeString,
+			Optional: true,
+		},
+		// TODO : definition_reference
+		//"definition_reference": {
+		//	Type:     schema.TypeInt,
+		//	Optional: true,
+		//},
+		"is_primary": {
+			Type:     schema.TypeBool,
+			Optional: true,
+			Default:  false,
+		},
+		"is_retained": {
+			Type:     schema.TypeBool,
+			Optional: true,
+			Default:  false,
+		},
+		"type": {
+			Type:     schema.TypeString,
+			Required: true,
+			ValidateFunc: validation.StringInSlice([]string{ // NOTE : May need to use custom enum
+				string(release.AgentArtifactTypeValues.GitHub),
+				string(release.AgentArtifactTypeValues.Tfvc),
+				string(release.AgentArtifactTypeValues.Build),
+				string(release.AgentArtifactTypeValues.Custom),
+				string(release.AgentArtifactTypeValues.ExternalTfsBuild),
+				string(release.AgentArtifactTypeValues.FileShare),
+				string(release.AgentArtifactTypeValues.Jenkins),
+				string(release.AgentArtifactTypeValues.Nuget),
+				string(release.AgentArtifactTypeValues.TfGit),
+				string(release.AgentArtifactTypeValues.TfsOnPrem),
+				string(release.AgentArtifactTypeValues.XamlBuild),
+			}, false),
+		},
+	}
+
+	artifacts := &schema.Schema{
+		Type:     schema.TypeSet,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: artifact,
+		},
+	}
+
 	return &schema.Resource{
 		Create: resourceReleaseDefinitionCreate,
 		Read:   resourceReleaseDefinitionRead,
@@ -881,6 +932,12 @@ func resourceReleaseDefinition() *schema.Resource {
 				Computed: true,
 			},
 			"properties": releaseDefinitionProperties,
+			"artifacts":  artifacts,
+			"comment": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "Managed by terraform",
+			},
 		},
 	}
 }
@@ -1026,10 +1083,12 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 	}
 
 	variableGroups := buildVariableGroups(d.Get("variable_groups").([]interface{}))
+
 	environments, environmentsError := buildEnvironments(d.Get("environments").([]interface{}))
 	if environmentsError != nil {
 		return nil, "", environmentsError
 	}
+
 	variables, variablesError := buildVariables(d.Get("variable").(*schema.Set).List())
 	if variablesError != nil {
 		return nil, "", variablesError
@@ -1039,6 +1098,13 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 	if propertiesErrors != nil {
 		return nil, "", propertiesErrors
 	}
+
+	artifacts, artifactsErrors := buildArtifacts(d.Get("artifacts"))
+	if artifactsErrors != nil {
+		return nil, "", artifactsErrors
+	}
+
+	now := azuredevops.Time{Time: time.Now().UTC()}
 
 	releaseDefinition := release.ReleaseDefinition{
 		Id:                releaseDefinitionReference,
@@ -1052,6 +1118,11 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		ReleaseNameFormat: converter.String(d.Get("release_name_format").(string)),
 		VariableGroups:    &variableGroups,
 		Properties:        &properties,
+		Artifacts:         &artifacts,
+		Comment:           converter.String(d.Get("comment").(string)),
+
+		//CreatedBy:         &webapi.IdentityRef{},
+		CreatedOn: &now,
 	}
 
 	data, err := json.MarshalIndent(releaseDefinition, "", "\t")
@@ -1082,6 +1153,36 @@ func buildEnvironments(environments []interface{}) ([]release.ReleaseDefinitionE
 		environmentsMap[i] = *env
 	}
 	return environmentsMap, nil
+}
+
+func buildArtifacts(d interface{}) ([]release.Artifact, error) {
+	if d != nil {
+		return make([]release.Artifact, 0), nil
+	}
+	d2 := d.([]interface{})
+	artifacts := make([]release.Artifact, len(d2))
+	for i, d3 := range d2 {
+		artifact, err := buildArtifact(d3.(map[string]interface{}))
+		if err != nil {
+			return nil, err
+		}
+		artifacts[i] = artifact
+	}
+	return artifacts, nil
+}
+
+func buildArtifact(d map[string]interface{}) (release.Artifact, error) {
+	// NOTE : Might have to build a custom struct because AgentArtifactType doesn't equal comments in code. See below.
+	// It can have value as 'Build', 'Jenkins', 'GitHub', 'Nuget', 'Team Build (external)', 'ExternalTFSBuild', 'Git', 'TFVC', 'ExternalTfsXamlBuild'.
+	artifactType := release.AgentArtifactType(d["type"].(string))
+	return release.Artifact{
+		Alias: converter.String(d["Alias"].(string)),
+		// DefinitionReference: converter.Bool(d["DefinitionReference"].(bool)),
+		IsPrimary:  converter.Bool(d["IsPrimary"].(bool)),
+		IsRetained: converter.Bool(d["IsRetained"].(bool)),
+		SourceId:   converter.String(d["SourceId"].(string)),
+		Type:       converter.String(string(artifactType)),
+	}, nil
 }
 
 func buildVariableGroups(variableGroups []interface{}) []int {
@@ -1181,10 +1282,14 @@ func buildReleaseDefinitionEnvironment(d map[string]interface{}) (*release.Relea
 	for i, condition := range conditions {
 		asMap := condition.(map[string]interface{})
 		conditionType := release.ConditionType(asMap["condition_type"].(string))
+		value := ""
+		if d["value"] != nil {
+			value = d["value"].(string)
+		}
 		conditionsMap[i] = release.Condition{
 			ConditionType: &conditionType,
 			Name:          converter.String(d["name"].(string)),
-			Value:         converter.String(d["value"].(string)),
+			Value:         converter.String(value),
 		}
 	}
 
