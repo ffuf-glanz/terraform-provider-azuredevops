@@ -29,10 +29,13 @@ func resourceReleaseDefinition() *schema.Resource {
 	}
 
 	configurationVariableValue := map[string]*schema.Schema{
+		"name": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
 		"value": {
 			Type:     schema.TypeString,
-			Optional: true,
-			Default:  "",
+			Required: true,
 		},
 		"allow_override": {
 			Type:     schema.TypeBool,
@@ -46,11 +49,15 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 	}
 
-	configurationVariableMap := &schema.Schema{
-		Type:     schema.TypeMap,
+	configurationVariables := &schema.Schema{
+		Type:     schema.TypeSet,
 		Optional: true,
 		Elem: &schema.Resource{
 			Schema: configurationVariableValue,
+		},
+		Set: func(i interface{}) int {
+			item := i.(map[string]interface{})
+			return schema.HashString(item["name"].(string))
 		},
 	}
 
@@ -507,8 +514,8 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 	}
 
-	propertiesCollection := &schema.Schema{
-		Type:     schema.TypeMap,
+	properties := &schema.Schema{
+		Type:     schema.TypeSet,
 		Optional: true,
 		Elem: &schema.Schema{
 			Type: schema.TypeString,
@@ -565,7 +572,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				"rank": rank,
 				// TODO : Is this something you would want to set
 				// "owner": owner
-				"variables":             configurationVariableMap,
+				"variable":              configurationVariables,
 				"variable_groups":       variableGroups,
 				"pre_deploy_approvals":  releaseDefinitionApprovals,
 				"deploy_step":           releaseDefinitionDeployStep,
@@ -578,7 +585,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				"conditions":            conditions,
 				"execution_policy":      environmentExecutionPolicy,
 				"schedules":             schedules,
-				"properties":            propertiesCollection,
+				"properties":            properties,
 				"pre_deployment_gates":  releaseDefinitionGatesStep,
 				"post_deployment_gates": releaseDefinitionGatesStep,
 				"environment_triggers":  environmentTriggers,
@@ -635,7 +642,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				Optional: true,
 				Default:  "",
 			},
-			"variables": configurationVariableMap,
+			"variable": configurationVariables,
 			"release_name_format": {
 				Type:     schema.TypeString,
 				Optional: true,
@@ -680,7 +687,7 @@ func flattenReleaseDefinition(d *schema.ResourceData, releaseDefinition *release
 	d.Set("variable_groups", *releaseDefinition.VariableGroups)
 	d.Set("source", *releaseDefinition.Source)
 	d.Set("description", *releaseDefinition.Description)
-	d.Set("variables", flattenReleaseDefinitionVariables(releaseDefinition))
+	d.Set("variable", flattenReleaseDefinitionVariables(releaseDefinition))
 	d.Set("release_name_format", *releaseDefinition.ReleaseNameFormat)
 	d.Set("url", *releaseDefinition.Url)
 	d.Set("is_deleted", *releaseDefinition.IsDeleted)
@@ -809,15 +816,26 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		environmentsMap[i] = *env
 	}
 
+	variables := d.Get("variable").(*schema.Set).List()
+	variablesMap := make(map[string]release.ConfigurationVariableValue)
+	for _, variable := range variables {
+		asMap := variable.(map[string]interface{})
+		variablesMap[asMap["name"].(string)] = release.ConfigurationVariableValue{
+			AllowOverride: converter.Bool(asMap["allow_override"].(bool)),
+			Value:         converter.String(asMap["value"].(string)),
+			IsSecret:      converter.Bool(asMap["is_secret"].(bool)),
+		}
+	}
+
 	releaseDefinition := release.ReleaseDefinition{
-		Id:           releaseDefinitionReference,
-		Name:         converter.String(d.Get("name").(string)),
-		Path:         converter.String(d.Get("path").(string)),
-		Revision:     converter.Int(d.Get("revision").(int)),
-		Source:       &release.ReleaseDefinitionSourceValues.RestApi,
-		Description:  converter.String(d.Get("description").(string)),
-		Environments: &environmentsMap,
-		// Variables:
+		Id:                releaseDefinitionReference,
+		Name:              converter.String(d.Get("name").(string)),
+		Path:              converter.String(d.Get("path").(string)),
+		Revision:          converter.Int(d.Get("revision").(int)),
+		Source:            &release.ReleaseDefinitionSourceValues.RestApi,
+		Description:       converter.String(d.Get("description").(string)),
+		Environments:      &environmentsMap,
+		Variables:         &variablesMap,
 		ReleaseNameFormat: converter.String(d.Get("release_name_format").(string)),
 		VariableGroups:    &variableGroupsMap,
 	}
