@@ -65,7 +65,9 @@ github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d h1:xDfNPAt8lFiC1U
 github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d/go.mod h1:6QX/PXZ00z/TKoufEY6K/a0k6AhaJrQKdFe6OfVXsa4=
 github.com/bgentry/speakeasy v0.1.0 h1:ByYyxL9InA1OWqxJqqp2A5pYHUrCiAL6K3J+LKSsQkY=
 github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kBD4zp0CCIs=
+github.com/blang/semver v3.5.1+incompatible h1:cQNTCjp13qL8KC3Nbxr/y2Bqb63oX6wdnnjpJbkM4JQ=
 github.com/blang/semver v3.5.1+incompatible/go.mod h1:kRBLl5iJ+tD4TcOOxsy/0fnwebNt5EWlYSAyrTnjyyk=
+github.com/bmatcuk/doublestar v1.1.5 h1:2bNwBOmhyFEFcoB3tGvTD5xanq+4kyOZlB8wFYbMjkk=
 github.com/bmatcuk/doublestar v1.1.5/go.mod h1:wiQtGV+rzVYxB7WIlirSN++5HPtPlXEo9MEoZQC/PmE=
 github.com/boltdb/bolt v1.3.1/go.mod h1:clJnj/oiGkjum5o1McbSZDSLxVThjynRyGBgiAx27Ps=
 github.com/bsm/go-vlq v0.0.0-20150828105119-ec6e8d4f5f4e/go.mod h1:N+BjUcTjSxc2mtRGSCPsat1kze3CUtvJN3/jTXlp29k=
@@ -180,6 +182,7 @@ github.com/hashicorp/golang-lru v0.5.1 h1:0hERBMJE1eitiLkihrMvRVBYAkpHzc/J3QdDN+
 github.com/hashicorp/golang-lru v0.5.1/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
 github.com/hashicorp/hcl v0.0.0-20170504190234-a4b07c25de5f h1:UdxlrJz4JOnY8W+DbLISwf2B8WXEolNRA8BGCwI9jws=
 github.com/hashicorp/hcl v0.0.0-20170504190234-a4b07c25de5f/go.mod h1:oZtUIOe8dh44I2q6ScRibXws4Ajl+d+nod3AaR9vL5w=
+github.com/hashicorp/hcl/v2 v2.0.0 h1:efQznTz+ydmQXq3BOnRa3AXzvCeTq1P4dKj/z5GLlY8=
 github.com/hashicorp/hcl/v2 v2.0.0/go.mod h1:oVVDG71tEinNGYCxinCYadcmKU9bglqW9pV3txagJ90=
 github.com/hashicorp/hcl2 v0.0.0-20190821123243-0c888d1241f6 h1:JImQpEeUQ+0DPFMaWzLA0GdUNPaUlCXLpfiqkSZBUfc=
 github.com/hashicorp/hcl2 v0.0.0-20190821123243-0c888d1241f6/go.mod h1:Cxv+IJLuBiEhQ7pBYGEuORa0nr4U994pE8mYLuFd7v0=
@@ -195,6 +198,7 @@ github.com/hashicorp/terraform-config-inspect v0.0.0-20190821133035-82a99dc22ef4
 github.com/hashicorp/terraform-config-inspect v0.0.0-20190821133035-82a99dc22ef4/go.mod h1:JDmizlhaP5P0rYTTZB0reDMefAiJyfWPEtugV4in1oI=
 github.com/hashicorp/terraform-plugin-sdk v1.1.1 h1:wQ2HtvOE8K4QYcm2JB8YFw9u7OplFJ2HMV5WOpMRL2Y=
 github.com/hashicorp/terraform-plugin-sdk v1.1.1/go.mod h1:NuwtLpEpPsFaKJPJNGtMcn9vlhe6Ofe+Y6NqXhJgV2M=
+github.com/hashicorp/terraform-svchost v0.0.0-20191011084731-65d371908596 h1:hjyO2JsNZUKT1ym+FAdlBEkGPevazYsmVgIMw7dVELg=
 github.com/hashicorp/terraform-svchost v0.0.0-20191011084731-65d371908596/go.mod h1:kNDNcF7sN4DocDLBkQYz73HGKwN1ANB1blq4lIYLYvg=
 github.com/hashicorp/vault v0.10.4/go.mod h1:KfSyffbKxoVyspOdlaGVjIuwLobi07qD1bAbosPMpP0=
 github.com/hashicorp/yamux v0.0.0-20180604194846-3520598351bb h1:b5rjCoWHc7eqmAS4/qyk21ZsHyb6Mxv/jykxvNTkU4M=
@@ -260,6 +264,7 @@ github.com/mitchellh/go-testing-interface v1.0.0/go.mod h1:kRemZodwjscx+RGhAo8eI
 github.com/mitchellh/go-wordwrap v0.0.0-20150314170334-ad45545899c7/go.mod h1:ZXFpozHsX6DPmq2I0TCekCxypsnAUbP2oI0UX1GXzOo=
 github.com/mitchellh/go-wordwrap v1.0.0 h1:6GlHJ/LTGMrIJbwgdqdl2eEH8o+Exx/0m8ir9Gns0u4=
 github.com/mitchellh/go-wordwrap v1.0.0/go.mod h1:ZXFpozHsX6DPmq2I0TCekCxypsnAUbP2oI0UX1GXzOo=
+github.com/mitchellh/hashstructure v1.0.0 h1:ZkRJX1CyOoTkar7p/mLS5TZU4nJ1Rn/F8u9dGS02Q3Y=
 github.com/mitchellh/hashstructure v1.0.0/go.mod h1:QjSHrPWS+BGUVBYkbTZWEnOh3G1DutKwClXU/ABz6AQ=
 github.com/mitchellh/mapstructure v1.1.2 h1:fmNYVwqnSfB9mZU6OS2O6GsXM+wcskZDuKQzvN1EDeE=
 github.com/mitchellh/mapstructure v1.1.2/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=
