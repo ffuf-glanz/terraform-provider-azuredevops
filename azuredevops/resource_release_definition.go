@@ -967,7 +967,7 @@ func flattenReleaseDefinitionVariables(variableGroup *release.ReleaseDefinition)
 func createReleaseDefinition(clients *config.AggregatedClient, releaseDefinition *release.ReleaseDefinition, project string) (*release.ReleaseDefinition, error) {
 	createdBuild, err := clients.ReleaseClient.CreateReleaseDefinition(clients.Ctx, release.CreateReleaseDefinitionArgs{
 		ReleaseDefinition: releaseDefinition,
-		Project:           converter.String("Merlin"),
+		Project:           &project,
 	})
 
 	return createdBuild, err
