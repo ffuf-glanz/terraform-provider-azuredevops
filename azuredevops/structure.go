@@ -100,7 +100,7 @@ func expandIntList(configured []interface{}) []int {
 }
 
 // Takes the result of schema.Set of strings and returns a []*string
-func expandStringSet(configured *schema.Set) []*string {
+func expandStringSet(configured *schema.Set) []string {
 	return expandStringList(configured.List())
 }
 

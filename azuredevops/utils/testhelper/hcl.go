@@ -141,59 +141,48 @@ resource "azuredevops_build_definition" "build" {
 func TestAccReleaseDefinitionResource(projectName string, releaseDefinitionName string, releasePath string) string {
 	releaseDefinitionResource := fmt.Sprintf(`
 resource "azuredevops_release_definition" "release" {
-	project_id      = azuredevops_project.project.id
-	name            = "%s"
-	path			= "\\"
+  project_id = azuredevops_project.project.id
+  name = "%s"
+  path = "\\"
 
-	environments {
-		conditions {
-			condition_type = "event"
-			name = "ReleaseStarted"
-		}
+  stage {
+    name = "Stage 1"
+    rank = 1
 
-		environment_options {
-		}
+    agent_job {
+      name = "Agent job"
+      rank = 1
 
-		name = "Stage 1"
-		owner_id = "xxx"
+      agent_pool_hosted_azure_pipelines {
+        agent_pool = 0
+        agent_specification = "ubuntu-18.04"
+      }
 
-		deploy_phases {
-			name = "Agent job"
-			phase_type = "agentBasedDeployment"
-			agent_deployment_input {
-				queue_id = 52 // TODO : how to get this value?
-				condition = "succeeded()"
-				agent_specification_identifier = "vs2017-win2016" // TODO : how to get this value?
-			}
-		}
+      parallelism = "None"
+      timeout_in_minutes = 0
+      max_execution_time_in_minutes = 1
+      condition = "succeedeed()"
+    }
 
-		deploy_step {
-		}
+    pre_deploy_approvals {
+      approval {
+        is_automated = true
+        rank = 1
+      }
+    }
 
-		retention_policy {
-		}
+    post_deploy_approvals {
+      approval {
+        is_automated = true
+        rank = 1
+      }
+    }
 
-		pre_deploy_approvals {
-			approvals {
-			}
-			approval_options {
-				execution_order = "beforeGates"
-			}
-		}
-		
-		post_deploy_approvals {
-			approvals {
-			}
-			approval_options {
-				execution_order = "afterSuccessfulGates"
-			}
-		}
-
-		properties = []
-	}
-	
-	properties {
-	}
+    retention_policy {
+      days_to_keep = 1
+      releases_to_keep = 1
+    }
+  }
 }`, releaseDefinitionName)
 
 	projectResource := TestAccProjectResource(projectName)
