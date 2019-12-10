@@ -143,22 +143,7 @@ func TestAccReleaseDefinitionResource(projectName string, releaseDefinitionName 
 resource "azuredevops_release_definition" "release" {
 	project_id      = azuredevops_project.project.id
 	name            = "%s"
-	path			= "%s"
-
-	//variable {
-	//	name = "one"
-	//	value = "ONE"
-	//}
-	//variable {
-	//	name = "two"
-	//	value = "TWO"
-	//	allow_override = true
-	//}
-	//variable {
-	//	name = "three"
-	//	value = "THREE"
-	//	is_secret = true
-	//}
+	path			= "\\"
 
 	environments {
 		conditions {
@@ -209,7 +194,7 @@ resource "azuredevops_release_definition" "release" {
 	
 	properties {
 	}
-}`, releaseDefinitionName, strings.ReplaceAll(releasePath, `\`, `\\`))
+}`, releaseDefinitionName)
 
 	projectResource := TestAccProjectResource(projectName)
 	return fmt.Sprintf("%s\n%s", projectResource, releaseDefinitionResource)
