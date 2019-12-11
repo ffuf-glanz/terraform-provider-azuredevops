@@ -153,6 +153,15 @@ resource "azuredevops_release_definition" "release" {
       name = "Agent job"
       rank = 1
 
+ 	  demand {
+		name =  "equals_condition_name"
+		value = "x"
+	  }
+
+      demand {
+		name =  "exists_condition_name"
+	  }
+
       agent_pool_hosted_azure_pipelines {
         agent_pool_id = 52
         agent_specification = "ubuntu-18.04"

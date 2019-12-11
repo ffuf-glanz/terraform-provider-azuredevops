@@ -394,10 +394,10 @@ func expandReleaseAgentDeploymentInput(d map[string]interface{}) (*release.Agent
 	//	return nil, err
 	//}
 	//
-	//demands, demandsError := expandReleaseDefinitionDemandList(d["demands"].(*schema.Set).List())
-	//if demandsError != nil {
-	//	return nil, demandsError
-	//}
+	demands, demandsError := expandReleaseDefinitionDemandList(d["demand"].(*schema.Set).List())
+	if demandsError != nil {
+		return nil, demandsError
+	}
 
 	queueId := converter.Int(0)
 	configAgentPoolHostedAzurePipelines := d["agent_pool_hosted_azure_pipelines"].(*schema.Set).List()
@@ -438,7 +438,7 @@ func expandReleaseAgentDeploymentInput(d map[string]interface{}) (*release.Agent
 		OverrideInputs:            nil, // TODO : OverrideInputs
 		TimeoutInMinutes:          converter.Int(d["timeout_in_minutes"].(int)),
 		//ArtifactsDownloadInput:    artifactsDownloadInput,
-		//Demands:                   &demands,
+		Demands: &demands,
 		//EnableAccessToken:         converter.Bool(d["enable_access_token"].(bool)), // TODO : enable_access_token
 		QueueId: queueId,
 		//SkipArtifactsDownload:     converter.Bool(d["skip_artifacts_download"].(bool)),
@@ -506,9 +506,13 @@ func expandReleaseDefinitionDemandList(demands []interface{}) ([]interface{}, er
 }
 
 func expandReleaseDefinitionDemand(d map[string]interface{}) (interface{}, error) {
+	name := d["name"].(string)
+	configValue := d["value"].(string)
+	if len(configValue) > 0 {
+		name += " -equals " + configValue
+	}
 	demand := ReleaseDefinitionDemand{
-		Name:  converter.String(d["name"].(string)),
-		Value: converter.String(d["value"].(string)),
+		Name: converter.String(name),
 	}
 	return demand, nil
 }
