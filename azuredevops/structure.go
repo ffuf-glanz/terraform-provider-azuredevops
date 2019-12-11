@@ -362,19 +362,21 @@ func expandReleaseDeployPhase(d map[string]interface{}, t release.DeployPhaseTyp
 	var deploymentInput interface{}
 	switch t {
 	case release.DeployPhaseTypesValues.AgentBasedDeployment:
-		//agentDeploymentInput := d["agent_deployment_input"].(*schema.Set).List()
-		//if len(agentDeploymentInput) != 1 {
-		//	return nil, fmt.Errorf("unexpectedly did not find a agent deployment input in the deploy phases data")
-		//}
-		//agentDeploymentInputMap, deploymentInputErrors := expandReleaseAgentDeploymentInput(agentDeploymentInput[0].(map[string]interface{}))
-		//if deploymentInputErrors != nil {
-		//	return nil, deploymentInputErrors
-		//}
-		//deploymentInput = agentDeploymentInputMap
+		{
+			agentDeploymentInput, err := expandReleaseAgentDeploymentInput(d)
+			if err != nil {
+				return nil, err
+			}
+			deploymentInput = agentDeploymentInput
+		}
+	case release.DeployPhaseTypesValues.MachineGroupBasedDeployment:
+		{
+			deploymentInput = &release.MachineGroupDeploymentInput{}
+		}
 	}
 
 	deployPhase := ReleaseDeployPhase{
-		DeploymentInput: &deploymentInput,
+		DeploymentInput: &deploymentInput, // release.AgentDeploymentInput || release.MachineGroupDeploymentInput{}
 		Rank:            converter.Int(d["rank"].(int)),
 		PhaseType:       &t,
 		Name:            converter.String(d["name"].(string)),
@@ -384,32 +386,39 @@ func expandReleaseDeployPhase(d map[string]interface{}, t release.DeployPhaseTyp
 	return deployPhase, nil
 }
 
-func expandReleaseAgentDeploymentInput(d map[string]interface{}) (interface{}, error) {
-	artifactsDownloadInput, err := expandReleaseArtifactsDownloadInput(d["artifacts_download_input"].(*schema.Set).List())
-	if err != nil {
-		return nil, err
+func expandReleaseAgentDeploymentInput(d map[string]interface{}) (*release.AgentDeploymentInput, error) {
+	//artifactsDownloadInput, err := expandReleaseArtifactsDownloadInput(d["artifacts_download_input"].(*schema.Set).List())
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//demands, demandsError := expandReleaseDefinitionDemandList(d["demands"].(*schema.Set).List())
+	//if demandsError != nil {
+	//	return nil, demandsError
+	//}
+	parallelExecutionType := release.ParallelExecutionTypesValues.None
+	if d["multi_configuration"] != nil {
+		parallelExecutionType = release.ParallelExecutionTypesValues.MultiConfiguration
 	}
 
-	demands, demandsError := expandReleaseDefinitionDemandList(d["demands"].(*schema.Set).List())
-	if demandsError != nil {
-		return nil, demandsError
+	if d["multi_agent"] != nil {
+		parallelExecutionType = release.ParallelExecutionTypesValues.MultiMachine
+
 	}
 
-	parallelExecutionType := release.ParallelExecutionTypes(d["parallel_execution_type"].(string))
-
-	return release.AgentDeploymentInput{
+	return &release.AgentDeploymentInput{
 		Condition:                 converter.String(d["condition"].(string)),
-		JobCancelTimeoutInMinutes: converter.Int(d["job_cancel_timeout_in_minutes"].(int)),
+		JobCancelTimeoutInMinutes: converter.Int(d["max_execution_time_in_minutes"].(int)),
 		OverrideInputs:            nil, // TODO : OverrideInputs
 		TimeoutInMinutes:          converter.Int(d["timeout_in_minutes"].(int)),
-		ArtifactsDownloadInput:    artifactsDownloadInput,
-		Demands:                   &demands,
-		EnableAccessToken:         converter.Bool(d["enable_access_token"].(bool)),
-		QueueId:                   converter.Int(d["queue_id"].(int)),
-		SkipArtifactsDownload:     converter.Bool(d["skip_artifacts_download"].(bool)),
-		AgentSpecification: &release.AgentSpecification{
-			Identifier: converter.String(d["agent_specification_identifier"].(string)),
-		},
+		//ArtifactsDownloadInput:    artifactsDownloadInput,
+		//Demands:                   &demands,
+		//EnableAccessToken:         converter.Bool(d["enable_access_token"].(bool)), // TODO : enable_access_token
+		//QueueId:                   converter.Int(d["queue_id"].(int)),
+		//SkipArtifactsDownload:     converter.Bool(d["skip_artifacts_download"].(bool)),
+		//AgentSpecification: &release.AgentSpecification{
+		//	Identifier: converter.String(d["agent_specification_identifier"].(string)),
+		//},
 		// ImageId: converter.Int(d["image_id"].(int)),
 		ParallelExecution: &release.ExecutionInput{
 			ParallelExecutionType: &parallelExecutionType,

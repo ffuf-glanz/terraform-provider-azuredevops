@@ -851,6 +851,8 @@ func resourceReleaseDefinition() *schema.Resource {
 					},
 				},
 				"agent_deployment_input": agentDeploymentInput,
+				// "queue_id"
+				// "skip_artifacts_download"
 			},
 		},
 	}

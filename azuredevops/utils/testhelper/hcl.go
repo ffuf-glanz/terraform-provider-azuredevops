@@ -161,7 +161,49 @@ resource "azuredevops_release_definition" "release" {
       timeout_in_minutes = 0
       max_execution_time_in_minutes = 1
       condition = "succeedeed()"
+
+		// overrideInput {} // TODO
+		// enable_access_token ? Do we need this on this level?
     }
+
+    pre_deploy_approval {
+      approval {
+        is_automated = true
+        rank = 1
+      }
+    }
+
+    post_deploy_approval {
+      approval {
+        is_automated = true
+        rank = 1
+      }
+    }
+
+    retention_policy {
+      days_to_keep = 1
+      releases_to_keep = 1
+    }
+  }
+}`, releaseDefinitionName)
+
+	projectResource := TestAccProjectResource(projectName)
+	return fmt.Sprintf("%s\n%s", projectResource, releaseDefinitionResource)
+}
+
+func TestAccReleaseDefinitionResourceTemp(projectName string, releaseDefinitionName string, releasePath string) string {
+	releaseDefinitionResource := fmt.Sprintf(`
+resource "azuredevops_release_definition" "release" {
+  project_id = azuredevops_project.project.id
+  name = "%s"
+  path = "\\"
+
+  stage {
+    name = "Stage 1"
+    rank = 1
+
+    // TODO : add deployment_group_job 
+
 
     pre_deploy_approval {
       approval {
