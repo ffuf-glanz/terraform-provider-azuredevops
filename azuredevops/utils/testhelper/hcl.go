@@ -194,7 +194,7 @@ resource "azuredevops_release_definition" "release" {
 func TestAccReleaseDefinitionResourceTemp(projectName string, releaseDefinitionName string, releasePath string) string {
 	releaseDefinitionResource := fmt.Sprintf(`
 resource "azuredevops_release_definition" "release" {
-  project_id = azuredevops_project.project.id
+  project_id = "merlin"
   name = "%s"
   path = "\\"
 
