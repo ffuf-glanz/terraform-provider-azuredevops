@@ -154,24 +154,23 @@ resource "azuredevops_release_definition" "release" {
       rank = 1
 
       agent_pool_hosted_azure_pipelines {
-        agent_pool = 0
+        //agent_pool = 0
         agent_specification = "ubuntu-18.04"
       }
 
-      parallelism = "None"
       timeout_in_minutes = 0
       max_execution_time_in_minutes = 1
       condition = "succeedeed()"
     }
 
-    pre_deploy_approvals {
+    pre_deploy_approval {
       approval {
         is_automated = true
         rank = 1
       }
     }
 
-    post_deploy_approvals {
+    post_deploy_approval {
       approval {
         is_automated = true
         rank = 1

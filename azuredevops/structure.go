@@ -258,13 +258,13 @@ func expandReleaseDefinitionEnvironment(d map[string]interface{}) (*release.Rele
 		return nil, err
 	}
 
-	configPreDeployApprovals := d["pre_deploy_approvals"].(*schema.Set).List()
+	configPreDeployApprovals := d["pre_deploy_approval"].(*schema.Set).List()
 	preDeployApprovals, err2 := expandReleaseDefinitionApprovals(configPreDeployApprovals[0].(map[string]interface{}))
 	if err2 != nil {
 		return nil, err2
 	}
 
-	configPostDeployApprovals := d["post_deploy_approvals"].(*schema.Set).List()
+	configPostDeployApprovals := d["post_deploy_approval"].(*schema.Set).List()
 	postDeployApprovals, err3 := expandReleaseDefinitionApprovals(configPostDeployApprovals[0].(map[string]interface{}))
 	if err3 != nil {
 		return nil, err3
@@ -336,8 +336,8 @@ func expandReleaseDeployPhaseList(d []interface{}, t release.DeployPhaseTypes) (
 			v2, err := expandReleaseDeployPhase(val, t)
 			if err != nil {
 				return nil, err
-				vs = append(vs, v2)
 			}
+			vs = append(vs, v2)
 		}
 	}
 	return vs, nil
@@ -529,7 +529,7 @@ func expandReleaseEnvironmentRetentionPolicy(d map[string]interface{}) (*release
 }
 
 func expandReleaseDefinitionApprovals(d map[string]interface{}) (*release.ReleaseDefinitionApprovals, error) {
-	configurationApprovals := d["approvals"].([]interface{})
+	configurationApprovals := d["approval"].(*schema.Set).List()
 	approvals, err := expandReleaseDefinitionApprovalStepList(configurationApprovals)
 	if err != nil {
 		return nil, err

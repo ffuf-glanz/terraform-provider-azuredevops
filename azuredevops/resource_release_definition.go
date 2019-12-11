@@ -781,7 +781,7 @@ func resourceReleaseDefinition() *schema.Resource {
 					Required: true,
 				},
 				"rank": rank,
-				"hosted_azure_pipelines_agent_pool": {
+				"agent_pool_hosted_azure_pipelines": {
 					Type:     schema.TypeSet,
 					Optional: true,
 					MinItems: 1,
@@ -804,23 +804,21 @@ func resourceReleaseDefinition() *schema.Resource {
 							},
 						},
 					},
-					ConflictsWith: []string{"private_agent_pool"},
 				},
-				//"private_agent_pool": {
-				//	Type:     schema.TypeSet,
-				//	Optional: true,
-				//	MinItems: 1,
-				//	MaxItems: 1,
-				//	Elem: &schema.Resource{
-				//		Schema: map[string]*schema.Schema{
-				//			"agent_pool_id": {
-				//				Type:     schema.TypeString,
-				//				Required: true,
-				//			},
-				//		},
-				//	},
-				//	ConflictsWith: []string{"hosted_azure_pipelines_agent_pool"},
-				//},
+				"agent_pool_private": {
+					Type:     schema.TypeSet,
+					Optional: true,
+					MinItems: 1,
+					MaxItems: 1,
+					Elem: &schema.Resource{
+						Schema: map[string]*schema.Schema{
+							"agent_pool_id": {
+								Type:     schema.TypeString,
+								Required: true,
+							},
+						},
+					},
+				},
 				"timeout_in_minutes": {
 					Type:     schema.TypeInt,
 					Optional: true,
@@ -834,6 +832,38 @@ func resourceReleaseDefinition() *schema.Resource {
 				"condition": {
 					Type:     schema.TypeString,
 					Required: true,
+				},
+				// TODO: if multi_configuration &&  multi_agent == nil (Parallelism === None)
+				"multi_configuration": {
+					Type:     schema.TypeSet,
+					Optional: true,
+					Elem: &schema.Resource{
+						Schema: map[string]*schema.Schema{
+							"number_of_agents": {
+								Type:         schema.TypeInt,
+								Required:     true,
+								ValidateFunc: validation.IntAtLeast(1),
+							},
+						},
+					},
+				},
+				"multi_agent": {
+					Type:     schema.TypeSet,
+					Optional: true,
+					Elem: &schema.Resource{
+						Schema: map[string]*schema.Schema{
+							"multipliers": {
+								Type:        schema.TypeString,
+								Required:    true,
+								Description: "A list of comma separated configuration variables to use. These are defined on the Variables tab. For example, OperatingSystem, Browser will run the tasks for both variables.",
+							},
+							"max_number_of_agents": {
+								Type:         schema.TypeInt,
+								Required:     true,
+								ValidateFunc: validation.IntAtLeast(1),
+							},
+						},
+					},
 				},
 			},
 		},
@@ -864,10 +894,9 @@ func resourceReleaseDefinition() *schema.Resource {
 				//},
 				//"variable":              configurationVariables,
 				//"variable_groups":       variableGroups,
-				"pre_deploy_approvals":  releaseDefinitionApproval,
-				"post_deploy_approvals": releaseDefinitionApproval,
+				"pre_deploy_approval":  releaseDefinitionApproval,
+				"post_deploy_approval": releaseDefinitionApproval,
 				//"deploy_step":           releaseDefinitionDeployStep,
-				//"deploy_phases":         deployPhases,
 				"agent_job":        agentJob,
 				"retention_policy": retentionPolicy,
 
@@ -1120,7 +1149,7 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 
 	//variableGroups := expandIntList(d.Get("variable_groups").([]interface{}))
 
-	environments, environmentsError := expandReleaseDefinitionEnvironmentList(d.Get("stage").([]interface{}))
+	environments, environmentsError := expandReleaseDefinitionEnvironmentList(d.Get("stage").(*schema.Set).List())
 	if environmentsError != nil {
 		return nil, "", environmentsError
 	}
