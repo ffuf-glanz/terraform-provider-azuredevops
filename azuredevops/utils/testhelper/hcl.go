@@ -194,7 +194,7 @@ resource "azuredevops_release_definition" "release" {
 func TestAccReleaseDefinitionResourceTemp(projectName string, releaseDefinitionName string, releasePath string) string {
 	releaseDefinitionResource := fmt.Sprintf(`
 resource "azuredevops_release_definition" "release" {
-  project_id = "merlin"
+  project_id = "merlin" // TODO: revert this back to azuredevops_project.project.id
   name = "%s"
   path = "\\"
 
@@ -202,8 +202,19 @@ resource "azuredevops_release_definition" "release" {
     name = "Stage 1"
     rank = 1
 
-    // TODO : add deployment_group_job 
+    deployment_group_job {
+      name = "Deployment group job"
+      rank = 1
+      deployment_group {
+        group_id = 1619
+      }
+      deployment_health_option = "OneTargetAtATime" // Custom || OneTargetAtATime
 
+      timeout = 0
+      max_execution_time = 1
+      condition = "succeedeed()"
+      // tasks = file('foo.yml')
+    }
 
     pre_deploy_approval {
       approval {
