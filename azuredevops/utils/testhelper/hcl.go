@@ -141,7 +141,7 @@ resource "azuredevops_build_definition" "build" {
 func TestAccReleaseDefinitionResource(projectName string, releaseDefinitionName string, releasePath string) string {
 	releaseDefinitionResource := fmt.Sprintf(`
 resource "azuredevops_release_definition" "release" {
-  project_id = azuredevops_project.project.id
+  project_id = "merlin"
   name = "%s"
   path = "\\"
 
@@ -154,13 +154,13 @@ resource "azuredevops_release_definition" "release" {
       rank = 1
 
       agent_pool_hosted_azure_pipelines {
-        //agent_pool = 0
+        agent_pool_id = 52
         agent_specification = "ubuntu-18.04"
       }
 
       timeout_in_minutes = 0
       max_execution_time_in_minutes = 1
-      condition = "succeedeed()"
+      condition = "succeeded()"
 
 		// overrideInput {} // TODO
 		// enable_access_token ? Do we need this on this level?

@@ -387,6 +387,8 @@ func expandReleaseDeployPhase(d map[string]interface{}, t release.DeployPhaseTyp
 }
 
 func expandReleaseAgentDeploymentInput(d map[string]interface{}) (*release.AgentDeploymentInput, error) {
+	agentSpecification := &release.AgentSpecification{}
+
 	//artifactsDownloadInput, err := expandReleaseArtifactsDownloadInput(d["artifacts_download_input"].(*schema.Set).List())
 	//if err != nil {
 	//	return nil, err
@@ -396,14 +398,38 @@ func expandReleaseAgentDeploymentInput(d map[string]interface{}) (*release.Agent
 	//if demandsError != nil {
 	//	return nil, demandsError
 	//}
-	parallelExecutionType := release.ParallelExecutionTypesValues.None
-	if d["multi_configuration"] != nil {
-		parallelExecutionType = release.ParallelExecutionTypesValues.MultiConfiguration
+
+	queueId := converter.Int(0)
+	configAgentPoolHostedAzurePipelines := d["agent_pool_hosted_azure_pipelines"].(*schema.Set).List()
+	configAgentPoolPrivate := d["agent_pool_private"].(*schema.Set).List()
+
+	lenCaphap, lenCapp := len(configAgentPoolHostedAzurePipelines) > 0, len(configAgentPoolPrivate) > 0
+	if lenCaphap && lenCapp {
+		return nil, fmt.Errorf("conflit %s and %s specify only one", "agent_pool_hosted_azure_pipelines", "agent_pool_private")
 	}
 
-	if d["multi_agent"] != nil {
-		parallelExecutionType = release.ParallelExecutionTypesValues.MultiMachine
+	if lenCaphap {
+		d2 := configAgentPoolHostedAzurePipelines[0].(map[string]interface{})
+		agentSpecification.Identifier = converter.String(d2["agent_specification"].(string))
+		queueId = converter.Int(d2["agent_pool_id"].(int))
+	}
 
+	parallelExecutionType := release.ParallelExecutionTypesValues.None
+	configurationMultiConfiguration := d["multi_configuration"].(*schema.Set).List()
+	configurationMultiAgent := d["multi_agent"].(*schema.Set).List()
+
+	lenCmc, lenCma := len(configurationMultiConfiguration) > 0, len(configurationMultiAgent) > 0
+	if lenCmc && lenCma {
+		return nil, fmt.Errorf("conflit %s and %s specify only one", "multi_configuration", "multi_agent")
+	} else if lenCmc {
+		// multipliers
+		// max num agents
+		// continue on error
+		parallelExecutionType = release.ParallelExecutionTypesValues.MultiConfiguration
+	} else if lenCma {
+		// num of agents
+		// continue
+		parallelExecutionType = release.ParallelExecutionTypesValues.MultiMachine
 	}
 
 	return &release.AgentDeploymentInput{
@@ -414,12 +440,10 @@ func expandReleaseAgentDeploymentInput(d map[string]interface{}) (*release.Agent
 		//ArtifactsDownloadInput:    artifactsDownloadInput,
 		//Demands:                   &demands,
 		//EnableAccessToken:         converter.Bool(d["enable_access_token"].(bool)), // TODO : enable_access_token
-		//QueueId:                   converter.Int(d["queue_id"].(int)),
+		QueueId: queueId,
 		//SkipArtifactsDownload:     converter.Bool(d["skip_artifacts_download"].(bool)),
-		//AgentSpecification: &release.AgentSpecification{
-		//	Identifier: converter.String(d["agent_specification_identifier"].(string)),
-		//},
-		// ImageId: converter.Int(d["image_id"].(int)),
+		AgentSpecification: agentSpecification,
+		// ImageId: ,
 		ParallelExecution: &release.ExecutionInput{
 			ParallelExecutionType: &parallelExecutionType,
 		},

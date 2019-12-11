@@ -773,6 +773,10 @@ func resourceReleaseDefinition() *schema.Resource {
 					MaxItems: 1,
 					Elem: &schema.Resource{
 						Schema: map[string]*schema.Schema{
+							"agent_pool_id": {
+								Type:     schema.TypeInt,
+								Required: true,
+							},
 							"agent_specification": {
 								Type:     schema.TypeString,
 								Required: true,
