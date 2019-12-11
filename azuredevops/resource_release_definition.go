@@ -3,17 +3,14 @@ package azuredevops
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
-	"github.com/microsoft/azure-devops-go-api/azuredevops"
+	"github.com/microsoft/azure-devops-go-api/azuredevops/release"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/config"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/tfhelper"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/validate"
 	"strconv"
-	"time"
-
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	"github.com/microsoft/azure-devops-go-api/azuredevops/release"
 )
 
 func resourceReleaseDefinition() *schema.Resource {
@@ -1121,47 +1118,49 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		releaseDefinitionReference = nil
 	}
 
-	variableGroups := expandIntList(d.Get("variable_groups").([]interface{}))
+	//variableGroups := expandIntList(d.Get("variable_groups").([]interface{}))
 
-	environments, environmentsError := expandReleaseDefinitionEnvironmentList(d.Get("environments").([]interface{}))
+	environments, environmentsError := expandReleaseDefinitionEnvironmentList(d.Get("stage").([]interface{}))
 	if environmentsError != nil {
 		return nil, "", environmentsError
 	}
 
-	variables, variablesError := expandReleaseConfigurationVariableValueSet(d.Get("variable").(*schema.Set).List())
-	if variablesError != nil {
-		return nil, "", variablesError
-	}
+	/*
+		variables, variablesError := expandReleaseConfigurationVariableValueSet(d.Get("variable").(*schema.Set).List())
+		if variablesError != nil {
+			return nil, "", variablesError
+		}
 
-	properties, propertiesErrors := expandReleaseDefinitionsProperties(d.Get("properties").(*schema.Set).List())
-	if propertiesErrors != nil {
-		return nil, "", propertiesErrors
-	}
+		properties, propertiesErrors := expandReleaseDefinitionsProperties(d.Get("properties").(*schema.Set).List())
+		if propertiesErrors != nil {
+			return nil, "", propertiesErrors
+		}
 
-	artifacts, artifactsErrors := expandReleaseArtifactList(d.Get("artifacts"))
-	if artifactsErrors != nil {
-		return nil, "", artifactsErrors
-	}
+		artifacts, artifactsErrors := expandReleaseArtifactList(d.Get("artifacts"))
+		if artifactsErrors != nil {
+			return nil, "", artifactsErrors
+		}
 
-	now := azuredevops.Time{Time: time.Now().UTC()}
+		now := azuredevops.Time{Time: time.Now().UTC()}
+	*/
 
 	releaseDefinition := release.ReleaseDefinition{
-		Id:                releaseDefinitionReference,
-		Name:              converter.String(d.Get("name").(string)),
-		Path:              converter.String(d.Get("path").(string)),
-		Revision:          converter.Int(d.Get("revision").(int)),
-		Source:            &release.ReleaseDefinitionSourceValues.RestApi,
-		Description:       converter.String(d.Get("description").(string)),
-		Environments:      &environments,
-		Variables:         &variables,
-		ReleaseNameFormat: converter.String(d.Get("release_name_format").(string)),
-		VariableGroups:    &variableGroups,
-		Properties:        &properties,
-		Artifacts:         &artifacts,
-		Comment:           converter.String(d.Get("comment").(string)),
+		Id:   releaseDefinitionReference,
+		Name: converter.String(d.Get("name").(string)),
+		Path: converter.String(d.Get("path").(string)),
+		//Revision:          converter.Int(d.Get("revision").(int)),
+		//Source:            &release.ReleaseDefinitionSourceValues.RestApi,
+		//Description:       converter.String(d.Get("description").(string)),
+		Environments: environments,
+		//Variables:         &variables,
+		//ReleaseNameFormat: converter.String(d.Get("release_name_format").(string)),
+		//VariableGroups:    &variableGroups,
+		//Properties:        &properties,
+		//Artifacts:         &artifacts,
+		//Comment:           converter.String(d.Get("comment").(string)),
 
 		//CreatedBy:         &webapi.IdentityRef{},
-		CreatedOn: &now,
+		//CreatedOn: &now,
 	}
 
 	data, err := json.Marshal(releaseDefinition)
