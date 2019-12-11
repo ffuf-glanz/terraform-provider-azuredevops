@@ -240,11 +240,6 @@ func expandReleaseDefinitionEnvironment(d map[string]interface{}) (*release.Rele
 			return nil, demandsError
 		}
 
-		deployPhases, deployPhasesError := expandReleaseDeployPhaseList(d["deploy_phases"].([]interface{}))
-		if deployPhasesError != nil {
-			return nil, deployPhasesError
-		}
-
 		environmentOptions, environmentOptionsError := expandReleaseEnvironmentOptions(d["environment_options"].(*schema.Set).List())
 		if environmentOptionsError != nil {
 			return nil, environmentOptionsError
