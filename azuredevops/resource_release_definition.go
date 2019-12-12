@@ -14,6 +14,14 @@ import (
 )
 
 func resourceReleaseDefinition() *schema.Resource {
+	tags := &schema.Schema{
+		Type:     schema.TypeList,
+		Optional: true,
+		Elem: &schema.Schema{
+			Type: schema.TypeString,
+		},
+	}
+
 	rank := &schema.Schema{
 		Type:     schema.TypeInt,
 		Optional: true,
@@ -802,13 +810,7 @@ func resourceReleaseDefinition() *schema.Resource {
 					Type:     schema.TypeInt,
 					Required: true,
 				},
-				"tags": {
-					Type:     schema.TypeList,
-					Optional: true,
-					Elem: &schema.Schema{
-						Type: schema.TypeString,
-					},
-				},
+				"tags": tags,
 				"multiple": {
 					Type:     schema.TypeSet,
 					Optional: true,
@@ -1035,6 +1037,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				Optional: true,
 				Default:  "Managed by terraform",
 			},
+			"tags": tags,
 		},
 	}
 }
@@ -1199,6 +1202,8 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		return nil, "", err5
 	}
 
+	tags := expandStringList(d.Get("tags").([]interface{}))
+
 	releaseDefinition := release.ReleaseDefinition{
 		Id:                releaseDefinitionReference,
 		Name:              converter.String(d.Get("name").(string)),
@@ -1212,6 +1217,7 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		Properties:        &properties,
 		Artifacts:         &artifacts,
 		Comment:           converter.String(d.Get("comment").(string)),
+		Tags:              &tags,
 	}
 
 	data, err := json.Marshal(releaseDefinition)

@@ -285,6 +285,8 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 		buildDefinitionReference = nil
 	}
 
+	tags := expandStringList(d.Get("tags").([]interface{}))
+
 	agentPoolName := d.Get("agent_pool_name").(string)
 	buildDefinition := build.BuildDefinition{
 		Id:       buildDefinitionReference,
@@ -314,6 +316,7 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 		Type:           &build.DefinitionTypeValues.Build,
 		Quality:        &build.DefinitionQualityValues.Definition,
 		VariableGroups: &variableGroups,
+		Tags:           &tags,
 	}
 
 	return &buildDefinition, projectID, nil
