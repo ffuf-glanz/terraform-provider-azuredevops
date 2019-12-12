@@ -139,6 +139,7 @@ resource "azuredevops_build_definition" "build" {
 
 // HCL describing an AzDO release definition
 func TestAccReleaseDefinitionResource(projectName string, releaseDefinitionName string, releasePath string) string {
+	tasks := TestAccReleaseDefinitionTasks()
 	releaseDefinitionResource := fmt.Sprintf(`
 resource "azuredevops_release_definition" "release" {
   project_id = "merlin"
@@ -199,8 +200,24 @@ resource "azuredevops_release_definition" "release" {
 		max_number_of_agents = 1
 	  }
       condition = "succeeded()"
-		// overrideInput {} // TODO
-		// enable_access_token ? Do we need this on this level?
+   	  // overrideInput {} // TODO
+	  // enable_access_token ? Do we need this on this level?
+
+	  dynamic "task" {
+	    for_each = local.tasks
+		content {
+		  always_run =           lookup(task.value, "alwaysRun", null)
+		  condition =            lookup(task.value, "condition", null)
+		  continue_on_error =    lookup(task.value, "continueOnError", null)
+		  enabled =              lookup(task.value, "enabled", null)
+		  display_name =         lookup(task.value, "displayName", null)
+          override_input =       lookup(task.value, "overrideInput", null)
+          inputs =               lookup(task.value, "inputs", null)
+          timeout_in_minutes =   lookup(task.value, "timeoutInMinutes", null)
+          // task MUST come last as it overwites the task
+          task =                 lookup(task.value, "task", null)
+        }
+	  }
     }
 
     pre_deploy_approval {
@@ -222,10 +239,78 @@ resource "azuredevops_release_definition" "release" {
       releases_to_keep = 1
     }
   }
-}`, releaseDefinitionName)
+}
+
+locals {
+  tasks = yamldecode(<<YAML
+%s
+YAML
+  )
+}
+
+`, releaseDefinitionName, tasks)
 
 	projectResource := TestAccProjectResource(projectName)
+
 	return fmt.Sprintf("%s\n%s", projectResource, releaseDefinitionResource)
+}
+
+func TestAccReleaseDefinitionTasks() string {
+	return `
+#refName: ''
+# definitionType: task
+# taskId: a433f589-fce1-4460-9ee6-44a624aeb1fb
+# version: 0.*
+- task: DownloadBuildArtifacts@0
+  displayName: "Download Build Artifacts"        # name: Download Build Artifacts
+  environment:			                        # default nil
+    FOO: bar
+  enabled: true				                    # default
+#  alwaysRun: false			                    # default
+  continueOnError: false	                     # default
+  timeoutInMinutes: 0
+  overrideInputs:			                    # default nil
+    version: abc
+  condition: succeeded()	                    # default
+  inputs:
+    buildType: current                          # default
+    project: 0350d34d-fc00-4e9d-b1c5-78f8a7350b25
+    definition: 80
+    specificBuildWithTriggering: false          # default
+    buildVersionToDownload: specific            # default
+    allowPartiallySucceededBuilds: false        # default
+    branchName: refs/heads/master
+    buildId: ''                                 # default
+    tags: ''                                    # default
+    downloadType: specific                      # default
+    artifactName: ''
+    itemPattern: "**"
+    downloadPath: "$(System.DefaultWorkingDirectory)"
+    parallelizationLimit: '8'
+# taskId: d9bafed4-0b18-4f58-968d-86655b4d2ce9
+# version: 2.*
+- task: CmdLine@2
+  displayName: Add Permissions to AWS Provider Plugin Facility
+  inputs:
+    script: |
+      ls -R
+      chmod 0777 -R .terraform/plugins
+    workingDirectory: "$(System.DefaultWorkingDirectory)/Infrastructure/AWS/environments/dev-1/us-west-2/service_facility/"
+    failOnStderr: false
+- task: TerraformInstaller@0
+  inputs:
+    terraformVersion: '0.11.11'
+- task: AWSShellScript@1
+  displayName: "Terraform Apply Tenant"
+  inputs:
+    awsCredentials: 'merlin-shared-azure-pipelines-build'
+    regionName: 'us-west-2'
+    scriptType: 'inline'
+    inlineScript: |
+      terraform apply tfplan
+    disableAutoCwd: true
+    workingDirectory: '$(System.DefaultWorkingDirectory)/Infrastructure/AWS/environments/dev-1/us-west-2/service_tenant/'
+`
 }
 
 func TestAccReleaseDefinitionResourceTemp(projectName string, releaseDefinitionName string, releasePath string) string {

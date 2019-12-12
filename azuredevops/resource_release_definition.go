@@ -156,67 +156,80 @@ func resourceReleaseDefinition() *schema.Resource {
 	}
 
 	// TODO : import these from a YAML
-	workFlowTask := map[string]*schema.Schema{
+	task := map[string]*schema.Schema{
 		"always_run": {
 			Type:     schema.TypeBool,
-			Required: true,
+			Optional: true,
+			Default:  false,
 		},
 		"condition": {
 			Type:     schema.TypeString,
-			Required: true,
+			Optional: true,
+			Default:  "succeeded()",
 		},
 		"continue_on_error": {
 			Type:     schema.TypeBool,
-			Required: true,
+			Optional: true,
+			Default:  false,
 		},
-		"definition_type": {
-			Type:     schema.TypeString,
-			Required: true,
-		},
+		//"definition_type": {
+		//	Type:     schema.TypeString,
+		//	Required: true,
+		//},
 		"enabled": {
 			Type:     schema.TypeBool,
-			Required: true,
+			Optional: true,
+			Default:  true,
 		},
-		// TODO : Define obj
-		"environment": {
+		// TODO : environment
+		// "environment": environment,
+		// TODO : inputs
+		//"inputs": {
+		//	Type:     schema.TypeString,
+		//	Required: true,
+		//},
+		"display_name": {
 			Type:     schema.TypeString,
-			Required: true,
+			Optional: true,
 		},
-		// TODO : Define obj
-		"inputs": {
-			Type:     schema.TypeString,
-			Required: true,
-		},
-		"name": {
-			Type:     schema.TypeString,
-			Required: true,
-		},
-		// TODO : Define obj
-		"override_inputs": overrideInputs,
-		"ref_name": {
-			Type:     schema.TypeString,
-			Required: true,
-		},
-		"task_id": {
-			Type:     schema.TypeString,
-			Required: true,
-		},
+		"override_input": overrideInputs,
+		// TODO : Remove ref_name
+		//"ref_name": {
+		//	Type:     schema.TypeString,
+		//	Required: true,
+		//},
+		// TODO : Remove task_id is going to be derived from task
+		//"task_id": {
+		//	Type:     schema.TypeString,
+		//	Required: true,
+		//},
+		// TODO : Remove task_id is going to be derived from task
+		//"version": {
+		//	Type:     schema.TypeString,
+		//	Required: true,
+		//},
 		"timeout_in_minutes": {
 			Type:     schema.TypeInt,
-			Required: true,
+			Optional: true,
+			Default:  0,
 		},
-		"version": {
+		"inputs": {
+			Type:     schema.TypeMap,
+			Optional: true,
+		},
+		"task": {
 			Type:     schema.TypeString,
 			Required: true,
+			// ValidateFunc: // TODO check for pattern name@version /[a-zA-Z]+\@\d+/
 		},
 	}
 
 	// TODO : import these from a YAML
-	workflowTasks := &schema.Schema{
+	tasks := &schema.Schema{
 		Type:     schema.TypeList,
 		Optional: true,
 		Elem: &schema.Resource{
-			Schema: workFlowTask,
+			Schema: task,
 		},
 	}
 
@@ -232,7 +245,7 @@ func resourceReleaseDefinition() *schema.Resource {
 					Optional: true,
 					Default:  0,
 				},
-				"tasks": workflowTasks,
+				"tasks": tasks,
 			},
 		},
 	}
@@ -309,7 +322,7 @@ func resourceReleaseDefinition() *schema.Resource {
 	}
 
 	releaseDefinitionGate := map[string]*schema.Schema{
-		"tasks": workflowTasks,
+		"tasks": tasks,
 	}
 
 	releaseDefinitionGates := &schema.Schema{
@@ -630,7 +643,7 @@ func resourceReleaseDefinition() *schema.Resource {
 					Optional: true,
 					Default:  true,
 				},
-				// TODO: is_notification_on
+				// TODO : is_notification_on
 				//"is_notification_on": {
 				//	Type:     schema.TypeBool,
 				//	Optional: true,
@@ -788,8 +801,15 @@ func resourceReleaseDefinition() *schema.Resource {
 						},
 					},
 				},
-				// TODO: skip_artifacts_download
+				// TODO : skip_artifacts_download
 				// "skip_artifacts_download"
+				"task": {
+					Optional: true,
+					Type:     schema.TypeList,
+					Elem: &schema.Resource{
+						Schema: task,
+					},
+				},
 			},
 		},
 	}
@@ -843,7 +863,7 @@ func resourceReleaseDefinition() *schema.Resource {
 					Type:     schema.TypeString,
 					Required: true,
 				},
-				// TODO: skip_artifacts_download
+				// TODO : skip_artifacts_download
 				// "skip_artifacts_download"
 			},
 		},
@@ -900,7 +920,7 @@ func resourceReleaseDefinition() *schema.Resource {
 	}
 
 	stage := &schema.Schema{
-		// TODO: can this be a TypeList and not require the user to supply rank?
+		// TODO : can this be a TypeList and not require the user to supply rank?
 		Type:     schema.TypeSet,
 		Required: true,
 		MinItems: 1,
@@ -991,13 +1011,6 @@ func resourceReleaseDefinition() *schema.Resource {
 			"source": {
 				Type:     schema.TypeString,
 				Computed: true,
-				ValidateFunc: validation.StringInSlice([]string{
-					string(release.ReleaseDefinitionSourceValues.Undefined),
-					string(release.ReleaseDefinitionSourceValues.RestApi),
-					string(release.ReleaseDefinitionSourceValues.PortalExtensionApi),
-					string(release.ReleaseDefinitionSourceValues.Ibiza),
-					string(release.ReleaseDefinitionSourceValues.UserInterface),
-				}, false),
 			},
 			"description": {
 				Type:     schema.TypeString,
