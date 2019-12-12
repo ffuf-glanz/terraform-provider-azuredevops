@@ -62,6 +62,7 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 	}
 
+	// TODO : import these from YAML
 	//taskInputValidation := map[string]*schema.Schema{
 	//	"expression": {
 	//		Type:     schema.TypeString,
@@ -146,6 +147,7 @@ func resourceReleaseDefinition() *schema.Resource {
 		Optional: true,
 	}
 
+	// TODO : import these from a YAML
 	workFlowTask := map[string]*schema.Schema{
 		"always_run": {
 			Type:     schema.TypeBool,
@@ -602,11 +604,13 @@ func resourceReleaseDefinition() *schema.Resource {
 		Optional: true,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
+				// TODO : id
 				//"id": {
 				//	Type:     schema.TypeInt,
 				//	Optional: true,
 				//	Default:  0,
 				//},
+				// TODO : approver_id
 				//"approver_id": {
 				//	Type:         schema.TypeString,
 				//	Optional:     true,
@@ -618,6 +622,7 @@ func resourceReleaseDefinition() *schema.Resource {
 					Optional: true,
 					Default:  true,
 				},
+				// TODO: is_notification_on
 				//"is_notification_on": {
 				//	Type:     schema.TypeBool,
 				//	Optional: true,
@@ -657,11 +662,11 @@ func resourceReleaseDefinition() *schema.Resource {
 					Optional: true,
 					Default:  3,
 				},
-				//"retain_build": {
-				//	Type:     schema.TypeBool,
-				//	Optional: true,
-				//	Default:  true,
-				//},
+				"retain_build": {
+					Type:     schema.TypeBool,
+					Optional: true,
+					Default:  true,
+				},
 			},
 		},
 	}
@@ -734,7 +739,6 @@ func resourceReleaseDefinition() *schema.Resource {
 					Type:     schema.TypeString,
 					Required: true,
 				},
-				// TODO: if multi_configuration &&  multi_agent == nil (Parallelism === None)
 				"multi_configuration": {
 					Type:     schema.TypeSet,
 					Optional: true,
@@ -776,6 +780,7 @@ func resourceReleaseDefinition() *schema.Resource {
 						},
 					},
 				},
+				// TODO: skip_artifacts_download
 				// "skip_artifacts_download"
 			},
 		},
@@ -836,6 +841,7 @@ func resourceReleaseDefinition() *schema.Resource {
 					Type:     schema.TypeString,
 					Required: true,
 				},
+				// TODO: skip_artifacts_download
 				// "skip_artifacts_download"
 			},
 		},
@@ -885,6 +891,7 @@ func resourceReleaseDefinition() *schema.Resource {
 						},
 					},
 				},
+				// TODO : skip_artifacts_download
 				// "skip_artifacts_download"
 			},
 		},
@@ -952,10 +959,10 @@ func resourceReleaseDefinition() *schema.Resource {
 	}
 
 	return &schema.Resource{
-		Create: resourceReleaseDefinitionCreate, // expand
-		Read:   resourceReleaseDefinitionRead,   // flatten
-		Update: resourceReleaseDefinitionUpdate, // expand
-		Delete: resourceReleaseDefinitionDelete, // flatten
+		Create: resourceReleaseDefinitionCreate,
+		Read:   resourceReleaseDefinitionRead,
+		Update: resourceReleaseDefinitionUpdate,
+		Delete: resourceReleaseDefinitionDelete,
 
 		Schema: map[string]*schema.Schema{
 			"project_id": {
@@ -981,7 +988,7 @@ func resourceReleaseDefinition() *schema.Resource {
 			"variable_groups": variableGroups,
 			"source": {
 				Type:     schema.TypeString,
-				Optional: true,
+				Computed: true,
 				ValidateFunc: validation.StringInSlice([]string{
 					string(release.ReleaseDefinitionSourceValues.Undefined),
 					string(release.ReleaseDefinitionSourceValues.RestApi),
@@ -1058,9 +1065,7 @@ func flattenReleaseDefinition(d *schema.ResourceData, releaseDefinition *release
 
 // Convert AzDO Variables data structure to Terraform TypeSet
 func flattenReleaseDefinitionVariables(variableGroup *release.ReleaseDefinition) interface{} {
-	// Preallocate list of variable prop maps
 	variables := make([]map[string]interface{}, len(*variableGroup.Variables))
-
 	index := 0
 	for k, v := range *variableGroup.Variables {
 		variables[index] = map[string]interface{}{
@@ -1172,49 +1177,41 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		releaseDefinitionReference = nil
 	}
 
-	//variableGroups := expandIntList(d.Get("variable_groups").([]interface{}))
+	variableGroups := expandIntList(d.Get("variable_groups").([]interface{}))
 
-	environments, environmentsError := expandReleaseDefinitionEnvironmentList(d.Get("stage").(*schema.Set).List())
-	if environmentsError != nil {
-		return nil, "", environmentsError
+	environments, err2 := expandReleaseDefinitionEnvironmentList(d.Get("stage").(*schema.Set).List())
+	if err2 != nil {
+		return nil, "", err2
 	}
 
-	/*
-		variables, variablesError := expandReleaseConfigurationVariableValueSet(d.Get("variable").(*schema.Set).List())
-		if variablesError != nil {
-			return nil, "", variablesError
-		}
+	variables, err3 := expandReleaseConfigurationVariableValueSet(d.Get("variable").(*schema.Set).List())
+	if err3 != nil {
+		return nil, "", err3
+	}
 
-		properties, propertiesErrors := expandReleaseDefinitionsProperties(d.Get("properties").(*schema.Set).List())
-		if propertiesErrors != nil {
-			return nil, "", propertiesErrors
-		}
+	properties, err4 := expandReleaseDefinitionsProperties(d.Get("properties").(*schema.Set).List())
+	if err4 != nil {
+		return nil, "", err4
+	}
 
-		artifacts, artifactsErrors := expandReleaseArtifactList(d.Get("artifacts"))
-		if artifactsErrors != nil {
-			return nil, "", artifactsErrors
-		}
-
-		now := azuredevops.Time{Time: time.Now().UTC()}
-	*/
+	artifacts, err5 := expandReleaseArtifactList(d.Get("artifacts"))
+	if err5 != nil {
+		return nil, "", err5
+	}
 
 	releaseDefinition := release.ReleaseDefinition{
-		Id:   releaseDefinitionReference,
-		Name: converter.String(d.Get("name").(string)),
-		Path: converter.String(d.Get("path").(string)),
-		//Revision:          converter.Int(d.Get("revision").(int)),
-		//Source:            &release.ReleaseDefinitionSourceValues.RestApi,
-		//Description:       converter.String(d.Get("description").(string)),
-		Environments: environments,
-		//Variables:         &variables,
-		//ReleaseNameFormat: converter.String(d.Get("release_name_format").(string)),
-		//VariableGroups:    &variableGroups,
-		//Properties:        &properties,
-		//Artifacts:         &artifacts,
-		//Comment:           converter.String(d.Get("comment").(string)),
-
-		//CreatedBy:         &webapi.IdentityRef{},
-		//CreatedOn: &now,
+		Id:                releaseDefinitionReference,
+		Name:              converter.String(d.Get("name").(string)),
+		Path:              converter.String(d.Get("path").(string)),
+		Revision:          converter.Int(d.Get("revision").(int)),
+		Description:       converter.String(d.Get("description").(string)),
+		Environments:      environments,
+		Variables:         &variables,
+		ReleaseNameFormat: converter.String(d.Get("release_name_format").(string)),
+		VariableGroups:    &variableGroups,
+		Properties:        &properties,
+		Artifacts:         &artifacts,
+		Comment:           converter.String(d.Get("comment").(string)),
 	}
 
 	data, err := json.Marshal(releaseDefinition)
