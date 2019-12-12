@@ -915,6 +915,11 @@ func resourceReleaseDefinition() *schema.Resource {
 					Optional: true,
 					Default:  0,
 				},
+				"max_execution_time_in_minutes": {
+					Type:     schema.TypeInt,
+					Optional: true,
+					Default:  1,
+				},
 				"condition": {
 					Type:     schema.TypeString,
 					Required: true,
