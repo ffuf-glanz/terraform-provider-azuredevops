@@ -309,7 +309,7 @@ resource "azuredevops_release_definition" "release" {
       name = "Agentless job 1"
       rank = 1
       
-      max_execution_time_in_minutes = 0
+      max_execution_time_in_minutes = 1
       timeout_in_minutes = 0
       condition = "succeeded()"
     }
@@ -321,7 +321,7 @@ resource "azuredevops_release_definition" "release" {
       multi_configuration {
         multipliers = "OperatingSystem"
       }
-	  max_execution_time_in_minutes = 0
+	  max_execution_time_in_minutes = 1
       timeout_in_minutes = 0
       condition = "succeeded()"
     }

@@ -280,6 +280,31 @@ func TestAccAzureDevOpsReleaseDefinition_CreateAndUpdate_Temp(t *testing.T) {
 	})
 }
 
+func TestAccAzureDevOpsReleaseDefinition_CreateAndUpdate_Agentless(t *testing.T) {
+	projectName := testAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	releaseDefinitionPathEmpty := ""
+	releaseDefinitionNameFirst := testAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+
+	tfReleaseDefNode := "azuredevops_release_definition.build"
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testhelper.TestAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccReleaseDefinitionCheckDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testhelper.TestAccReleaseDefinitionResourceAgentless(projectName, releaseDefinitionNameFirst, releaseDefinitionPathEmpty),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrSet(tfReleaseDefNode, "project_id"),
+					resource.TestCheckResourceAttrSet(tfReleaseDefNode, "revision"),
+					resource.TestCheckResourceAttr(tfReleaseDefNode, "name", releaseDefinitionNameFirst),
+					resource.TestCheckResourceAttr(tfReleaseDefNode, "path", releaseDefinitionPathEmpty),
+					testAccCheckReleaseDefinitionResourceExists(releaseDefinitionNameFirst),
+				),
+			},
+		},
+	})
+}
+
 // Given the name of an AzDO release definition, this will return a function that will check whether
 // or not the definition (1) exists in the state and (2) exist in AzDO and (3) has the correct name
 func testAccCheckReleaseDefinitionResourceExists(expectedName string) resource.TestCheckFunc {

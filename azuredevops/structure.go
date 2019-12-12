@@ -35,6 +35,19 @@ type AgentDeploymentInput struct {
 	ParallelExecution interface{} `json:"parallelExecution,omitempty"`
 }
 
+type ServerDeploymentInput struct {
+	// Gets or sets the job condition.
+	Condition *string `json:"condition,omitempty"`
+	// Gets or sets the job cancel timeout in minutes for deployment which are cancelled by user for this release environment.
+	JobCancelTimeoutInMinutes *int `json:"jobCancelTimeoutInMinutes,omitempty"`
+	// Gets or sets the override inputs.
+	OverrideInputs *map[string]string `json:"overrideInputs,omitempty"`
+	// Gets or sets the job execution timeout in minutes for deployment which are queued against this release environment.
+	TimeoutInMinutes *int `json:"timeoutInMinutes,omitempty"`
+	// Gets or sets the parallel execution input.
+	ParallelExecution interface{} `json:"parallelExecution,omitempty"`
+}
+
 type Properties struct {
 	DefinitionCreationSource *string
 	IntegrateJiraWorkItems   *bool
@@ -321,7 +334,13 @@ func expandReleaseDefinitionEnvironment(d map[string]interface{}) (*release.Rele
 		return nil, err5
 	}
 
-	deployPhases := append(agentJobs, deploymentGroupJobs...)
+	configAgentlessJobs := d["agentless_job"].(*schema.Set).List()
+	agentlessJobs, err6 := expandReleaseDeployPhaseList(configAgentlessJobs, release.DeployPhaseTypesValues.RunOnServer)
+	if err6 != nil {
+		return nil, err6
+	}
+
+	deployPhases := append(append(agentJobs, deploymentGroupJobs...), agentlessJobs...)
 
 	releaseDefinitionEnvironment := release.ReleaseDefinitionEnvironment{
 		//Conditions:          &conditionsMap,
@@ -425,6 +444,14 @@ func expandReleaseDeployPhase(d map[string]interface{}, t release.DeployPhaseTyp
 				return nil, err
 			}
 			deploymentInput = machineGroupDeploymentInput
+		}
+	case release.DeployPhaseTypesValues.RunOnServer:
+		{
+			serverDeploymentInput, err := expandReleaseServerDeploymentInput(d)
+			if err != nil {
+				return nil, err
+			}
+			deploymentInput = serverDeploymentInput
 		}
 	}
 
@@ -540,6 +567,34 @@ func expandReleaseAgentDeploymentInput(d map[string]interface{}) (*AgentDeployme
 		AgentSpecification: agentSpecification,
 		// ImageId: ,
 		ParallelExecution: &parallelExecution,
+	}, nil
+}
+
+func expandReleaseServerDeploymentInput(d map[string]interface{}) (*ServerDeploymentInput, error) {
+
+	var parallelExecution interface{}
+	configurationMultiConfiguration := d["multi_configuration"].(*schema.Set).List()
+
+	hasMultiConfig := len(configurationMultiConfiguration) > 0
+	if hasMultiConfig {
+		d2 := configurationMultiConfiguration[0].(map[string]interface{})
+		parallelExecution = &release.MultiConfigInput{
+			Multipliers:           converter.String(d2["multipliers"].(string)),
+			ParallelExecutionType: &release.ParallelExecutionTypesValues.MultiConfiguration,
+			ContinueOnError:       converter.Bool(d2["continue_on_error"].(bool)),
+		}
+	} else {
+		parallelExecution = &release.ExecutionInput{
+			ParallelExecutionType: &release.ParallelExecutionTypesValues.None,
+		}
+	}
+
+	return &ServerDeploymentInput{
+		Condition:                 converter.String(d["condition"].(string)),
+		JobCancelTimeoutInMinutes: converter.Int(d["max_execution_time_in_minutes"].(int)),
+		OverrideInputs:            nil, // TODO : OverrideInputs
+		TimeoutInMinutes:          converter.Int(d["timeout_in_minutes"].(int)),
+		ParallelExecution:         &parallelExecution,
 	}, nil
 }
 

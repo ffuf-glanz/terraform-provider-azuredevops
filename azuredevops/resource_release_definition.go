@@ -328,65 +328,6 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 	}
 
-	// TODO : Remove this?
-	//agentDeploymentInput := &schema.Schema{
-	//	Type:     schema.TypeSet,
-	//	Optional: true,
-	//	MinItems: 1,
-	//	MaxItems: 1,
-	//	Elem: &schema.Resource{
-	//		Schema: map[string]*schema.Schema{
-	//			"condition": {
-	//				Type:     schema.TypeString,
-	//				Optional: true,
-	//			},
-	//			"job_cancel_timeout_in_minutes": {
-	//				Type:     schema.TypeInt,
-	//				Optional: true,
-	//				Default:  1,
-	//			},
-	//			"override_inputs": overrideInputs,
-	//			"timeout_in_minutes": {
-	//				Type:     schema.TypeInt,
-	//				Optional: true,
-	//			},
-	//			"artifacts_download_input": artifactsDownloadInput,
-	//			"enable_access_token": {
-	//				Type:     schema.TypeBool,
-	//				Optional: true,
-	//				Default:  false,
-	//			},
-	//			"queue_id": {
-	//				Type:     schema.TypeInt,
-	//				Required: true,
-	//			},
-	//			"skip_artifacts_download": {
-	//				Type:     schema.TypeBool,
-	//				Optional: true,
-	//				Default:  false,
-	//			},
-	//			"agent_specification_identifier": {
-	//				Type:     schema.TypeString,
-	//				Required: true,
-	//			},
-	//			"image_id": {
-	//				Type:     schema.TypeInt,
-	//				Optional: true,
-	//			},
-	//			"parallel_execution_type": {
-	//				Type:     schema.TypeString,
-	//				Optional: true,
-	//				Default:  release.ParallelExecutionTypesValues.None,
-	//				ValidateFunc: validation.StringInSlice([]string{
-	//					string(release.ParallelExecutionTypesValues.None),
-	//					string(release.ParallelExecutionTypesValues.MultiConfiguration),
-	//					string(release.ParallelExecutionTypesValues.MultiMachine),
-	//				}, false),
-	//			},
-	//		},
-	//	},
-	//}
-
 	environmentOptions := &schema.Schema{
 		Type:     schema.TypeSet,
 		Optional: true,
@@ -886,9 +827,10 @@ func resourceReleaseDefinition() *schema.Resource {
 					Default:  0,
 				},
 				"max_execution_time_in_minutes": {
-					Type:     schema.TypeInt,
-					Optional: true,
-					Default:  1,
+					Type:         schema.TypeInt,
+					Optional:     true,
+					Default:      1,
+					ValidateFunc: validation.IntAtLeast(1),
 				},
 				"condition": {
 					Type:     schema.TypeString,
@@ -916,9 +858,10 @@ func resourceReleaseDefinition() *schema.Resource {
 					Default:  0,
 				},
 				"max_execution_time_in_minutes": {
-					Type:     schema.TypeInt,
-					Optional: true,
-					Default:  1,
+					Type:         schema.TypeInt,
+					Optional:     true,
+					Default:      1,
+					ValidateFunc: validation.IntAtLeast(1),
 				},
 				"condition": {
 					Type:     schema.TypeString,
