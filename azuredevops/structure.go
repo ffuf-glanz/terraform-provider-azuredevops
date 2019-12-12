@@ -460,17 +460,18 @@ func expandReleaseAgentDeploymentInput(d map[string]interface{}) (*AgentDeployme
 	configurationMultiConfiguration := d["multi_configuration"].(*schema.Set).List()
 	configurationMultiAgent := d["multi_agent"].(*schema.Set).List()
 
-	lenCmc, lenCma := len(configurationMultiConfiguration) > 0, len(configurationMultiAgent) > 0
-	if lenCmc && lenCma {
+	lenMultiConfig, lenMultiAgent := len(configurationMultiConfiguration) > 0, len(configurationMultiAgent) > 0
+	if lenMultiConfig && lenMultiAgent {
 		return nil, fmt.Errorf("conflit %s and %s specify only one", "multi_configuration", "multi_agent")
-	} else if lenCmc {
+	} else if lenMultiConfig {
 		d2 := configurationMultiConfiguration[0].(map[string]interface{})
-		parallelExecution = &release.ParallelExecutionInputBase{
+		parallelExecution = &release.MultiConfigInput{
+			Multipliers:           converter.String(d2["multipliers"].(string)),
 			MaxNumberOfAgents:     converter.Int(d2["number_of_agents"].(int)),
 			ParallelExecutionType: &release.ParallelExecutionTypesValues.MultiConfiguration,
 			ContinueOnError:       converter.Bool(d2["continue_on_error"].(bool)),
 		}
-	} else if lenCma {
+	} else if lenMultiAgent {
 		d2 := configurationMultiAgent[0].(map[string]interface{})
 		parallelExecution = &release.ParallelExecutionInputBase{
 			MaxNumberOfAgents:     converter.Int(d2["max_number_of_agents"].(int)),
