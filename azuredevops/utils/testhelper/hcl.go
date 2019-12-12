@@ -294,6 +294,61 @@ resource "azuredevops_release_definition" "release" {
 	return fmt.Sprintf("%s\n%s", projectResource, releaseDefinitionResource)
 }
 
+func TestAccReleaseDefinitionResourceAgentless(projectName string, releaseDefinitionName string, releasePath string) string {
+	releaseDefinitionResource := fmt.Sprintf(`
+resource "azuredevops_release_definition" "release" {
+  project_id = "merlin"
+  name = "%s"
+  path = "\\"
+
+  stage {
+    name = "Stage 1"
+    rank = 1
+
+    agentless_job {
+      name = "Agentless job 1"
+      rank = 1
+
+      timeout_in_minutes = 0
+      condition = "succeeded()"
+    }
+
+    agentless_job {
+      name = "Agentless job 2"
+      rank = 2
+
+      multi_configuration {
+        multipliers = "OperatingSystem"
+      }
+
+      condition = "succeeded()"
+    }
+
+    pre_deploy_approval {
+      approval {
+        is_automated = true
+        rank = 1
+      }
+    }
+
+    post_deploy_approval {
+      approval {
+        is_automated = true
+        rank = 1
+      }
+    }
+
+    retention_policy {
+      days_to_keep = 1
+      releases_to_keep = 1
+    }
+  }
+}`, releaseDefinitionName)
+
+	projectResource := TestAccProjectResource(projectName)
+	return fmt.Sprintf("%s\n%s", projectResource, releaseDefinitionResource)
+}
+
 // TestAccGroupMembershipResource full terraform stanza to standup a group membership
 func TestAccGroupMembershipResource(projectName, groupName, userPrincipalName string) string {
 	membershipDependenciesStanza := TestAccGroupMembershipDependencies(projectName, groupName, userPrincipalName)
