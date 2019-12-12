@@ -212,15 +212,33 @@ resource "azuredevops_release_definition" "release" {
     rank = 1
 
     deployment_group_job {
-      name = "Deployment group job"
+      name = "Deployment group job 1"
       rank = 1
       deployment_group {
         group_id = 1619
       }
-      deployment_health_option = "OneTargetAtATime" // Custom || OneTargetAtATime
-
       timeout = 0
       max_execution_time = 1
+      condition = "succeedeed()"
+      // tasks = file('foo.yml')
+    }
+
+	deployment_group_job {
+      name = "Deployment group job 3"
+      rank = 3
+      deployment_group {
+        group_id = 1619
+      }
+      condition = "succeedeed()"
+      // tasks = file('foo.yml')
+    }
+
+	deployment_group_job {
+      name = "Deployment group job 2"
+      rank = 2
+      deployment_group {
+        group_id = 1619
+      }
       condition = "succeedeed()"
       // tasks = file('foo.yml')
     }

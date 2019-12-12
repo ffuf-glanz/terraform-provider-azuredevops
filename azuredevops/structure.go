@@ -28,29 +28,44 @@ type ReleaseDeployPhase struct {
 	// Rank of the phase.
 	Rank *int `json:"rank,omitempty"`
 
+	// TODO : Figure out if this is used for Deployment Job Group or all 3 Job Types.
 	// Deployment jobs of the phase.
 	//DeploymentJobs *[]release.DeploymentJob `json:"deploymentJobs,omitempty"`
 
-	// Phase execution error logs.
-	//ErrorLog *string `json:"errorLog,omitempty"`
+	// TODO : Add manual_intervention {} (block) under agentless_job { } (block)
+	// List of manual intervention tasks execution information in phase.
+	ManualInterventions *[]release.ManualIntervention `json:"manualInterventions,omitempty"`
 
+	// TODO : Remove below properties after a little R&D
+
+	// TODO : Going to remove Id. As it is Deprecated.
 	// Deprecated:
 	//Id *int `json:"id,omitempty"`
 
-	// List of manual intervention tasks execution information in phase.
-	//ManualInterventions *[]release.ManualIntervention `json:"manualInterventions,omitempty"`
-
+	// TODO : Consider removing ID. As I do not believe you can change the value via the API.
+	// TODO : If you can change via API then allow updating. Also explore if this cause a ForceNew/ForceReplace
 	// ID of the phase.
 	//PhaseId *string `json:"phaseId,omitempty"`
 
+	// TODO : Consider removing RunPlanId. It is stateful data about the current state of the pipeline.
+	// TODO : This does not seem like something one would want with terraform.
 	// Run Plan ID of the phase.
 	//RunPlanId *uuid.UUID `json:"runPlanId,omitempty"`
 
+	// TODO : Consider removing StartedOn. It is stateful data about the current state of the pipeline.
+	// TODO : This does not seem like something one would want with terraform.
 	// Phase start time.
 	//StartedOn *azuredevops.Time `json:"startedOn,omitempty"`
 
+	// TODO : Consider removing Status. It is stateful data about the current state of the pipeline.
+	// TODO : This does not seem like something one would want with terraform.
 	// Status of the phase.
 	//Status *release.DeployPhaseStatus `json:"status,omitempty"`
+
+	// TODO : Consider removing ErrorLog. It is stateful data about the current state of the pipeline.
+	// TODO : This does not seem like something one would want with terraform.
+	// Phase execution error logs.
+	//ErrorLog *string `json:"errorLog,omitempty"`
 }
 
 type ArtifactDownloadModeType string
