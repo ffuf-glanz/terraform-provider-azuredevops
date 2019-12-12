@@ -899,6 +899,49 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 	}
 
+	agentlessJob := &schema.Schema{
+		Type:     schema.TypeSet,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"name": {
+					Type:     schema.TypeString,
+					Required: true,
+				},
+				"override_input": overrideInputs,
+				"rank":           rank,
+				"timeout_in_minutes": {
+					Type:     schema.TypeInt,
+					Optional: true,
+					Default:  0,
+				},
+				"condition": {
+					Type:     schema.TypeString,
+					Required: true,
+				},
+				"multi_configuration": {
+					Type:     schema.TypeSet,
+					Optional: true,
+					Elem: &schema.Resource{
+						Schema: map[string]*schema.Schema{
+							"multipliers": {
+								Type:        schema.TypeString,
+								Required:    true,
+								Description: "A list of comma separated configuration variables to use. These are defined on the Variables tab. For example, OperatingSystem, Browser will run the tasks for both variables.",
+							},
+							"continue_on_error": {
+								Type:     schema.TypeBool,
+								Optional: true,
+								Default:  false,
+							},
+						},
+					},
+				},
+				// "skip_artifacts_download"
+			},
+		},
+	}
+
 	stage := &schema.Schema{
 		// TODO: can this be a TypeList and not require the user to supply rank?
 		Type:     schema.TypeSet,
@@ -929,6 +972,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				"deploy_step":          releaseDefinitionDeployStep,
 				"agent_job":            agentJob,
 				"deployment_group_job": deploymentGroupJob,
+				"agentless_job":        agentlessJob,
 				"retention_policy":     retentionPolicy,
 
 				// TODO : This is missing from the docs
