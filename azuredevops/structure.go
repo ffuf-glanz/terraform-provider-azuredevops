@@ -445,12 +445,12 @@ func expandReleaseAgentDeploymentInput(d map[string]interface{}) (*AgentDeployme
 	configAgentPoolHostedAzurePipelines := d["agent_pool_hosted_azure_pipelines"].(*schema.Set).List()
 	configAgentPoolPrivate := d["agent_pool_private"].(*schema.Set).List()
 
-	lenCaphap, lenCapp := len(configAgentPoolHostedAzurePipelines) > 0, len(configAgentPoolPrivate) > 0
-	if lenCaphap && lenCapp {
+	hasHosted, hasPrivate := len(configAgentPoolHostedAzurePipelines) > 0, len(configAgentPoolPrivate) > 0
+	if hasHosted && hasPrivate {
 		return nil, fmt.Errorf("conflit %s and %s specify only one", "agent_pool_hosted_azure_pipelines", "agent_pool_private")
 	}
 
-	if lenCaphap {
+	if hasHosted {
 		d2 := configAgentPoolHostedAzurePipelines[0].(map[string]interface{})
 		agentSpecification.Identifier = converter.String(d2["agent_specification"].(string))
 		queueId = converter.Int(d2["agent_pool_id"].(int))
@@ -460,10 +460,10 @@ func expandReleaseAgentDeploymentInput(d map[string]interface{}) (*AgentDeployme
 	configurationMultiConfiguration := d["multi_configuration"].(*schema.Set).List()
 	configurationMultiAgent := d["multi_agent"].(*schema.Set).List()
 
-	lenMultiConfig, lenMultiAgent := len(configurationMultiConfiguration) > 0, len(configurationMultiAgent) > 0
-	if lenMultiConfig && lenMultiAgent {
+	hasMultiConfig, hasMultiAgent := len(configurationMultiConfiguration) > 0, len(configurationMultiAgent) > 0
+	if hasMultiConfig && hasMultiAgent {
 		return nil, fmt.Errorf("conflit %s and %s specify only one", "multi_configuration", "multi_agent")
-	} else if lenMultiConfig {
+	} else if hasMultiConfig {
 		d2 := configurationMultiConfiguration[0].(map[string]interface{})
 		parallelExecution = &release.MultiConfigInput{
 			Multipliers:           converter.String(d2["multipliers"].(string)),
@@ -471,7 +471,7 @@ func expandReleaseAgentDeploymentInput(d map[string]interface{}) (*AgentDeployme
 			ParallelExecutionType: &release.ParallelExecutionTypesValues.MultiConfiguration,
 			ContinueOnError:       converter.Bool(d2["continue_on_error"].(bool)),
 		}
-	} else if lenMultiAgent {
+	} else if hasMultiAgent {
 		d2 := configurationMultiAgent[0].(map[string]interface{})
 		parallelExecution = &release.ParallelExecutionInputBase{
 			MaxNumberOfAgents:     converter.Int(d2["max_number_of_agents"].(int)),
