@@ -150,27 +150,55 @@ resource "azuredevops_release_definition" "release" {
     rank = 1
 
     agent_job {
-      name = "Agent job"
+      name = "Agent job 1"
       rank = 1
-
  	  demand {
 		name =  "equals_condition_name"
 		value = "x"
 	  }
-
       demand {
 		name =  "exists_condition_name"
 	  }
-
       agent_pool_hosted_azure_pipelines {
         agent_pool_id = 52
         agent_specification = "ubuntu-18.04"
       }
-
       timeout_in_minutes = 0
       max_execution_time_in_minutes = 1
       condition = "succeeded()"
+		// overrideInput {} // TODO
+		// enable_access_token ? Do we need this on this level?
+    }
 
+	agent_job {
+      name = "Agent job 3"
+      rank = 3
+      agent_pool_hosted_azure_pipelines {
+        agent_pool_id = 52
+        agent_specification = "ubuntu-18.04"
+      }
+	
+	  multi_configuration {
+		multipliers = "OperatingSystem"
+		number_of_agents = 1
+	  }
+
+      condition = "succeeded()"
+		// overrideInput {} // TODO
+		// enable_access_token ? Do we need this on this level?
+    }
+
+	agent_job {
+      name = "Agent job 2"
+      rank = 2
+      agent_pool_hosted_azure_pipelines {
+        agent_pool_id = 52
+        agent_specification = "ubuntu-18.04"
+      }
+	  multi_agent {
+		max_number_of_agents = 1
+	  }
+      condition = "succeeded()"
 		// overrideInput {} // TODO
 		// enable_access_token ? Do we need this on this level?
     }

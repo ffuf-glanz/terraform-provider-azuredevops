@@ -799,10 +799,20 @@ func resourceReleaseDefinition() *schema.Resource {
 					Optional: true,
 					Elem: &schema.Resource{
 						Schema: map[string]*schema.Schema{
+							"multipliers": {
+								Type:        schema.TypeString,
+								Required:    true,
+								Description: "A list of comma separated configuration variables to use. These are defined on the Variables tab. For example, OperatingSystem, Browser will run the tasks for both variables.",
+							},
 							"number_of_agents": {
 								Type:         schema.TypeInt,
 								Required:     true,
 								ValidateFunc: validation.IntAtLeast(1),
+							},
+							"continue_on_error": {
+								Type:     schema.TypeBool,
+								Optional: true,
+								Default:  false,
 							},
 						},
 					},
@@ -812,15 +822,15 @@ func resourceReleaseDefinition() *schema.Resource {
 					Optional: true,
 					Elem: &schema.Resource{
 						Schema: map[string]*schema.Schema{
-							"multipliers": {
-								Type:        schema.TypeString,
-								Required:    true,
-								Description: "A list of comma separated configuration variables to use. These are defined on the Variables tab. For example, OperatingSystem, Browser will run the tasks for both variables.",
-							},
 							"max_number_of_agents": {
 								Type:         schema.TypeInt,
 								Required:     true,
 								ValidateFunc: validation.IntAtLeast(1),
+							},
+							"continue_on_error": {
+								Type:     schema.TypeBool,
+								Optional: true,
+								Default:  false,
 							},
 						},
 					},

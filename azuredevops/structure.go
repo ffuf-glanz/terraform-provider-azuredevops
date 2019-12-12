@@ -8,6 +8,33 @@ import (
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
 )
 
+type AgentDeploymentInput struct {
+	// Gets or sets the job condition.
+	Condition *string `json:"condition,omitempty"`
+	// Gets or sets the job cancel timeout in minutes for deployment which are cancelled by user for this release environment.
+	JobCancelTimeoutInMinutes *int `json:"jobCancelTimeoutInMinutes,omitempty"`
+	// Gets or sets the override inputs.
+	OverrideInputs *map[string]string `json:"overrideInputs,omitempty"`
+	// Gets or sets the job execution timeout in minutes for deployment which are queued against this release environment.
+	TimeoutInMinutes *int `json:"timeoutInMinutes,omitempty"`
+	// Artifacts that downloaded during job execution.
+	ArtifactsDownloadInput *release.ArtifactsDownloadInput `json:"artifactsDownloadInput,omitempty"`
+	// List demands that needs to meet to execute the job.
+	Demands *[]interface{} `json:"demands,omitempty"`
+	// Indicates whether to include access token in deployment job or not.
+	EnableAccessToken *bool `json:"enableAccessToken,omitempty"`
+	// Id of the pool on which job get executed.
+	QueueId *int `json:"queueId,omitempty"`
+	// Indicates whether artifacts downloaded while job execution or not.
+	SkipArtifactsDownload *bool `json:"skipArtifactsDownload,omitempty"`
+	// Specification for an agent on which a job gets executed.
+	AgentSpecification *release.AgentSpecification `json:"agentSpecification,omitempty"`
+	// Gets or sets the image ID.
+	ImageId *int `json:"imageId,omitempty"`
+	// Gets or sets the parallel execution input.
+	ParallelExecution interface{} `json:"parallelExecution,omitempty"`
+}
+
 type Properties struct {
 	DefinitionCreationSource *string
 	IntegrateJiraWorkItems   *bool
@@ -401,7 +428,7 @@ func expandReleaseDeployPhase(d map[string]interface{}, t release.DeployPhaseTyp
 	return deployPhase, nil
 }
 
-func expandReleaseAgentDeploymentInput(d map[string]interface{}) (*release.AgentDeploymentInput, error) {
+func expandReleaseAgentDeploymentInput(d map[string]interface{}) (*AgentDeploymentInput, error) {
 	agentSpecification := &release.AgentSpecification{}
 
 	//artifactsDownloadInput, err := expandReleaseArtifactsDownloadInput(d["artifacts_download_input"].(*schema.Set).List())
@@ -429,7 +456,7 @@ func expandReleaseAgentDeploymentInput(d map[string]interface{}) (*release.Agent
 		queueId = converter.Int(d2["agent_pool_id"].(int))
 	}
 
-	parallelExecutionType := release.ParallelExecutionTypesValues.None
+	var parallelExecution interface{}
 	configurationMultiConfiguration := d["multi_configuration"].(*schema.Set).List()
 	configurationMultiAgent := d["multi_agent"].(*schema.Set).List()
 
@@ -437,17 +464,26 @@ func expandReleaseAgentDeploymentInput(d map[string]interface{}) (*release.Agent
 	if lenCmc && lenCma {
 		return nil, fmt.Errorf("conflit %s and %s specify only one", "multi_configuration", "multi_agent")
 	} else if lenCmc {
-		// multipliers
-		// max num agents
-		// continue on error
-		parallelExecutionType = release.ParallelExecutionTypesValues.MultiConfiguration
+		d2 := configurationMultiConfiguration[0].(map[string]interface{})
+		parallelExecution = &release.ParallelExecutionInputBase{
+			MaxNumberOfAgents:     converter.Int(d2["number_of_agents"].(int)),
+			ParallelExecutionType: &release.ParallelExecutionTypesValues.MultiConfiguration,
+			ContinueOnError:       converter.Bool(d2["continue_on_error"].(bool)),
+		}
 	} else if lenCma {
-		// num of agents
-		// continue
-		parallelExecutionType = release.ParallelExecutionTypesValues.MultiMachine
+		d2 := configurationMultiAgent[0].(map[string]interface{})
+		parallelExecution = &release.ParallelExecutionInputBase{
+			MaxNumberOfAgents:     converter.Int(d2["max_number_of_agents"].(int)),
+			ParallelExecutionType: &release.ParallelExecutionTypesValues.MultiMachine,
+			ContinueOnError:       converter.Bool(d2["continue_on_error"].(bool)),
+		}
+	} else {
+		parallelExecution = &release.ExecutionInput{
+			ParallelExecutionType: &release.ParallelExecutionTypesValues.None,
+		}
 	}
 
-	return &release.AgentDeploymentInput{
+	return &AgentDeploymentInput{
 		Condition:                 converter.String(d["condition"].(string)),
 		JobCancelTimeoutInMinutes: converter.Int(d["max_execution_time_in_minutes"].(int)),
 		OverrideInputs:            nil, // TODO : OverrideInputs
@@ -459,9 +495,7 @@ func expandReleaseAgentDeploymentInput(d map[string]interface{}) (*release.Agent
 		//SkipArtifactsDownload:     converter.Bool(d["skip_artifacts_download"].(bool)),
 		AgentSpecification: agentSpecification,
 		// ImageId: ,
-		ParallelExecution: &release.ExecutionInput{
-			ParallelExecutionType: &parallelExecutionType,
-		},
+		ParallelExecution: &parallelExecution,
 	}, nil
 }
 
