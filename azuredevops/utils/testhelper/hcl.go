@@ -242,21 +242,13 @@ resource "azuredevops_release_definition" "release" {
     deployment_group_job {
       name = "Deployment group job 1"
       rank = 1
-      deployment_group {
-        group_id = 1619
-      }
-      timeout = 0
-      max_execution_time = 1
-      condition = "succeedeed()"
-      // tasks = file('foo.yml')
-    }
-
-	deployment_group_job {
-      name = "Deployment group job 3"
-      rank = 3
-      deployment_group {
-        group_id = 1619
-      }
+      deployment_group_id = 1619 // QueueId
+      //DeploymentHealthOption: OneAtATime
+      tags = ["deployment_group_job_1"]
+      timeout_in_minutes = 0
+      max_execution_time_in_minutes = 1
+      // download_artifact = {}
+      allow_scripts_to_access_oauth_token = true
       condition = "succeedeed()"
       // tasks = file('foo.yml')
     }
@@ -264,9 +256,15 @@ resource "azuredevops_release_definition" "release" {
 	deployment_group_job {
       name = "Deployment group job 2"
       rank = 2
-      deployment_group {
-        group_id = 1619
+      deployment_group_id = 1619
+      tags = ["deployment_group_job_2"]
+      multiple { //DeploymentHealthOption: Custom
+        max_targets_in_parallel = 0 // HealthPercent
       }
+      timeout_in_minutes = 0
+      max_execution_time_in_minutes = 1
+      // download_artifact = {}
+      allow_scripts_to_access_oauth_token = true
       condition = "succeedeed()"
       // tasks = file('foo.yml')
     }

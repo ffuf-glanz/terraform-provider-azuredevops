@@ -314,7 +314,14 @@ func expandReleaseDefinitionEnvironment(d map[string]interface{}) (*release.Rele
 		return nil, err4
 	}
 
-	deployPhases := append(agentJobs)
+	configDeployGroupJobs := d["deployment_group_job"].(*schema.Set).List()
+
+	deploymentGroupJobs, err5 := expandReleaseDeployPhaseList(configDeployGroupJobs, release.DeployPhaseTypesValues.MachineGroupBasedDeployment)
+	if err5 != nil {
+		return nil, err5
+	}
+
+	deployPhases := append(agentJobs, deploymentGroupJobs...)
 
 	releaseDefinitionEnvironment := release.ReleaseDefinitionEnvironment{
 		//Conditions:          &conditionsMap,
@@ -413,7 +420,11 @@ func expandReleaseDeployPhase(d map[string]interface{}, t release.DeployPhaseTyp
 		}
 	case release.DeployPhaseTypesValues.MachineGroupBasedDeployment:
 		{
-			deploymentInput = &release.MachineGroupDeploymentInput{}
+			machineGroupDeploymentInput, err := expandReleaseMachineGroupDeploymentInput(d)
+			if err != nil {
+				return nil, err
+			}
+			deploymentInput = machineGroupDeploymentInput
 		}
 	}
 
@@ -426,6 +437,38 @@ func expandReleaseDeployPhase(d map[string]interface{}, t release.DeployPhaseTyp
 		//WorkflowTasks:   nil,
 	}
 	return deployPhase, nil
+}
+
+func expandReleaseMachineGroupDeploymentInput(d map[string]interface{}) (*release.MachineGroupDeploymentInput, error) {
+
+	demands, demandsError := expandReleaseDefinitionDemandList(d["demand"].(*schema.Set).List())
+	if demandsError != nil {
+		return nil, demandsError
+	}
+
+	deploymentHealthOption := "OneTargetAtATime"
+	configurationMultiple := d["multiple"].(*schema.Set).List()
+	hasMultiple := len(configurationMultiple) > 0
+	if hasMultiple {
+		deploymentHealthOption = "Custom"
+	}
+
+	tags := expandStringList(d["tags"].([]interface{}))
+
+	return &release.MachineGroupDeploymentInput{
+		Condition:                 converter.String(d["condition"].(string)),
+		JobCancelTimeoutInMinutes: converter.Int(d["max_execution_time_in_minutes"].(int)),
+		OverrideInputs:            nil, // TODO : OverrideInputs
+		TimeoutInMinutes:          converter.Int(d["timeout_in_minutes"].(int)),
+		//ArtifactsDownloadInput:    artifactsDownloadInput,
+		Demands:           &demands,
+		EnableAccessToken: converter.Bool(d["allow_scripts_to_access_oauth_token"].(bool)), // TODO : enable_access_token
+		QueueId:           converter.Int(d["deployment_group_id"].(int)),
+		//SkipArtifactsDownload:     converter.Bool(d["skip_artifacts_download"].(bool)),
+		DeploymentHealthOption: converter.String(deploymentHealthOption),
+		//HealthPercent:
+		Tags: &tags,
+	}, nil
 }
 
 func expandReleaseAgentDeploymentInput(d map[string]interface{}) (*AgentDeploymentInput, error) {

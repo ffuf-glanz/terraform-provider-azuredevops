@@ -569,7 +569,7 @@ func resourceReleaseDefinition() *schema.Resource {
 	}
 
 	releaseDefinitionEnvironmentProperties := &schema.Schema{
-		Type:     schema.TypeList,
+		Type:     schema.TypeSet,
 		Optional: true,
 		Elem: &schema.Schema{
 			Type:         schema.TypeString,
@@ -840,6 +840,65 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 	}
 
+	deploymentGroupJob := &schema.Schema{
+		Type:     schema.TypeSet,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"name": {
+					Type:     schema.TypeString,
+					Required: true,
+				},
+				"override_input": overrideInputs,
+				"demand":         demands,
+				"rank":           rank,
+				"deployment_group_id": {
+					Type:     schema.TypeInt,
+					Required: true,
+				},
+				"tags": {
+					Type:     schema.TypeList,
+					Optional: true,
+					Elem: &schema.Schema{
+						Type: schema.TypeString,
+					},
+				},
+				"multiple": {
+					Type:     schema.TypeSet,
+					Optional: true,
+					Elem: &schema.Resource{
+						Schema: map[string]*schema.Schema{
+							"max_targets_in_parallel": {
+								Type:     schema.TypeInt,
+								Required: true,
+							},
+						},
+					},
+				},
+				"allow_scripts_to_access_oauth_token": {
+					Type:     schema.TypeBool,
+					Optional: true,
+					Default:  false,
+				},
+				"timeout_in_minutes": {
+					Type:     schema.TypeInt,
+					Optional: true,
+					Default:  0,
+				},
+				"max_execution_time_in_minutes": {
+					Type:     schema.TypeInt,
+					Optional: true,
+					Default:  1,
+				},
+				"condition": {
+					Type:     schema.TypeString,
+					Required: true,
+				},
+				// "skip_artifacts_download"
+			},
+		},
+	}
+
 	stage := &schema.Schema{
 		// TODO: can this be a TypeList and not require the user to supply rank?
 		Type:     schema.TypeSet,
@@ -869,6 +928,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				"post_deploy_approval": releaseDefinitionApproval,
 				"deploy_step":          releaseDefinitionDeployStep,
 				"agent_job":            agentJob,
+				"deployment_group_job": deploymentGroupJob,
 				"retention_policy":     retentionPolicy,
 
 				// TODO : This is missing from the docs
