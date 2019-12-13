@@ -3,6 +3,7 @@ package azuredevops
 import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/release"
+	"github.com/microsoft/azure-devops-go-api/azuredevops/webapi"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
 	"strings"
 )
@@ -221,16 +222,18 @@ func expandReleaseConditionSet(d *schema.Set) []release.Condition {
 	return expandReleaseConditionList(d.List())
 }
 
+// WIP
 func expandReleaseDefinitionEnvironment(d map[string]interface{}) release.ReleaseDefinitionEnvironment {
 	variableGroups := expandIntList(d["variable_groups"].([]interface{}))
 	deployStep := expandReleaseDefinitionDeployStepSet(d["deploy_step"].(*schema.Set))
 	variables := expandReleaseConfigurationVariableValueSet(d["variable"].(*schema.Set))
 	conditions := expandReleaseConditionSet(d["conditions"].(*schema.Set))
-	// demands := expandReleaseDefinitionDemandListSet(d["demands"].(*schema.Set))
-	// environmentOptions := expandReleaseEnvironmentOptions(d["environment_options"].(*schema.Set).List())
-	// retentionPolicy := expandReleaseEnvironmentRetentionPolicySet(d["retention_policy"].(*schema.Set))
-	// preDeployApprovals := expandReleaseDefinitionApprovalsSet(d["pre_deploy_approval"].(*schema.Set)))
-	// postDeployApprovals := expandReleaseDefinitionApprovals(d["post_deploy_approval"].(*schema.Set)))
+	demands := expandReleaseDefinitionDemandSet(d["demands"].(*schema.Set))
+	environmentOptions := expandReleaseEnvironmentOptionsSet(d["environment_options"].(*schema.Set))
+	retentionPolicy := expandReleaseEnvironmentRetentionPolicySet(d["retention_policy"].(*schema.Set))
+	preDeployApprovals := expandReleaseDefinitionApprovalsSet(d["pre_deploy_approval"].(*schema.Set))
+	postDeployApprovals := expandReleaseDefinitionApprovalsSet(d["post_deploy_approval"].(*schema.Set))
+	properties := expandReleaseDefinitionsPropertiesSet(d["properties"].(*schema.Set))
 	agentJobs := expandReleaseDeployPhaseSet(d["agent_job"].(*schema.Set), release.DeployPhaseTypesValues.AgentBasedDeployment)
 	deploymentGroupJobs := expandReleaseDeployPhaseSet(d["deployment_group_job"].(*schema.Set), release.DeployPhaseTypesValues.MachineGroupBasedDeployment)
 	agentlessJobs := expandReleaseDeployPhaseSet(d["agentless_job"].(*schema.Set), release.DeployPhaseTypesValues.RunOnServer)
@@ -238,31 +241,30 @@ func expandReleaseDefinitionEnvironment(d map[string]interface{}) release.Releas
 	deployPhases := append(append(agentJobs, deploymentGroupJobs...), agentlessJobs...)
 
 	return release.ReleaseDefinitionEnvironment{
-		Conditions: &conditions,
-		//Demands:            &demands,
-		DeployPhases: &deployPhases,
-		DeployStep:   deployStep,
-		//EnvironmentOptions: environmentOptions,
+		Conditions:         &conditions,
+		Demands:            &demands,
+		DeployPhases:       &deployPhases,
+		DeployStep:         deployStep,
+		EnvironmentOptions: environmentOptions,
 		//EnvironmentTriggers: nil,
 		//ExecutionPolicy:     nil,
 		//Id:                  converter.Int(d["id"].(int)),
-		Name: converter.String(d["name"].(string)),
-		//PostDeployApprovals: postDeployApprovals,
+		Name:                converter.String(d["name"].(string)),
+		PostDeployApprovals: postDeployApprovals,
 		//PostDeploymentGates: nil,
-		//PreDeployApprovals: preDeployApprovals,
+		PreDeployApprovals: preDeployApprovals,
 		//PreDeploymentGates:  nil,
 		//ProcessParameters:   nil,
-		//Properties:          &properties,
-		QueueId: nil,
-		Rank:    converter.Int(d["rank"].(int)),
-		//RetentionPolicy: retentionPolicy,
+		Properties:      &properties,
+		QueueId:         nil,
+		Rank:            converter.Int(d["rank"].(int)),
+		RetentionPolicy: retentionPolicy,
 		//RunOptions:      nil,
 		//Schedules:       nil,
 		VariableGroups: &variableGroups,
 		Variables:      &variables,
 	}
 }
-
 func expandReleaseDefinitionEnvironmentList(d []interface{}) []release.ReleaseDefinitionEnvironment {
 	vs := make([]release.ReleaseDefinitionEnvironment, 0, len(d))
 	for _, v := range d {
@@ -436,51 +438,6 @@ func expandReleaseMachineGroupDeploymentInputMultipleSet(d *schema.Set) *Machine
 	return &d2[0]
 }
 
-func expandReleaseMachineGroupDeploymentInput(d map[string]interface{}) *release.MachineGroupDeploymentInput {
-	tags := expandStringList(d["tags"].([]interface{}))
-	downloadInputs := expandReleaseArtifactDownloadInputBaseSet(d["artifact_download"].(*schema.Set))
-	artifactsDownloadInput := &release.ArtifactsDownloadInput{
-		DownloadInputs: &downloadInputs,
-	}
-	demands := expandReleaseDefinitionDemandSet(d["demand"].(*schema.Set))
-	multiple := expandReleaseMachineGroupDeploymentInputMultipleSet(d["multiple"].(*schema.Set))
-	deploymentHealthOption := DeploymentHealthOptionTypeValues.OneTargetAtATime
-	if multiple != nil {
-		deploymentHealthOption = DeploymentHealthOptionTypeValues.Custom
-	}
-	return &release.MachineGroupDeploymentInput{
-		Condition:                 converter.String(d["condition"].(string)),
-		JobCancelTimeoutInMinutes: converter.Int(d["max_execution_time_in_minutes"].(int)),
-		OverrideInputs:            nil, // TODO : OverrideInputs
-		TimeoutInMinutes:          converter.Int(d["timeout_in_minutes"].(int)),
-		ArtifactsDownloadInput:    artifactsDownloadInput,
-		Demands:                   &demands,
-		EnableAccessToken:         converter.Bool(d["allow_scripts_to_access_oauth_token"].(bool)), // TODO : enable_access_token
-		QueueId:                   converter.Int(d["deployment_group_id"].(int)),
-		//SkipArtifactsDownload:     converter.Bool(d["skip_artifacts_download"].(bool)),
-		DeploymentHealthOption: converter.String(string(deploymentHealthOption)),
-		//HealthPercent:
-		Tags: &tags,
-	}
-}
-func expandReleaseMachineGroupDeploymentInputList(d []interface{}) []*release.MachineGroupDeploymentInput {
-	vs := make([]*release.MachineGroupDeploymentInput, 0, len(d))
-	for _, v := range d {
-		val, ok := v.(map[string]interface{})
-		if ok {
-			vs = append(vs, expandReleaseMachineGroupDeploymentInput(val))
-		}
-	}
-	return vs
-}
-func expandReleaseMachineGroupDeploymentInputSet(d *schema.Set) *release.MachineGroupDeploymentInput {
-	d2 := expandReleaseMachineGroupDeploymentInputList(d.List())
-	if len(d2) != 1 {
-		return nil
-	}
-	return d2[0]
-}
-
 func expandReleaseMultiConfigInput(d map[string]interface{}) release.MultiConfigInput {
 	return release.MultiConfigInput{
 		Multipliers:           converter.String(d["multipliers"].(string)),
@@ -580,8 +537,39 @@ func expandReleaseHostedAzurePipelinesSet(d *schema.Set) (*release.AgentSpecific
 	return d2[0].AgentSpecification, *d2[0].QueueId
 }
 
+func expandReleaseArtifactsDownloadInputSet(d *schema.Set) *release.ArtifactsDownloadInput {
+	downloadInputs := expandReleaseArtifactDownloadInputBaseSet(d)
+	return &release.ArtifactsDownloadInput{
+		DownloadInputs: &downloadInputs,
+	}
+}
+
+func expandReleaseMachineGroupDeploymentInput(d map[string]interface{}) *release.MachineGroupDeploymentInput {
+	tags := expandStringList(d["tags"].([]interface{}))
+	artifactsDownloadInput := expandReleaseArtifactsDownloadInputSet(d["artifact_download"].(*schema.Set))
+	demands := expandReleaseDefinitionDemandSet(d["demand"].(*schema.Set))
+	multiple := expandReleaseMachineGroupDeploymentInputMultipleSet(d["multiple"].(*schema.Set))
+	deploymentHealthOption := DeploymentHealthOptionTypeValues.OneTargetAtATime
+	if multiple != nil {
+		deploymentHealthOption = DeploymentHealthOptionTypeValues.Custom
+	}
+	return &release.MachineGroupDeploymentInput{
+		Condition:                 converter.String(d["condition"].(string)),
+		JobCancelTimeoutInMinutes: converter.Int(d["max_execution_time_in_minutes"].(int)),
+		OverrideInputs:            nil, // TODO : OverrideInputs
+		TimeoutInMinutes:          converter.Int(d["timeout_in_minutes"].(int)),
+		ArtifactsDownloadInput:    artifactsDownloadInput,
+		Demands:                   &demands,
+		EnableAccessToken:         converter.Bool(d["allow_scripts_to_access_oauth_token"].(bool)), // TODO : enable_access_token
+		QueueId:                   converter.Int(d["deployment_group_id"].(int)),
+		SkipArtifactsDownload:     converter.Bool(d["skip_artifacts_download"].(bool)),
+		DeploymentHealthOption:    converter.String(string(deploymentHealthOption)),
+		//HealthPercent:
+		Tags: &tags,
+	}
+}
 func expandReleaseAgentDeploymentInput(d map[string]interface{}) AgentDeploymentInput {
-	// artifactsDownloadInput := expandReleaseArtifactsDownloadInputSet(d["artifact_download"].(*schema.Set))
+	artifactsDownloadInput := expandReleaseArtifactsDownloadInputSet(d["artifact_download"].(*schema.Set))
 	demands := expandReleaseDefinitionDemandSet(d["demand"].(*schema.Set))
 	agentPoolPrivate := expandReleaseAgentSpecificationSet(d["agent_pool_private"].(*schema.Set))
 
@@ -615,36 +603,24 @@ func expandReleaseAgentDeploymentInput(d map[string]interface{}) AgentDeployment
 		JobCancelTimeoutInMinutes: converter.Int(d["max_execution_time_in_minutes"].(int)),
 		OverrideInputs:            nil, // TODO : OverrideInputs
 		TimeoutInMinutes:          converter.Int(d["timeout_in_minutes"].(int)),
-		//ArtifactsDownloadInput:    artifactsDownloadInput,
-		Demands: &demands,
-		//EnableAccessToken:         converter.Bool(d["enable_access_token"].(bool)), // TODO : enable_access_token
-		QueueId: &queueId,
-		//SkipArtifactsDownload:     converter.Bool(d["skip_artifacts_download"].(bool)),
-		AgentSpecification: agentSpecification,
+		ArtifactsDownloadInput:    artifactsDownloadInput,
+		Demands:                   &demands,
+		EnableAccessToken:         converter.Bool(d["allow_scripts_to_access_oauth_token"].(bool)), // TODO : enable_access_token
+		QueueId:                   &queueId,
+		SkipArtifactsDownload:     converter.Bool(d["skip_artifacts_download"].(bool)),
+		AgentSpecification:        agentSpecification,
 		// ImageId: ,
 		ParallelExecution: &parallelExecution,
 	}
 }
-
 func expandReleaseServerDeploymentInput(d map[string]interface{}) *ServerDeploymentInput {
-
-	var parallelExecution interface{}
-	configurationMultiConfiguration := d["multi_configuration"].(*schema.Set).List()
-
-	hasMultiConfig := len(configurationMultiConfiguration) > 0
-	if hasMultiConfig {
-		d2 := configurationMultiConfiguration[0].(map[string]interface{})
-		parallelExecution = &release.MultiConfigInput{
-			Multipliers:           converter.String(d2["multipliers"].(string)),
-			ParallelExecutionType: &release.ParallelExecutionTypesValues.MultiConfiguration,
-			ContinueOnError:       converter.Bool(d2["continue_on_error"].(bool)),
-		}
-	} else {
-		parallelExecution = &release.ExecutionInput{
-			ParallelExecutionType: &release.ParallelExecutionTypesValues.None,
-		}
+	var parallelExecution interface{} = &release.ExecutionInput{
+		ParallelExecutionType: &release.ParallelExecutionTypesValues.None,
 	}
-
+	multiConfiguration := expandReleaseMultiConfigInputSet(d["multi_configuration"].(*schema.Set))
+	if multiConfiguration != nil {
+		parallelExecution = multiConfiguration
+	}
 	return &ServerDeploymentInput{
 		Condition:                 converter.String(d["condition"].(string)),
 		JobCancelTimeoutInMinutes: converter.Int(d["max_execution_time_in_minutes"].(int)),
@@ -704,6 +680,13 @@ func expandReleaseDefinitionDemandSet(d *schema.Set) []interface{} {
 func expandReleaseWorkFlowTask(d map[string]interface{}) release.WorkflowTask {
 	task := strings.Split(d["task"].(string), "@")
 	refName, version := task[0], task[1]
+	configInputs := d["inputs"].(map[string]interface{})
+
+	inputs := make(map[string]string)
+	for k, v := range configInputs {
+		inputs[k] = v.(string)
+	}
+
 	return release.WorkflowTask{
 		AlwaysRun:       converter.Bool(d["always_run"].(bool)),
 		Condition:       converter.String(d["condition"].(string)),
@@ -717,6 +700,7 @@ func expandReleaseWorkFlowTask(d map[string]interface{}) release.WorkflowTask {
 		RefName:          &refName,
 		TimeoutInMinutes: converter.Int(d["timeout_in_minutes"].(int)),
 		Version:          &version,
+		Inputs:           &inputs,
 	}
 }
 func expandReleaseWorkFlowTaskList(d []interface{}) []release.WorkflowTask {
@@ -733,73 +717,114 @@ func expandReleaseWorkFlowTaskSet(d *schema.Set) []release.WorkflowTask {
 	return expandReleaseWorkFlowTaskList(d.List())
 }
 
-func expandReleaseEnvironmentRetentionPolicy(d map[string]interface{}) (*release.EnvironmentRetentionPolicy, error) {
-	return &release.EnvironmentRetentionPolicy{
+func expandReleaseEnvironmentRetentionPolicy(d map[string]interface{}) release.EnvironmentRetentionPolicy {
+	return release.EnvironmentRetentionPolicy{
 		DaysToKeep: converter.Int(d["days_to_keep"].(int)),
 		//RetainBuild:    converter.Bool(d["retain_build"].(bool)),
 		ReleasesToKeep: converter.Int(d["releases_to_keep"].(int)),
-	}, nil
+	}
+}
+func expandReleaseEnvironmentRetentionPolicyList(d []interface{}) []release.EnvironmentRetentionPolicy {
+	vs := make([]release.EnvironmentRetentionPolicy, 0, len(d))
+	for _, v := range d {
+		val, ok := v.(map[string]interface{})
+		if ok {
+			vs = append(vs, expandReleaseEnvironmentRetentionPolicy(val))
+		}
+	}
+	return vs
+}
+func expandReleaseEnvironmentRetentionPolicySet(d *schema.Set) *release.EnvironmentRetentionPolicy {
+	d2 := expandReleaseEnvironmentRetentionPolicyList(d.List())
+	if len(d2) != 1 {
+		return nil
+	}
+	return &d2[0]
 }
 
-func expandReleaseDefinitionApprovals(d map[string]interface{}) (*release.ReleaseDefinitionApprovals, error) {
-	configurationApprovals := d["approval"].(*schema.Set).List()
-	approvals, err := expandReleaseDefinitionApprovalStepList(configurationApprovals)
-	if err != nil {
-		return nil, err
+func expandReleaseDefinitionApprovalStep(d map[string]interface{}) release.ReleaseDefinitionApprovalStep {
+	configurationApprover := d["approver"]
+	var approver *webapi.IdentityRef
+	if configurationApprover != nil {
+		approver = &webapi.IdentityRef{
+			Id: converter.String(d["approver_id"].(string)),
+		}
 	}
-
-	//approvalOptions := d["approval_options"].(*schema.Set).List()
-	//if len(approvalOptions) != 1 {
-	//	return nil, fmt.Errorf("unexpectedly did not find a approval options in the approvals data")
-	//}
-	//d2 := approvalOptions[0].(map[string]interface{})
-	//executionOrder := release.ApprovalExecutionOrder(d2["execution_order"].(string))
-
-	releaseDefinitionApprovals := release.ReleaseDefinitionApprovals{
-		Approvals: approvals,
-		//ApprovalOptions: &release.ApprovalOptions{
-		//	AutoTriggeredAndPreviousEnvironmentApprovedCanBeSkipped: converter.Bool(d2["auto_triggered_and_previous_environment_approved_can_be_skipped"].(bool)),
-		//	EnforceIdentityRevalidation:                             converter.Bool(d2["enforce_identity_revalidation"].(bool)),
-		//	ExecutionOrder:                                          &executionOrder,
-		//	ReleaseCreatorCanBeApprover:                             converter.Bool(d2["release_creator_can_be_approver"].(bool)),
-		//	RequiredApproverCount:                                   converter.Int(d2["required_approver_count"].(int)),
-		//	TimeoutInMinutes:                                        converter.Int(d2["timeout_in_minutes"].(int)),
-		//},
+	return release.ReleaseDefinitionApprovalStep{
+		//Id:               converter.Int(d["id"].(int)),
+		Approver:    approver,
+		IsAutomated: converter.Bool(d["is_automated"].(bool)),
+		//IsNotificationOn: converter.Bool(d["is_notification_on"].(bool)),
+		Rank: converter.Int(d["rank"].(int)),
 	}
-	return &releaseDefinitionApprovals, nil
 }
-
-func expandReleaseDefinitionApprovalStepList(d []interface{}) (*[]release.ReleaseDefinitionApprovalStep, error) {
+func expandReleaseDefinitionApprovalStepList(d []interface{}) []release.ReleaseDefinitionApprovalStep {
 	vs := make([]release.ReleaseDefinitionApprovalStep, 0, len(d))
 	for _, v := range d {
 		val, ok := v.(map[string]interface{})
 		if ok {
-			v2, err := expandReleaseDefinitionApprovalStep(val)
-			if err != nil {
-				return nil, err
-			}
-			vs = append(vs, v2)
+			vs = append(vs, expandReleaseDefinitionApprovalStep(val))
 		}
 	}
-	return &vs, nil
+	return vs
+}
+func expandReleaseDefinitionApprovalStepSet(d *schema.Set) []release.ReleaseDefinitionApprovalStep {
+	return expandReleaseDefinitionApprovalStepList(d.List())
 }
 
-func expandReleaseDefinitionApprovalStep(d map[string]interface{}) (release.ReleaseDefinitionApprovalStep, error) {
-	//configurationApprover := d["approver"]
-	//var approverMap *webapi.IdentityRef
-	//if configurationApprover != nil {
-	//	approverMap = &webapi.IdentityRef{
-	//		Id: converter.String(d["approver_id"].(string)),
-	//	}
-	//}
+func expandReleaseApprovalOptions(d map[string]interface{}) release.ApprovalOptions {
+	executionOrder := release.ApprovalExecutionOrder(d["execution_order"].(string))
+	return release.ApprovalOptions{
+		AutoTriggeredAndPreviousEnvironmentApprovedCanBeSkipped: converter.Bool(d["auto_triggered_and_previous_environment_approved_can_be_skipped"].(bool)),
+		EnforceIdentityRevalidation:                             converter.Bool(d["enforce_identity_revalidation"].(bool)),
+		ExecutionOrder:                                          &executionOrder,
+		ReleaseCreatorCanBeApprover:                             converter.Bool(d["release_creator_can_be_approver"].(bool)),
+		RequiredApproverCount:                                   converter.Int(d["required_approver_count"].(int)),
+		TimeoutInMinutes:                                        converter.Int(d["timeout_in_minutes"].(int)),
+	}
+}
+func expandReleaseApprovalOptionsList(d []interface{}) []release.ApprovalOptions {
+	vs := make([]release.ApprovalOptions, 0, len(d))
+	for _, v := range d {
+		val, ok := v.(map[string]interface{})
+		if ok {
+			vs = append(vs, expandReleaseApprovalOptions(val))
+		}
+	}
+	return vs
+}
+func expandReleaseApprovalOptionsSet(d *schema.Set) *release.ApprovalOptions {
+	d2 := expandReleaseApprovalOptionsList(d.List())
+	if len(d2) != 1 {
+		return nil
+	}
+	return &d2[0]
+}
 
-	return release.ReleaseDefinitionApprovalStep{
-		//Id:               converter.Int(d["id"].(int)),
-		//Approver:         approver,
-		IsAutomated: converter.Bool(d["is_automated"].(bool)),
-		//IsNotificationOn: converter.Bool(d["is_notification_on"].(bool)),
-		Rank: converter.Int(d["rank"].(int)),
-	}, nil
+func expandReleaseDefinitionApprovals(d map[string]interface{}) release.ReleaseDefinitionApprovals {
+	approvals := expandReleaseDefinitionApprovalStepSet(d["approval"].(*schema.Set))
+	approvalOptions := expandReleaseApprovalOptionsSet(d["approval_options"].(*schema.Set))
+	return release.ReleaseDefinitionApprovals{
+		Approvals:       &approvals,
+		ApprovalOptions: approvalOptions,
+	}
+}
+func expandReleaseDefinitionApprovalsList(d []interface{}) []release.ReleaseDefinitionApprovals {
+	vs := make([]release.ReleaseDefinitionApprovals, 0, len(d))
+	for _, v := range d {
+		val, ok := v.(map[string]interface{})
+		if ok {
+			vs = append(vs, expandReleaseDefinitionApprovals(val))
+		}
+	}
+	return vs
+}
+func expandReleaseDefinitionApprovalsSet(d *schema.Set) *release.ReleaseDefinitionApprovals {
+	d2 := expandReleaseDefinitionApprovalsList(d.List())
+	if len(d2) != 1 {
+		return nil
+	}
+	return &d2[0]
 }
 
 func flattenStringList(list []*string) []interface{} {
@@ -809,7 +834,6 @@ func flattenStringList(list []*string) []interface{} {
 	}
 	return vs
 }
-
 func flattenStringSet(list []*string) *schema.Set {
 	return schema.NewSet(schema.HashString, flattenStringList(list))
 }

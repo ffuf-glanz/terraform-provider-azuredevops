@@ -345,6 +345,12 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 	}
 
+	skipArtifactsDownload := &schema.Schema{
+		Type:     schema.TypeBool,
+		Optional: true,
+		Default:  false,
+	}
+
 	environmentOptions := &schema.Schema{
 		Type:     schema.TypeSet,
 		Optional: true,
@@ -387,11 +393,7 @@ func resourceReleaseDefinition() *schema.Resource {
 					Optional: true,
 					Default:  false,
 				},
-				"skip_artifacts_download": {
-					Type:     schema.TypeBool,
-					Optional: true,
-					Default:  false,
-				},
+				"skip_artifacts_download": skipArtifactsDownload,
 				"timeout_in_minutes": {
 					Type:     schema.TypeInt,
 					Optional: true,
@@ -686,6 +688,22 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 	}
 
+	allowScriptsToAccessOauthToken := &schema.Schema{
+		Type:     schema.TypeBool,
+		Optional: true,
+		Default:  false,
+	}
+
+	artifactDownload := &schema.Schema{
+		Type:     schema.TypeSet,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				// TODO : create this :)
+			},
+		},
+	}
+
 	agentJob := &schema.Schema{
 		Type:     schema.TypeSet,
 		Optional: true,
@@ -726,6 +744,7 @@ func resourceReleaseDefinition() *schema.Resource {
 						},
 					},
 				},
+				"artifact_download": artifactDownload,
 				"agent_pool_private": {
 					Type:     schema.TypeSet,
 					Optional: true,
@@ -795,9 +814,9 @@ func resourceReleaseDefinition() *schema.Resource {
 						},
 					},
 				},
-				// TODO : skip_artifacts_download
-				// "skip_artifacts_download"
-				"task": tasks,
+				"skip_artifacts_download":             skipArtifactsDownload,
+				"allow_scripts_to_access_oauth_token": allowScriptsToAccessOauthToken,
+				"task":                                tasks,
 			},
 		},
 	}
@@ -833,11 +852,7 @@ func resourceReleaseDefinition() *schema.Resource {
 						},
 					},
 				},
-				"allow_scripts_to_access_oauth_token": {
-					Type:     schema.TypeBool,
-					Optional: true,
-					Default:  false,
-				},
+				"allow_scripts_to_access_oauth_token": allowScriptsToAccessOauthToken,
 				"timeout_in_minutes": {
 					Type:     schema.TypeInt,
 					Optional: true,
@@ -853,9 +868,8 @@ func resourceReleaseDefinition() *schema.Resource {
 					Type:     schema.TypeString,
 					Required: true,
 				},
-				"task": tasks,
-				// TODO : skip_artifacts_download
-				// "skip_artifacts_download"
+				"task":                    tasks,
+				"skip_artifacts_download": skipArtifactsDownload,
 			},
 		},
 	}
@@ -904,9 +918,8 @@ func resourceReleaseDefinition() *schema.Resource {
 						},
 					},
 				},
-				"task": tasks,
-				// TODO : skip_artifacts_download
-				// "skip_artifacts_download"
+				"task":                    tasks,
+				"skip_artifacts_download": skipArtifactsDownload,
 			},
 		},
 	}
