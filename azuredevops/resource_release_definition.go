@@ -834,6 +834,8 @@ func resourceReleaseDefinition() *schema.Resource {
 				"multiple": {
 					Type:     schema.TypeSet,
 					Optional: true,
+					MinItems: 1,
+					MaxItems: 1,
 					Elem: &schema.Resource{
 						Schema: map[string]*schema.Schema{
 							"max_targets_in_parallel": {
@@ -1186,11 +1188,9 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 	// Look for the ID. This may not exist if we are within the context of a "create" operation,
 	// so it is OK if it is missing.
 	releaseDefinitionID, err := strconv.Atoi(d.Id())
-	var releaseDefinitionReference *int
+	var releaseDefinitionReference *int = nil
 	if err == nil {
 		releaseDefinitionReference = &releaseDefinitionID
-	} else {
-		releaseDefinitionReference = nil
 	}
 
 	variableGroups := expandIntList(d.Get("variable_groups").([]interface{}))

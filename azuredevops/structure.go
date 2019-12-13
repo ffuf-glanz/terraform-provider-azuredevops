@@ -226,13 +226,11 @@ func expandReleaseDefinitionEnvironment(d map[string]interface{}) release.Releas
 	deployStep := expandReleaseDefinitionDeployStepSet(d["deploy_step"].(*schema.Set))
 	variables := expandReleaseConfigurationVariableValueSet(d["variable"].(*schema.Set))
 	conditions := expandReleaseConditionSet(d["conditions"].(*schema.Set))
-
 	// demands := expandReleaseDefinitionDemandListSet(d["demands"].(*schema.Set))
 	// environmentOptions := expandReleaseEnvironmentOptions(d["environment_options"].(*schema.Set).List())
 	// retentionPolicy := expandReleaseEnvironmentRetentionPolicySet(d["retention_policy"].(*schema.Set))
 	// preDeployApprovals := expandReleaseDefinitionApprovalsSet(d["pre_deploy_approval"].(*schema.Set)))
 	// postDeployApprovals := expandReleaseDefinitionApprovals(d["post_deploy_approval"].(*schema.Set)))
-
 	agentJobs := expandReleaseDeployPhaseSet(d["agent_job"].(*schema.Set), release.DeployPhaseTypesValues.AgentBasedDeployment)
 	deploymentGroupJobs := expandReleaseDeployPhaseSet(d["deployment_group_job"].(*schema.Set), release.DeployPhaseTypesValues.MachineGroupBasedDeployment)
 	agentlessJobs := expandReleaseDeployPhaseSet(d["agentless_job"].(*schema.Set), release.DeployPhaseTypesValues.RunOnServer)
