@@ -1194,27 +1194,10 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 	}
 
 	variableGroups := expandIntList(d.Get("variable_groups").([]interface{}))
-
-	environments, err2 := expandReleaseDefinitionEnvironmentList(d.Get("stage").(*schema.Set).List())
-	if err2 != nil {
-		return nil, "", err2
-	}
-
-	variables, err3 := expandReleaseConfigurationVariableValueSet(d.Get("variable").(*schema.Set).List())
-	if err3 != nil {
-		return nil, "", err3
-	}
-
-	properties, err4 := expandReleaseDefinitionsProperties(d.Get("properties").(*schema.Set).List())
-	if err4 != nil {
-		return nil, "", err4
-	}
-
-	artifacts, err5 := expandReleaseArtifactList(d.Get("artifacts"))
-	if err5 != nil {
-		return nil, "", err5
-	}
-
+	environments := expandReleaseDefinitionEnvironmentSet(d.Get("stage").(*schema.Set))
+	variables := expandReleaseConfigurationVariableValueSet(d.Get("variable").(*schema.Set))
+	properties := expandReleaseDefinitionsPropertiesSet(d.Get("properties").(*schema.Set))
+	//artifacts := expandReleaseArtifactSet(d.Get("artifact").(*schema.Set))
 	tags := expandStringList(d.Get("tags").([]interface{}))
 
 	releaseDefinition := release.ReleaseDefinition{
@@ -1223,14 +1206,14 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		Path:              converter.String(d.Get("path").(string)),
 		Revision:          converter.Int(d.Get("revision").(int)),
 		Description:       converter.String(d.Get("description").(string)),
-		Environments:      environments,
+		Environments:      &environments,
 		Variables:         &variables,
 		ReleaseNameFormat: converter.String(d.Get("release_name_format").(string)),
 		VariableGroups:    &variableGroups,
 		Properties:        &properties,
-		Artifacts:         &artifacts,
-		Comment:           converter.String(d.Get("comment").(string)),
-		Tags:              &tags,
+		//Artifacts:         &artifacts,
+		Comment: converter.String(d.Get("comment").(string)),
+		Tags:    &tags,
 	}
 
 	data, err := json.Marshal(releaseDefinition)

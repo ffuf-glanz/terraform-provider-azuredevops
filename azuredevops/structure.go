@@ -2,10 +2,10 @@ package azuredevops
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/release"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
+	"strings"
 )
 
 type AgentDeploymentInput struct {
@@ -129,10 +129,9 @@ type ReleaseDefinitionDemand struct {
 	Value *string `json:"value,omitempty"`
 }
 
-// Takes the result of flatmap.Expand for an array of strings and returns a []*string
-func expandStringList(configured []interface{}) []string {
-	vs := make([]string, 0, len(configured))
-	for _, v := range configured {
+func expandStringList(d []interface{}) []string {
+	vs := make([]string, 0, len(d))
+	for _, v := range d {
 		val, ok := v.(string)
 		if ok && val != "" {
 			vs = append(vs, v.(string))
@@ -141,10 +140,13 @@ func expandStringList(configured []interface{}) []string {
 	return vs
 }
 
-// Takes the result of flatmap.Expand for an array of strings and returns a []*int
-func expandIntList(configured []interface{}) []int {
-	vs := make([]int, 0, len(configured))
-	for _, v := range configured {
+func expandStringSet(d *schema.Set) []string {
+	return expandStringList(d.List())
+}
+
+func expandIntList(d []interface{}) []int {
+	vs := make([]int, 0, len(d))
+	for _, v := range d {
 		val, ok := v.(string)
 		if ok && val != "" {
 			vs = append(vs, v.(int))
@@ -153,12 +155,11 @@ func expandIntList(configured []interface{}) []int {
 	return vs
 }
 
-// Takes the result of schema.Set of strings and returns a []*string
-func expandStringSet(configured *schema.Set) []string {
-	return expandStringList(configured.List())
+func expandIntSet(configured *schema.Set) []int {
+	return expandIntList(configured.List())
 }
 
-// Takes list of pointers to strings. Expand to an array of raw strings and returns a []interface{} to keep compatibility w/ schema.NewSetschema.NewSet
+// Takes list of pointers to strings. Expand to an array of raw strings and returns a []interface{} to keep compatibility w/ schema.NewSet
 func flattenStringList(list []*string) []interface{} {
 	vs := make([]interface{}, 0, len(list))
 	for _, v := range list {
@@ -171,245 +172,231 @@ func flattenStringSet(list []*string) *schema.Set {
 	return schema.NewSet(schema.HashString, flattenStringList(list))
 }
 
-func expandReleaseDefinitionsProperties(d []interface{}) (interface{}, error) {
-	if len(d) != 1 {
-		return nil, fmt.Errorf("unexpectedly did not find a properties block in the env")
+func expandReleaseDefinitionsProperties(d map[string]interface{}) Properties {
+	return Properties{
+		DefinitionCreationSource: converter.String(d["definition_creation_source"].(string)),
+		IntegrateJiraWorkItems:   converter.Bool(d["integrate_jira_work_items"].(bool)),
+		IntegrateBoardsWorkItems: converter.Bool(d["integrate_boards_work_items"].(bool)),
 	}
-	asMap := d[0].(map[string]interface{})
-	return &Properties{
-		DefinitionCreationSource: converter.String(asMap["definition_creation_source"].(string)),
-		IntegrateJiraWorkItems:   converter.Bool(asMap["integrate_jira_work_items"].(bool)),
-		IntegrateBoardsWorkItems: converter.Bool(asMap["integrate_boards_work_items"].(bool)),
-	}, nil
 }
 
-func expandReleaseDefinitionEnvironmentList(d []interface{}) (*[]release.ReleaseDefinitionEnvironment, error) {
-	vs := make([]release.ReleaseDefinitionEnvironment, 0, len(d))
+func expandReleaseDefinitionsPropertiesList(d []interface{}) []Properties {
+	vs := make([]Properties, 0, len(d))
 	for _, v := range d {
 		val, ok := v.(map[string]interface{})
 		if ok {
-			v2, err := expandReleaseDefinitionEnvironment(val)
-			if err != nil {
-				return nil, err
-			}
-			vs = append(vs, *v2)
+			vs = append(vs, expandReleaseDefinitionsProperties(val))
 		}
 	}
-	return &vs, nil
+	return vs
 }
 
-func expandReleaseArtifactList(d interface{}) ([]release.Artifact, error) {
-	if d != nil {
-		return make([]release.Artifact, 0), nil
+func expandReleaseDefinitionsPropertiesSet(d *schema.Set) interface{} {
+	d2 := expandReleaseDefinitionsPropertiesList(d.List())
+	if len(d2) != 1 {
+		return nil
 	}
-	d2 := d.([]interface{})
-	artifacts := make([]release.Artifact, len(d2))
-	for i, d3 := range d2 {
-		artifact, err := expandReleaseArtifact(d3.(map[string]interface{}))
-		if err != nil {
-			return nil, err
-		}
-		artifacts[i] = artifact
-	}
-	return artifacts, nil
+	return d2[0]
 }
 
-func expandReleaseArtifact(d map[string]interface{}) (release.Artifact, error) {
-	// NOTE : Might have to build a custom struct because AgentArtifactType doesn't equal comments in code. See below.
-	// It can have value as 'Build', 'Jenkins', 'GitHub', 'Nuget', 'Team Build (external)', 'ExternalTFSBuild', 'Git', 'TFVC', 'ExternalTfsXamlBuild'.
-	artifactType := release.AgentArtifactType(d["type"].(string))
-	return release.Artifact{
-		Alias: converter.String(d["Alias"].(string)),
-		// DefinitionReference: converter.Bool(d["DefinitionReference"].(bool)),
-		IsPrimary:  converter.Bool(d["IsPrimary"].(bool)),
-		IsRetained: converter.Bool(d["IsRetained"].(bool)),
-		SourceId:   converter.String(d["SourceId"].(string)),
-		Type:       converter.String(string(artifactType)),
-	}, nil
-}
-
-func expandReleaseConfigurationVariableValueSet(variables []interface{}) (map[string]release.ConfigurationVariableValue, error) {
-	variablesMap := make(map[string]release.ConfigurationVariableValue)
-	for _, variable := range variables {
-		key, variableMap, err := expandReleaseConfigurationVariableValue(variable.(map[string]interface{}))
-		if err != nil {
-			return nil, err
-		}
-		variablesMap[key] = variableMap
-	}
-	return variablesMap, nil
-}
-
-func expandReleaseConfigurationVariableValue(d map[string]interface{}) (string, release.ConfigurationVariableValue, error) {
-	return d["name"].(string), release.ConfigurationVariableValue{
-		AllowOverride: converter.Bool(d["allow_override"].(bool)),
+func expandReleaseCondition(d map[string]interface{}) release.Condition {
+	conditionType := release.ConditionType(d["condition_type"].(string))
+	return release.Condition{
+		ConditionType: &conditionType,
+		Name:          converter.String(d["name"].(string)),
 		Value:         converter.String(d["value"].(string)),
-		IsSecret:      converter.Bool(d["is_secret"].(bool)),
-	}, nil
+	}
+}
+func expandReleaseConditionList(d []interface{}) []release.Condition {
+	vs := make([]release.Condition, 0, len(d))
+	for _, v := range d {
+		val, ok := v.(map[string]interface{})
+		if ok {
+			vs = append(vs, expandReleaseCondition(val))
+		}
+	}
+	return vs
+}
+func expandReleaseConditionSet(d *schema.Set) []release.Condition {
+	return expandReleaseConditionList(d.List())
 }
 
-func expandReleaseDefinitionEnvironment(d map[string]interface{}) (*release.ReleaseDefinitionEnvironment, error) {
-	/*
-		variableGroups := d["variable_groups"].([]interface{})
-		variableGroupsMap := make([]int, len(variableGroups))
-		for i, variableGroup := range variableGroups {
-			variableGroupsMap[i] = variableGroup.(int)
-		}
+func expandReleaseDefinitionEnvironment(d map[string]interface{}) release.ReleaseDefinitionEnvironment {
+	variableGroups := expandIntList(d["variable_groups"].([]interface{}))
+	deployStep := expandReleaseDefinitionDeployStepSet(d["deploy_step"].(*schema.Set))
+	variables := expandReleaseConfigurationVariableValueSet(d["variable"].(*schema.Set))
+	conditions := expandReleaseConditionSet(d["conditions"].(*schema.Set))
 
-		var deployStepMap *release.ReleaseDefinitionDeployStep
-		if d["deploy_step"] != nil {
-			deployStep := d["deploy_step"].(*schema.Set).List()
-			if len(deployStep) != 1 {
-				return nil, fmt.Errorf("unexpectedly did not find a deploy step in the environment data")
-			}
-			releaseDefinitionDeployStep, err := expandReleaseDefinitionDeployStep(deployStep[0].(map[string]interface{}))
-			deployStepMap = releaseDefinitionDeployStep
-			if err != nil {
-				return nil, err
-			}
-		}
+	// demands := expandReleaseDefinitionDemandListSet(d["demands"].(*schema.Set))
+	// environmentOptions := expandReleaseEnvironmentOptions(d["environment_options"].(*schema.Set).List())
+	// retentionPolicy := expandReleaseEnvironmentRetentionPolicySet(d["retention_policy"].(*schema.Set))
+	// preDeployApprovals := expandReleaseDefinitionApprovalsSet(d["pre_deploy_approval"].(*schema.Set)))
+	// postDeployApprovals := expandReleaseDefinitionApprovals(d["post_deploy_approval"].(*schema.Set)))
 
-		variables, variablesError := expandReleaseConfigurationVariableValueSet(d["variable"].(*schema.Set).List())
-		if variablesError != nil {
-			return nil, variablesError
-		}
-
-		conditions := d["conditions"].(*schema.Set).List()
-		conditionsMap := make([]release.Condition, len(conditions))
-		for i, condition := range conditions {
-			asMap := condition.(map[string]interface{})
-			conditionType := release.ConditionType(asMap["condition_type"].(string))
-			value := ""
-			if asMap["value"] != nil {
-				value = asMap["value"].(string)
-			}
-			conditionsMap[i] = release.Condition{
-				ConditionType: &conditionType,
-				Name:          converter.String(asMap["name"].(string)),
-				Value:         converter.String(value),
-			}
-		}
-
-		demands, demandsError := expandReleaseDefinitionDemandList(d["demands"].(*schema.Set).List())
-		if demandsError != nil {
-			return nil, demandsError
-		}
-
-		environmentOptions, environmentOptionsError := expandReleaseEnvironmentOptions(d["environment_options"].(*schema.Set).List())
-		if environmentOptionsError != nil {
-			return nil, environmentOptionsError
-		}
-
-	*/
-
-	configurationRetentionPolicy := d["retention_policy"].(*schema.Set).List()
-	retentionPolicy, err := expandReleaseEnvironmentRetentionPolicy(configurationRetentionPolicy[0].(map[string]interface{}))
-	if err != nil {
-		return nil, err
-	}
-
-	configPreDeployApprovals := d["pre_deploy_approval"].(*schema.Set).List()
-	preDeployApprovals, err2 := expandReleaseDefinitionApprovals(configPreDeployApprovals[0].(map[string]interface{}))
-	if err2 != nil {
-		return nil, err2
-	}
-
-	configPostDeployApprovals := d["post_deploy_approval"].(*schema.Set).List()
-	postDeployApprovals, err3 := expandReleaseDefinitionApprovals(configPostDeployApprovals[0].(map[string]interface{}))
-	if err3 != nil {
-		return nil, err3
-	}
-
-	configAgentJobs := d["agent_job"].(*schema.Set).List()
-
-	agentJobs, err4 := expandReleaseDeployPhaseList(configAgentJobs, release.DeployPhaseTypesValues.AgentBasedDeployment)
-	if err4 != nil {
-		return nil, err4
-	}
-
-	configDeployGroupJobs := d["deployment_group_job"].(*schema.Set).List()
-
-	deploymentGroupJobs, err5 := expandReleaseDeployPhaseList(configDeployGroupJobs, release.DeployPhaseTypesValues.MachineGroupBasedDeployment)
-	if err5 != nil {
-		return nil, err5
-	}
-
-	configAgentlessJobs := d["agentless_job"].(*schema.Set).List()
-	agentlessJobs, err6 := expandReleaseDeployPhaseList(configAgentlessJobs, release.DeployPhaseTypesValues.RunOnServer)
-	if err6 != nil {
-		return nil, err6
-	}
+	agentJobs := expandReleaseDeployPhaseSet(d["agent_job"].(*schema.Set), release.DeployPhaseTypesValues.AgentBasedDeployment)
+	deploymentGroupJobs := expandReleaseDeployPhaseSet(d["deployment_group_job"].(*schema.Set), release.DeployPhaseTypesValues.MachineGroupBasedDeployment)
+	agentlessJobs := expandReleaseDeployPhaseSet(d["agentless_job"].(*schema.Set), release.DeployPhaseTypesValues.RunOnServer)
 
 	deployPhases := append(append(agentJobs, deploymentGroupJobs...), agentlessJobs...)
 
-	releaseDefinitionEnvironment := release.ReleaseDefinitionEnvironment{
-		//Conditions:          &conditionsMap,
-		//Demands:             &demands,
+	return release.ReleaseDefinitionEnvironment{
+		Conditions: &conditions,
+		//Demands:            &demands,
 		DeployPhases: &deployPhases,
-		//DeployStep:          deployStepMap,
-		//EnvironmentOptions:  environmentOptions,
+		DeployStep:   deployStep,
+		//EnvironmentOptions: environmentOptions,
 		//EnvironmentTriggers: nil,
 		//ExecutionPolicy:     nil,
 		//Id:                  converter.Int(d["id"].(int)),
 		Name: converter.String(d["name"].(string)),
-		//Owner: &webapi.IdentityRef{
-		//	Id:            converter.String(d["owner_id"].(string)),
-		//	IsAadIdentity: converter.Bool(true),
-		//	IsContainer:   converter.Bool(false),
-		//},
-		PostDeployApprovals: postDeployApprovals,
+		//PostDeployApprovals: postDeployApprovals,
 		//PostDeploymentGates: nil,
-		PreDeployApprovals: preDeployApprovals,
+		//PreDeployApprovals: preDeployApprovals,
 		//PreDeploymentGates:  nil,
 		//ProcessParameters:   nil,
-		// Properties:          &releaseDefinitionEnvironmentProperties,
-		QueueId:         nil,
-		Rank:            converter.Int(d["rank"].(int)),
-		RetentionPolicy: retentionPolicy,
+		//Properties:          &properties,
+		QueueId: nil,
+		Rank:    converter.Int(d["rank"].(int)),
+		//RetentionPolicy: retentionPolicy,
 		//RunOptions:      nil,
 		//Schedules:       nil,
-		//VariableGroups:  &variableGroupsMap,
-		//Variables:       &variables,
+		VariableGroups: &variableGroups,
+		Variables:      &variables,
 	}
-
-	return &releaseDefinitionEnvironment, nil
 }
 
-func expandReleaseDefinitionDeployStep(d map[string]interface{}) (*release.ReleaseDefinitionDeployStep, error) {
-	if d["tasks"] == nil {
-		return nil, nil
+func expandReleaseDefinitionEnvironmentList(d []interface{}) []release.ReleaseDefinitionEnvironment {
+	vs := make([]release.ReleaseDefinitionEnvironment, 0, len(d))
+	for _, v := range d {
+		val, ok := v.(map[string]interface{})
+		if ok {
+			vs = append(vs, expandReleaseDefinitionEnvironment(val))
+		}
 	}
+	return vs
+}
 
-	tasks, err := expandReleaseWorkFlowTaskList(d["tasks"].([]interface{}))
-	if err != nil {
-		return nil, err
+func expandReleaseDefinitionEnvironmentSet(configured *schema.Set) []release.ReleaseDefinitionEnvironment {
+	return expandReleaseDefinitionEnvironmentList(configured.List())
+}
+
+func expandReleaseArtifact(d map[string]interface{}) release.Artifact {
+	// NOTE : Might have to build a custom struct because AgentArtifactType doesn't equal comments in code. See below.
+	// It can have value as 'Build', 'Jenkins', 'GitHub', 'Nuget', 'Team Build (external)', 'ExternalTFSBuild', 'Git', 'TFVC', 'ExternalTfsXamlBuild'.
+	artifactType := release.AgentArtifactType(d["type"].(string))
+	return release.Artifact{
+		Alias:      converter.String(d["Alias"].(string)),
+		IsPrimary:  converter.Bool(d["IsPrimary"].(bool)),
+		IsRetained: converter.Bool(d["IsRetained"].(bool)),
+		SourceId:   converter.String(d["SourceId"].(string)),
+		Type:       converter.String(string(artifactType)),
 	}
+}
 
-	return &release.ReleaseDefinitionDeployStep{
+func expandReleaseArtifactList(d []interface{}) []release.Artifact {
+	vs := make([]release.Artifact, 0, len(d))
+	for _, v := range d {
+		val, ok := v.(map[string]interface{})
+		if ok {
+			vs = append(vs, expandReleaseArtifact(val))
+		}
+	}
+	return vs
+}
+
+func expandReleaseArtifactSet(d *schema.Set) []release.Artifact {
+	return expandReleaseArtifactList(d.List())
+}
+
+func expandReleaseConfigurationVariableValue(d map[string]interface{}) (string, release.ConfigurationVariableValue) {
+	return d["name"].(string), release.ConfigurationVariableValue{
+		AllowOverride: converter.Bool(d["allow_override"].(bool)),
+		Value:         converter.String(d["value"].(string)),
+		IsSecret:      converter.Bool(d["is_secret"].(bool)),
+	}
+}
+
+func expandReleaseConfigurationVariableValueList(d []interface{}) map[string]release.ConfigurationVariableValue {
+	vs := make(map[string]release.ConfigurationVariableValue)
+	for _, v := range d {
+		val, ok := v.(map[string]interface{})
+		if ok {
+			key, d2 := expandReleaseConfigurationVariableValue(val)
+			vs[key] = d2
+		}
+	}
+	return vs
+}
+
+func expandReleaseConfigurationVariableValueSet(d *schema.Set) map[string]release.ConfigurationVariableValue {
+	return expandReleaseConfigurationVariableValueList(d.List())
+}
+
+// Complete
+func expandReleaseDefinitionDeployStep(d map[string]interface{}) release.ReleaseDefinitionDeployStep {
+	tasks := expandReleaseWorkFlowTaskSet(d["task"].(*schema.Set))
+	return release.ReleaseDefinitionDeployStep{
 		Id:    converter.Int(d["id"].(int)),
 		Tasks: &tasks,
-	}, nil
+	}
 }
 
-func expandReleaseDeployPhaseList(d []interface{}, t release.DeployPhaseTypes) ([]interface{}, error) {
+func expandReleaseDefinitionDeployStepList(d []interface{}) []release.ReleaseDefinitionDeployStep {
+	vs := make([]release.ReleaseDefinitionDeployStep, 0, len(d))
+	for _, v := range d {
+		val, ok := v.(map[string]interface{})
+		if ok {
+			vs = append(vs, expandReleaseDefinitionDeployStep(val))
+		}
+	}
+	return vs
+}
+
+func expandReleaseDefinitionDeployStepSet(d *schema.Set) *release.ReleaseDefinitionDeployStep {
+	d2 := expandReleaseDefinitionDeployStepList(d.List())
+	if len(d2) != 1 {
+		return nil
+	}
+	return &d2[0]
+}
+
+func expandReleaseDeployPhase(d map[string]interface{}, t release.DeployPhaseTypes) interface{} {
+	var deploymentInput interface{}
+	switch t {
+	case release.DeployPhaseTypesValues.AgentBasedDeployment:
+		deploymentInput = expandReleaseAgentDeploymentInput(d)
+	case release.DeployPhaseTypesValues.MachineGroupBasedDeployment:
+		deploymentInput = expandReleaseMachineGroupDeploymentInput(d)
+	case release.DeployPhaseTypesValues.RunOnServer:
+		deploymentInput = expandReleaseServerDeploymentInput(d)
+	}
+
+	return ReleaseDeployPhase{
+		DeploymentInput: &deploymentInput, // release.AgentDeploymentInput || release.MachineGroupDeploymentInput{}
+		Rank:            converter.Int(d["rank"].(int)),
+		PhaseType:       &t,
+		Name:            converter.String(d["name"].(string)),
+		//RefName:         converter.String(d["ref_name"].(string)),
+		//WorkflowTasks:   nil,
+	}
+}
+
+func expandReleaseDeployPhaseList(d []interface{}, t release.DeployPhaseTypes) []interface{} {
 	vs := make([]interface{}, 0, len(d))
 	for _, v := range d {
 		val, ok := v.(map[string]interface{})
 		if ok {
-			v2, err := expandReleaseDeployPhase(val, t)
-			if err != nil {
-				return nil, err
-			}
-			vs = append(vs, v2)
+			vs = append(vs, expandReleaseDeployPhase(val, t))
 		}
 	}
-	return vs, nil
+	return vs
+}
+
+func expandReleaseDeployPhaseSet(d *schema.Set, t release.DeployPhaseTypes) []interface{} {
+	return expandReleaseDeployPhaseList(d.List(), t)
 }
 
 func expandReleaseEnvironmentOptions(d []interface{}) (*release.EnvironmentOptions, error) {
-	if len(d) != 1 {
-		return nil, fmt.Errorf("unexpectedly did not build environment options")
-	}
 	asMap := d[0].(map[string]interface{})
 
 	deployPhase := release.EnvironmentOptions{
@@ -426,57 +413,12 @@ func expandReleaseEnvironmentOptions(d []interface{}) (*release.EnvironmentOptio
 	return &deployPhase, nil
 }
 
-func expandReleaseDeployPhase(d map[string]interface{}, t release.DeployPhaseTypes) (interface{}, error) {
-	var deploymentInput interface{}
-	switch t {
-	case release.DeployPhaseTypesValues.AgentBasedDeployment:
-		{
-			agentDeploymentInput, err := expandReleaseAgentDeploymentInput(d)
-			if err != nil {
-				return nil, err
-			}
-			deploymentInput = agentDeploymentInput
-		}
-	case release.DeployPhaseTypesValues.MachineGroupBasedDeployment:
-		{
-			machineGroupDeploymentInput, err := expandReleaseMachineGroupDeploymentInput(d)
-			if err != nil {
-				return nil, err
-			}
-			deploymentInput = machineGroupDeploymentInput
-		}
-	case release.DeployPhaseTypesValues.RunOnServer:
-		{
-			serverDeploymentInput, err := expandReleaseServerDeploymentInput(d)
-			if err != nil {
-				return nil, err
-			}
-			deploymentInput = serverDeploymentInput
-		}
-	}
-
-	deployPhase := ReleaseDeployPhase{
-		DeploymentInput: &deploymentInput, // release.AgentDeploymentInput || release.MachineGroupDeploymentInput{}
-		Rank:            converter.Int(d["rank"].(int)),
-		PhaseType:       &t,
-		Name:            converter.String(d["name"].(string)),
-		//RefName:         converter.String(d["ref_name"].(string)),
-		//WorkflowTasks:   nil,
-	}
-	return deployPhase, nil
-}
-
-func expandReleaseMachineGroupDeploymentInput(d map[string]interface{}) (*release.MachineGroupDeploymentInput, error) {
-
-	demands, demandsError := expandReleaseDefinitionDemandList(d["demand"].(*schema.Set).List())
-	if demandsError != nil {
-		return nil, demandsError
-	}
+func expandReleaseMachineGroupDeploymentInput(d map[string]interface{}) *release.MachineGroupDeploymentInput {
+	// demands := expandReleaseDefinitionDemandSet(d["demand"].(*schema.Set))
 
 	deploymentHealthOption := "OneTargetAtATime"
 	configurationMultiple := d["multiple"].(*schema.Set).List()
-	hasMultiple := len(configurationMultiple) > 0
-	if hasMultiple {
+	if len(configurationMultiple) > 0 {
 		deploymentHealthOption = "Custom"
 	}
 
@@ -488,89 +430,92 @@ func expandReleaseMachineGroupDeploymentInput(d map[string]interface{}) (*releas
 		OverrideInputs:            nil, // TODO : OverrideInputs
 		TimeoutInMinutes:          converter.Int(d["timeout_in_minutes"].(int)),
 		//ArtifactsDownloadInput:    artifactsDownloadInput,
-		Demands:           &demands,
+		//Demands:           &demands,
 		EnableAccessToken: converter.Bool(d["allow_scripts_to_access_oauth_token"].(bool)), // TODO : enable_access_token
 		QueueId:           converter.Int(d["deployment_group_id"].(int)),
 		//SkipArtifactsDownload:     converter.Bool(d["skip_artifacts_download"].(bool)),
 		DeploymentHealthOption: converter.String(deploymentHealthOption),
 		//HealthPercent:
 		Tags: &tags,
-	}, nil
+	}
 }
 
-func expandReleaseAgentDeploymentInput(d map[string]interface{}) (*AgentDeploymentInput, error) {
-	agentSpecification := &release.AgentSpecification{}
+func expandReleaseAgentDeploymentInput(d map[string]interface{}) AgentDeploymentInput {
+	/*
+		agentSpecification := &release.AgentSpecification{}
 
-	//artifactsDownloadInput, err := expandReleaseArtifactsDownloadInput(d["artifacts_download_input"].(*schema.Set).List())
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	demands, demandsError := expandReleaseDefinitionDemandList(d["demand"].(*schema.Set).List())
-	if demandsError != nil {
-		return nil, demandsError
-	}
-
-	queueId := converter.Int(0)
-	configAgentPoolHostedAzurePipelines := d["agent_pool_hosted_azure_pipelines"].(*schema.Set).List()
-	configAgentPoolPrivate := d["agent_pool_private"].(*schema.Set).List()
-
-	hasHosted, hasPrivate := len(configAgentPoolHostedAzurePipelines) > 0, len(configAgentPoolPrivate) > 0
-	if hasHosted && hasPrivate {
-		return nil, fmt.Errorf("conflit %s and %s specify only one", "agent_pool_hosted_azure_pipelines", "agent_pool_private")
-	}
-
-	if hasHosted {
-		d2 := configAgentPoolHostedAzurePipelines[0].(map[string]interface{})
-		agentSpecification.Identifier = converter.String(d2["agent_specification"].(string))
-		queueId = converter.Int(d2["agent_pool_id"].(int))
-	}
-
-	var parallelExecution interface{}
-	configurationMultiConfiguration := d["multi_configuration"].(*schema.Set).List()
-	configurationMultiAgent := d["multi_agent"].(*schema.Set).List()
-
-	hasMultiConfig, hasMultiAgent := len(configurationMultiConfiguration) > 0, len(configurationMultiAgent) > 0
-	if hasMultiConfig && hasMultiAgent {
-		return nil, fmt.Errorf("conflit %s and %s specify only one", "multi_configuration", "multi_agent")
-	} else if hasMultiConfig {
-		d2 := configurationMultiConfiguration[0].(map[string]interface{})
-		parallelExecution = &release.MultiConfigInput{
-			Multipliers:           converter.String(d2["multipliers"].(string)),
-			MaxNumberOfAgents:     converter.Int(d2["number_of_agents"].(int)),
-			ParallelExecutionType: &release.ParallelExecutionTypesValues.MultiConfiguration,
-			ContinueOnError:       converter.Bool(d2["continue_on_error"].(bool)),
+		//artifactsDownloadInput, err := expandReleaseArtifactsDownloadInput(d["artifacts_download_input"].(*schema.Set).List())
+		//if err != nil {
+		//	return nil, err
+		//}
+		//
+		demands, demandsError := expandReleaseDefinitionDemandList(d["demand"].(*schema.Set).List())
+		if demandsError != nil {
+			return nil, demandsError
 		}
-	} else if hasMultiAgent {
-		d2 := configurationMultiAgent[0].(map[string]interface{})
-		parallelExecution = &release.ParallelExecutionInputBase{
-			MaxNumberOfAgents:     converter.Int(d2["max_number_of_agents"].(int)),
-			ParallelExecutionType: &release.ParallelExecutionTypesValues.MultiMachine,
-			ContinueOnError:       converter.Bool(d2["continue_on_error"].(bool)),
-		}
-	} else {
-		parallelExecution = &release.ExecutionInput{
-			ParallelExecutionType: &release.ParallelExecutionTypesValues.None,
-		}
-	}
 
-	return &AgentDeploymentInput{
-		Condition:                 converter.String(d["condition"].(string)),
-		JobCancelTimeoutInMinutes: converter.Int(d["max_execution_time_in_minutes"].(int)),
-		OverrideInputs:            nil, // TODO : OverrideInputs
-		TimeoutInMinutes:          converter.Int(d["timeout_in_minutes"].(int)),
-		//ArtifactsDownloadInput:    artifactsDownloadInput,
-		Demands: &demands,
-		//EnableAccessToken:         converter.Bool(d["enable_access_token"].(bool)), // TODO : enable_access_token
-		QueueId: queueId,
-		//SkipArtifactsDownload:     converter.Bool(d["skip_artifacts_download"].(bool)),
-		AgentSpecification: agentSpecification,
-		// ImageId: ,
-		ParallelExecution: &parallelExecution,
-	}, nil
+		queueId := converter.Int(0)
+		configAgentPoolHostedAzurePipelines := d["agent_pool_hosted_azure_pipelines"].(*schema.Set).List()
+		configAgentPoolPrivate := d["agent_pool_private"].(*schema.Set).List()
+
+		hasHosted, hasPrivate := len(configAgentPoolHostedAzurePipelines) > 0, len(configAgentPoolPrivate) > 0
+		if hasHosted && hasPrivate {
+			return nil, fmt.Errorf("conflit %s and %s specify only one", "agent_pool_hosted_azure_pipelines", "agent_pool_private")
+		}
+
+		if hasHosted {
+			d2 := configAgentPoolHostedAzurePipelines[0].(map[string]interface{})
+			agentSpecification.Identifier = converter.String(d2["agent_specification"].(string))
+			queueId = converter.Int(d2["agent_pool_id"].(int))
+		}
+
+		var parallelExecution interface{}
+		configurationMultiConfiguration := d["multi_configuration"].(*schema.Set).List()
+		configurationMultiAgent := d["multi_agent"].(*schema.Set).List()
+
+		hasMultiConfig, hasMultiAgent := len(configurationMultiConfiguration) > 0, len(configurationMultiAgent) > 0
+		if hasMultiConfig && hasMultiAgent {
+			return nil, fmt.Errorf("conflit %s and %s specify only one", "multi_configuration", "multi_agent")
+		} else if hasMultiConfig {
+			d2 := configurationMultiConfiguration[0].(map[string]interface{})
+			parallelExecution = &release.MultiConfigInput{
+				Multipliers:           converter.String(d2["multipliers"].(string)),
+				MaxNumberOfAgents:     converter.Int(d2["number_of_agents"].(int)),
+				ParallelExecutionType: &release.ParallelExecutionTypesValues.MultiConfiguration,
+				ContinueOnError:       converter.Bool(d2["continue_on_error"].(bool)),
+			}
+		} else if hasMultiAgent {
+			d2 := configurationMultiAgent[0].(map[string]interface{})
+			parallelExecution = &release.ParallelExecutionInputBase{
+				MaxNumberOfAgents:     converter.Int(d2["max_number_of_agents"].(int)),
+				ParallelExecutionType: &release.ParallelExecutionTypesValues.MultiMachine,
+				ContinueOnError:       converter.Bool(d2["continue_on_error"].(bool)),
+			}
+		} else {
+			parallelExecution = &release.ExecutionInput{
+				ParallelExecutionType: &release.ParallelExecutionTypesValues.None,
+			}
+		}
+
+		return AgentDeploymentInput{
+			Condition:                 converter.String(d["condition"].(string)),
+			JobCancelTimeoutInMinutes: converter.Int(d["max_execution_time_in_minutes"].(int)),
+			OverrideInputs:            nil, // TODO : OverrideInputs
+			TimeoutInMinutes:          converter.Int(d["timeout_in_minutes"].(int)),
+			//ArtifactsDownloadInput:    artifactsDownloadInput,
+			Demands: &demands,
+			//EnableAccessToken:         converter.Bool(d["enable_access_token"].(bool)), // TODO : enable_access_token
+			QueueId: queueId,
+			//SkipArtifactsDownload:     converter.Bool(d["skip_artifacts_download"].(bool)),
+			AgentSpecification: agentSpecification,
+			// ImageId: ,
+			ParallelExecution: &parallelExecution,
+		}
+	*/
+	return AgentDeploymentInput{}
 }
 
-func expandReleaseServerDeploymentInput(d map[string]interface{}) (*ServerDeploymentInput, error) {
+func expandReleaseServerDeploymentInput(d map[string]interface{}) *ServerDeploymentInput {
 
 	var parallelExecution interface{}
 	configurationMultiConfiguration := d["multi_configuration"].(*schema.Set).List()
@@ -595,7 +540,7 @@ func expandReleaseServerDeploymentInput(d map[string]interface{}) (*ServerDeploy
 		OverrideInputs:            nil, // TODO : OverrideInputs
 		TimeoutInMinutes:          converter.Int(d["timeout_in_minutes"].(int)),
 		ParallelExecution:         &parallelExecution,
-	}, nil
+	}
 }
 
 func expandReleaseArtifactsDownloadInput(d []interface{}) (*release.ArtifactsDownloadInput, error) {
@@ -665,39 +610,38 @@ func expandReleaseDefinitionDemand(d map[string]interface{}) (interface{}, error
 	return demand, nil
 }
 
-func expandReleaseWorkFlowTaskList(tasks []interface{}) ([]release.WorkflowTask, error) {
-	tasksMap := make([]release.WorkflowTask, len(tasks))
-	for i, approval := range tasks {
-		releaseApproval, err := expandReleaseWorkFlowTask(approval.(map[string]interface{}))
-		if err != nil {
-			return nil, err
-		}
-		tasksMap[i] = *releaseApproval
-	}
-	return tasksMap, nil
-}
-
-func expandReleaseWorkFlowTask(d map[string]interface{}) (*release.WorkflowTask, error) {
-	taskId, err := uuid.Parse(d["task_id"].(string))
-	if err != nil {
-		return nil, fmt.Errorf("error parsing task_id: %s. %v", d["task_id"].(string), err)
-	}
-
-	return &release.WorkflowTask{
+func expandReleaseWorkFlowTask(d map[string]interface{}) release.WorkflowTask {
+	task := strings.Split(d["task"].(string), "@")
+	refName, version := task[0], task[1]
+	return release.WorkflowTask{
 		AlwaysRun:       converter.Bool(d["always_run"].(bool)),
 		Condition:       converter.String(d["condition"].(string)),
 		ContinueOnError: converter.Bool(d["continue_on_error"].(bool)),
 		DefinitionType:  converter.String(d["definition_type"].(string)),
 		Enabled:         converter.Bool(d["enabled"].(bool)),
-		// Environment:      converter.String(d["environment"].(string)),
+		//Environment:      converter.String(d["environment"].(string)),
 		//Inputs:           converter.Int(d["inputs"].(int)),
 		Name: converter.String(d["name"].(string)),
 		//OverrideInputs:   converter.Int(d["override_inputs"].(int)),
-		RefName:          converter.String(d["ref_name"].(string)),
-		TaskId:           &taskId,
+		RefName:          &refName,
 		TimeoutInMinutes: converter.Int(d["timeout_in_minutes"].(int)),
-		Version:          converter.String(d["version"].(string)),
-	}, nil
+		Version:          &version,
+	}
+}
+
+func expandReleaseWorkFlowTaskList(d []interface{}) []release.WorkflowTask {
+	vs := make([]release.WorkflowTask, 0, len(d))
+	for _, v := range d {
+		val, ok := v.(map[string]interface{})
+		if ok {
+			vs = append(vs, expandReleaseWorkFlowTask(val))
+		}
+	}
+	return vs
+}
+
+func expandReleaseWorkFlowTaskSet(d *schema.Set) []release.WorkflowTask {
+	return expandReleaseWorkFlowTaskList(d.List())
 }
 
 func expandReleaseEnvironmentRetentionPolicy(d map[string]interface{}) (*release.EnvironmentRetentionPolicy, error) {
