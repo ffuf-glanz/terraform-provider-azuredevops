@@ -155,7 +155,6 @@ func resourceReleaseDefinition() *schema.Resource {
 		Optional: true,
 	}
 
-	// TODO : import these from a YAML
 	task := map[string]*schema.Schema{
 		"always_run": {
 			Type:     schema.TypeBool,
@@ -172,10 +171,6 @@ func resourceReleaseDefinition() *schema.Resource {
 			Optional: true,
 			Default:  false,
 		},
-		//"definition_type": {
-		//	Type:     schema.TypeString,
-		//	Required: true,
-		//},
 		"enabled": {
 			Type:     schema.TypeBool,
 			Optional: true,
@@ -224,7 +219,6 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 	}
 
-	// TODO : import these from a YAML
 	tasks := &schema.Schema{
 		Type:     schema.TypeList,
 		Optional: true,
@@ -245,7 +239,7 @@ func resourceReleaseDefinition() *schema.Resource {
 					Optional: true,
 					Default:  0,
 				},
-				"tasks": tasks,
+				"task": tasks,
 			},
 		},
 	}
@@ -322,7 +316,7 @@ func resourceReleaseDefinition() *schema.Resource {
 	}
 
 	releaseDefinitionGate := map[string]*schema.Schema{
-		"tasks": tasks,
+		"task": tasks,
 	}
 
 	releaseDefinitionGates := &schema.Schema{
@@ -803,13 +797,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				},
 				// TODO : skip_artifacts_download
 				// "skip_artifacts_download"
-				"task": {
-					Optional: true,
-					Type:     schema.TypeList,
-					Elem: &schema.Resource{
-						Schema: task,
-					},
-				},
+				"task": tasks,
 			},
 		},
 	}
@@ -865,6 +853,7 @@ func resourceReleaseDefinition() *schema.Resource {
 					Type:     schema.TypeString,
 					Required: true,
 				},
+				"task": tasks,
 				// TODO : skip_artifacts_download
 				// "skip_artifacts_download"
 			},
@@ -915,6 +904,7 @@ func resourceReleaseDefinition() *schema.Resource {
 						},
 					},
 				},
+				"task": tasks,
 				// TODO : skip_artifacts_download
 				// "skip_artifacts_download"
 			},
