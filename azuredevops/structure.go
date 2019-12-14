@@ -1,9 +1,11 @@
 package azuredevops
 
 import (
+	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/release"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/webapi"
+	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/crud/distributedtask"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
 	"strings"
 )
@@ -679,8 +681,13 @@ func expandReleaseDefinitionDemandSet(d *schema.Set) []interface{} {
 
 func expandReleaseWorkFlowTask(d map[string]interface{}) release.WorkflowTask {
 	task := strings.Split(d["task"].(string), "@")
-	refName, version := task[0], task[1]
+	taskName, version := task[0], task[1]
 	configInputs := d["inputs"].(map[string]interface{})
+	configId := d["id"].(string)
+	taskId, err := uuid.Parse(configId)
+	if err != nil {
+		taskId = distributedtask.TasksMap[taskName]
+	}
 
 	inputs := make(map[string]string)
 	for k, v := range configInputs {
@@ -688,6 +695,7 @@ func expandReleaseWorkFlowTask(d map[string]interface{}) release.WorkflowTask {
 	}
 
 	return release.WorkflowTask{
+		TaskId:          &taskId,
 		AlwaysRun:       converter.Bool(d["always_run"].(bool)),
 		Condition:       converter.String(d["condition"].(string)),
 		ContinueOnError: converter.Bool(d["continue_on_error"].(bool)),
@@ -697,7 +705,6 @@ func expandReleaseWorkFlowTask(d map[string]interface{}) release.WorkflowTask {
 		//Inputs:           converter.Int(d["inputs"].(int)),
 		Name: converter.String(d["display_name"].(string)),
 		//OverrideInputs:   converter.Int(d["override_inputs"].(int)),
-		RefName:          &refName,
 		TimeoutInMinutes: converter.Int(d["timeout_in_minutes"].(int)),
 		Version:          &version,
 		Inputs:           &inputs,

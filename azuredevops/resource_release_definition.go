@@ -217,6 +217,11 @@ func resourceReleaseDefinition() *schema.Resource {
 			Required: true,
 			// ValidateFunc: // TODO check for pattern name@version /[a-zA-Z]+\@\d+/
 		},
+		"id": {
+			Type:         schema.TypeString,
+			Optional:     true,
+			ValidateFunc: validate.UUID,
+		},
 	}
 
 	tasks := &schema.Schema{

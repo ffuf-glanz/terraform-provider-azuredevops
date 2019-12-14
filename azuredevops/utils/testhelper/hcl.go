@@ -298,8 +298,9 @@ func TestAccReleaseDefinitionTasks() string {
     workingDirectory: "$(System.DefaultWorkingDirectory)/Infrastructure/AWS/environments/dev-1/us-west-2/service_facility/"
     failOnStderr: false
 - task: TerraformInstaller@0
+  displayName: "Install Terraform 0.12.13"
   inputs:
-    terraformVersion: '0.11.11'
+    terraformVersion: '0.12.13'
 - task: AWSShellScript@1
   displayName: "Terraform Apply Tenant"
   inputs:
