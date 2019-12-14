@@ -72,7 +72,7 @@ func resourceUserEntitlementCreate(d *schema.ResourceData, m interface{}) error 
 	}
 
 	flattenUserEntitlement(d, addedUserEntitlement)
-	return nil
+	return resourceUserEntitlementRead(d, m)
 }
 
 func expandUserEntitlement(d *schema.ResourceData) (*memberentitlementmanagement.UserEntitlement, error) {

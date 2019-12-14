@@ -121,7 +121,7 @@ func resourceBuildDefinitionCreate(d *schema.ResourceData, m interface{}) error 
 	}
 
 	flattenBuildDefinition(d, createdBuildDefinition, projectID)
-	return nil
+	return resourceBuildDefinitionRead(d, m)
 }
 
 func flattenBuildDefinition(d *schema.ResourceData, buildDefinition *build.BuildDefinition, projectID string) {
