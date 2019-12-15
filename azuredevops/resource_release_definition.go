@@ -1069,40 +1069,31 @@ func flattenReleaseDefinition(d *schema.ResourceData, releaseDefinition *release
 	d.SetId(strconv.Itoa(*releaseDefinition.Id))
 
 	d.Set("project_id", projectID)
+	// TODO : if any of the props below are optional, then the code could use converter.ToX
 	d.Set("name", *releaseDefinition.Name)
 	d.Set("path", *releaseDefinition.Path)
 	d.Set("variable_groups", *releaseDefinition.VariableGroups)
 	d.Set("source", *releaseDefinition.Source)
-	d.Set("description", *releaseDefinition.Description)
-	d.Set("variable", flattenReleaseDefinitionVariables(releaseDefinition))
+	d.Set("description", converter.ToString(releaseDefinition.Description, ""))
+	d.Set("variable", flattenReleaseDefinitionVariables(releaseDefinition.Variables))
 	d.Set("release_name_format", *releaseDefinition.ReleaseNameFormat)
 	d.Set("url", *releaseDefinition.Url)
 	d.Set("is_deleted", *releaseDefinition.IsDeleted)
+	d.Set("tags", *releaseDefinition.Tags)
+	d.Set("properties", flattenReleaseDefinitionProperties(releaseDefinition.Properties))
 	d.Set("created_on", *releaseDefinition.CreatedOn)
 	d.Set("modified_on", *releaseDefinition.ModifiedOn)
+
+	// TODO : build flattening for 3 items below.
+	// d.Set("environments", flattenReleaseDefinitionEnvironmentsList(releaseDefinition.Environments))
+	// d.Set("artifacts", flattenReleaseDefinitionArtifactsList(releaseDefinition.Environments))
+	// d.Set("triggers", flattenReleaseDefinitionTriggersList(releaseDefinition.Environments))
 
 	revision := 0
 	if releaseDefinition.Revision != nil {
 		revision = *releaseDefinition.Revision
 	}
-
 	d.Set("revision", revision)
-}
-
-// Convert AzDO Variables data structure to Terraform TypeSet
-func flattenReleaseDefinitionVariables(variableGroup *release.ReleaseDefinition) interface{} {
-	variables := make([]map[string]interface{}, len(*variableGroup.Variables))
-	index := 0
-	for k, v := range *variableGroup.Variables {
-		variables[index] = map[string]interface{}{
-			"name":      k,
-			"value":     converter.ToString(v.Value, ""),
-			"is_secret": converter.ToBool(v.IsSecret, false),
-		}
-		index = index + 1
-	}
-
-	return variables
 }
 
 func resourceReleaseDefinitionCreate(d *schema.ResourceData, m interface{}) error {

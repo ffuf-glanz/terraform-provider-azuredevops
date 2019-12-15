@@ -844,3 +844,31 @@ func flattenStringList(list []*string) []interface{} {
 func flattenStringSet(list []*string) *schema.Set {
 	return schema.NewSet(schema.HashString, flattenStringList(list))
 }
+
+func flattenReleaseDefinitionVariables(variables *map[string]release.ConfigurationVariableValue) interface{} {
+	if variables == nil {
+		return nil
+	}
+	d := make([]map[string]interface{}, len(*variables))
+	index := 0
+	for k, v := range *variables {
+		d[index] = map[string]interface{}{
+			"name":      k,
+			"value":     converter.ToString(v.Value, ""),
+			"is_secret": converter.ToBool(v.IsSecret, false),
+		}
+		index = index + 1
+	}
+	return d
+}
+
+func flattenReleaseDefinitionProperties(f interface{}) interface{} {
+	if properties, ok := f.(map[string]interface{}); ok {
+		return []map[string]interface{}{{
+			"definition_creation_source":  properties["DefinitionCreationSource"],
+			"integrate_jira_work_items":   properties["IntegrateBoardsWorkItems"],
+			"integrate_boards_work_items": properties["IntegrateJiraWorkItems"],
+		}}
+	}
+	return nil
+}

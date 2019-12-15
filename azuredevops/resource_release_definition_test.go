@@ -188,7 +188,7 @@ func TestAccAzureDevOpsReleaseDefinition_CreateAndUpdate(t *testing.T) {
 	//releaseDefinitionPathThird := releaseDefinitionNameFirst + `\` + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	//releaseDefinitionPathFourth := releaseDefinitionNameSecond + `\` + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 
-	tfReleaseDefNode := "azuredevops_release_definition.build"
+	tfReleaseDefNode := "azuredevops_release_definition.release"
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testhelper.TestAccPreCheck(t) },
 		Providers:    testAccProviders,
@@ -260,7 +260,7 @@ func TestAccAzureDevOpsReleaseDefinition_CreateAndUpdate_Temp(t *testing.T) {
 	releaseDefinitionPathEmpty := ""
 	releaseDefinitionNameFirst := testAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 
-	tfReleaseDefNode := "azuredevops_release_definition.build"
+	tfReleaseDefNode := "azuredevops_release_definition.release"
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testhelper.TestAccPreCheck(t) },
 		Providers:    testAccProviders,
@@ -285,7 +285,7 @@ func TestAccAzureDevOpsReleaseDefinition_CreateAndUpdate_Agentless(t *testing.T)
 	releaseDefinitionPathEmpty := ""
 	releaseDefinitionNameFirst := testAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 
-	tfReleaseDefNode := "azuredevops_release_definition.build"
+	tfReleaseDefNode := "azuredevops_release_definition.release"
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testhelper.TestAccPreCheck(t) },
 		Providers:    testAccProviders,
