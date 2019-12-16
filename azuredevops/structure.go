@@ -845,6 +845,17 @@ func flattenStringSet(list []*string) *schema.Set {
 	return schema.NewSet(schema.HashString, flattenStringList(list))
 }
 
+func flattenIntList(list []*int) []interface{} {
+	vs := make([]interface{}, 0, len(list))
+	for _, v := range list {
+		vs = append(vs, *v)
+	}
+	return vs
+}
+func flattenIntSet(list []*int) *schema.Set {
+	return schema.NewSet(schema.HashString, flattenIntList(list))
+}
+
 func flattenReleaseDefinitionVariables(m *map[string]release.ConfigurationVariableValue) interface{} {
 	if m == nil {
 		return nil
@@ -870,27 +881,43 @@ func flattenReleaseDefinitionProperties(m interface{}) interface{} {
 			"integrate_boards_work_items": properties["IntegrateJiraWorkItems"],
 		}
 		return []map[string]interface{}{d}
-
-		//d := schema.ResourceData{}
-		//d.Set("definition_creation_source", properties["DefinitionCreationSource"])
-		//d.Set("integrate_jira_work_items", properties["IntegrateBoardsWorkItems"])
-		//d.Set("integrate_boards_work_items", properties["IntegrateJiraWorkItems"])
-		//return []interface{}{d}
 	}
 	return nil
 }
 
-func flattenReleaseDefinitionEnvironment(m release.ReleaseDefinitionEnvironment) interface{} {
-	//d := schema.ResourceData{}
-	//d.Set("id", m.Id)
-	//d.Set("name", m.Name)
-	//d.Set("rank", m.Rank)
-	//return d
+func flattenReleaseWorkflowTask(m release.WorkflowTask) interface{} {
+	// TODO : :)
+	return map[string]interface{}{}
+}
 
+func flattenReleaseWorkflowTaskList(m *[]release.WorkflowTask) []interface{} {
+	ds := make([]interface{}, 0, len(*m))
+	for _, d := range *m {
+		ds = append(ds, flattenReleaseWorkflowTask(d))
+	}
+	return ds
+}
+
+func flattenReleaseDefinitionDeployStep(m *release.ReleaseDefinitionDeployStep) map[string]interface{} {
+	if m == nil {
+		return nil
+	}
 	return map[string]interface{}{
 		"id":   m.Id,
-		"name": m.Name,
-		"rank": m.Rank,
+		"step": flattenReleaseWorkflowTaskList(m.Tasks),
+	}
+}
+
+func flattenReleaseDefinitionEnvironment(m release.ReleaseDefinitionEnvironment) interface{} {
+	return map[string]interface{}{
+		"id":              m.Id,
+		"name":            m.Name,
+		"rank":            m.Rank,
+		"owner_id":        m.Owner.Id,
+		"variable":        flattenReleaseDefinitionVariables(m.Variables),
+		"variable_groups": m.VariableGroups,
+		//"pre_deploy_approvals": flattenX(),
+		"deploy_step": flattenReleaseDefinitionDeployStep(m.DeployStep),
 	}
 }
 
