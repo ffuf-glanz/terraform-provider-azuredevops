@@ -1033,8 +1033,6 @@ func resourceReleaseDefinition() *schema.Resource {
 				Optional: true,
 				Default:  "Release-$(rev:r)",
 			},
-			"stage": stage,
-
 			"url": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -1043,24 +1041,23 @@ func resourceReleaseDefinition() *schema.Resource {
 				Type:     schema.TypeBool,
 				Computed: true,
 			},
-
-			"created_on": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-
-			"modified_on": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
+			"tags":       tags,
 			"properties": releaseDefinitionProperties,
-			"artifacts":  artifacts,
 			"comment": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  "Managed by terraform",
 			},
-			"tags": tags,
+			"created_on": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"modified_on": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"stage":     stage,
+			"artifacts": artifacts,
 		},
 	}
 }
@@ -1081,13 +1078,21 @@ func flattenReleaseDefinition(d *schema.ResourceData, releaseDefinition *release
 	d.Set("is_deleted", *releaseDefinition.IsDeleted)
 	d.Set("tags", *releaseDefinition.Tags)
 	d.Set("properties", flattenReleaseDefinitionProperties(releaseDefinition.Properties))
+	d.Set("comment", *releaseDefinition.Comment)
 	d.Set("created_on", *releaseDefinition.CreatedOn)
 	d.Set("modified_on", *releaseDefinition.ModifiedOn)
 
+	d.Set("stage", flattenReleaseDefinitionEnvironmentList(releaseDefinition.Environments))
+
 	// TODO : build flattening for 3 items below.
-	// d.Set("environments", flattenReleaseDefinitionEnvironmentsList(releaseDefinition.Environments))
 	// d.Set("artifacts", flattenReleaseDefinitionArtifactsList(releaseDefinition.Environments))
 	// d.Set("triggers", flattenReleaseDefinitionTriggersList(releaseDefinition.Environments))
+
+	d2 := d.Get("stage").(*schema.Set)
+	d4 := d.Get("name")
+
+	d3, _ := d2.List()[0].(map[string]interface{})
+	fmt.Println(d3, d4)
 
 	revision := 0
 	if releaseDefinition.Revision != nil {

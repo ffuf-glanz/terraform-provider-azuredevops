@@ -845,13 +845,13 @@ func flattenStringSet(list []*string) *schema.Set {
 	return schema.NewSet(schema.HashString, flattenStringList(list))
 }
 
-func flattenReleaseDefinitionVariables(variables *map[string]release.ConfigurationVariableValue) interface{} {
-	if variables == nil {
+func flattenReleaseDefinitionVariables(m *map[string]release.ConfigurationVariableValue) interface{} {
+	if m == nil {
 		return nil
 	}
-	d := make([]map[string]interface{}, len(*variables))
+	d := make([]map[string]interface{}, len(*m))
 	index := 0
-	for k, v := range *variables {
+	for k, v := range *m {
 		d[index] = map[string]interface{}{
 			"name":      k,
 			"value":     converter.ToString(v.Value, ""),
@@ -862,13 +862,42 @@ func flattenReleaseDefinitionVariables(variables *map[string]release.Configurati
 	return d
 }
 
-func flattenReleaseDefinitionProperties(f interface{}) interface{} {
-	if properties, ok := f.(map[string]interface{}); ok {
-		return []map[string]interface{}{{
+func flattenReleaseDefinitionProperties(m interface{}) interface{} {
+	if properties, ok := m.(map[string]interface{}); ok {
+		d := map[string]interface{}{
 			"definition_creation_source":  properties["DefinitionCreationSource"],
 			"integrate_jira_work_items":   properties["IntegrateBoardsWorkItems"],
 			"integrate_boards_work_items": properties["IntegrateJiraWorkItems"],
-		}}
+		}
+		return []map[string]interface{}{d}
+
+		//d := schema.ResourceData{}
+		//d.Set("definition_creation_source", properties["DefinitionCreationSource"])
+		//d.Set("integrate_jira_work_items", properties["IntegrateBoardsWorkItems"])
+		//d.Set("integrate_boards_work_items", properties["IntegrateJiraWorkItems"])
+		//return []interface{}{d}
 	}
 	return nil
+}
+
+func flattenReleaseDefinitionEnvironment(m release.ReleaseDefinitionEnvironment) interface{} {
+	//d := schema.ResourceData{}
+	//d.Set("id", m.Id)
+	//d.Set("name", m.Name)
+	//d.Set("rank", m.Rank)
+	//return d
+
+	return map[string]interface{}{
+		"id":   m.Id,
+		"name": m.Name,
+		"rank": m.Rank,
+	}
+}
+
+func flattenReleaseDefinitionEnvironmentList(m *[]release.ReleaseDefinitionEnvironment) []interface{} {
+	ds := make([]interface{}, 0, len(*m))
+	for _, d := range *m {
+		ds = append(ds, flattenReleaseDefinitionEnvironment(d))
+	}
+	return ds
 }
