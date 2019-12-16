@@ -142,7 +142,7 @@ func TestAccReleaseDefinitionResource(projectName string, releaseDefinitionName 
 	tasks := TestAccReleaseDefinitionTasks()
 	releaseDefinitionResource := fmt.Sprintf(`
 resource "azuredevops_release_definition" "release" {
-  project_id = "merlin"
+  project_id = "DevOps"
   name = "%s"
   path = "\\"
 
@@ -317,7 +317,7 @@ func TestAccReleaseDefinitionTasks() string {
 func TestAccReleaseDefinitionResourceTemp(projectName string, releaseDefinitionName string, releasePath string) string {
 	releaseDefinitionResource := fmt.Sprintf(`
 resource "azuredevops_release_definition" "release" {
-  project_id = "merlin" // TODO: revert this back to azuredevops_project.project.id
+  project_id = "DevOps" // TODO: revert this back to azuredevops_project.project.id
   name = "%s"
   path = "\\"
 
@@ -383,7 +383,7 @@ resource "azuredevops_release_definition" "release" {
 func TestAccReleaseDefinitionResourceAgentless(projectName string, releaseDefinitionName string, releasePath string) string {
 	releaseDefinitionResource := fmt.Sprintf(`
 resource "azuredevops_release_definition" "release" {
-  project_id = "merlin"
+  project_id = "DevOps"
   name = "%s"
   path = "\\"
 
