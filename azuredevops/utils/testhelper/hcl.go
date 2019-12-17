@@ -161,7 +161,7 @@ resource "azuredevops_release_definition" "release" {
 		name =  "exists_condition_name"
 	  }
       agent_pool_hosted_azure_pipelines {
-        agent_pool_id = 52
+        agent_pool_id = 2069
         agent_specification = "ubuntu-18.04"
       }
       timeout_in_minutes = 0
@@ -175,7 +175,7 @@ resource "azuredevops_release_definition" "release" {
       name = "Agent job 3"
       rank = 3
       agent_pool_hosted_azure_pipelines {
-        agent_pool_id = 52
+        agent_pool_id = 2069
         agent_specification = "ubuntu-18.04"
       }
 	
@@ -193,7 +193,7 @@ resource "azuredevops_release_definition" "release" {
       name = "Agent job 2"
       rank = 2
       agent_pool_hosted_azure_pipelines {
-        agent_pool_id = 52
+        agent_pool_id = 2069
         agent_specification = "ubuntu-18.04"
       }
 	  multi_agent {

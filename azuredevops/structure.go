@@ -886,8 +886,21 @@ func flattenReleaseDefinitionProperties(m interface{}) interface{} {
 }
 
 func flattenReleaseWorkflowTask(m release.WorkflowTask) interface{} {
-	// TODO : :)
-	return map[string]interface{}{}
+	return map[string]interface{}{
+		"name":               m.Name,
+		"task_id":            m.TaskId,
+		"inputs":             m.Inputs,
+		"condition":          m.Condition,
+		"continue_on_error":  m.ContinueOnError,
+		"always_run":         m.AlwaysRun,
+		"definition_type":    m.DefinitionType,
+		"enabled":            m.Enabled,
+		"environment":        m.Environment,
+		"override_inputs":    m.OverrideInputs,
+		"ref_name":           m.RefName,
+		"timeout_in_minutes": m.TimeoutInMinutes,
+		"version":            m.Version,
+	}
 }
 
 func flattenReleaseWorkflowTaskList(m *[]release.WorkflowTask) []interface{} {
@@ -908,6 +921,82 @@ func flattenReleaseDefinitionDeployStep(m *release.ReleaseDefinitionDeployStep) 
 	}
 }
 
+func flattenReleaseBaseDeploymentInput(m interface{}) map[string]interface{} {
+	ms := m.(*release.BaseDeploymentInput)
+	return map[string]interface{}{
+		"a": ms.JobCancelTimeoutInMinutes,
+	}
+}
+
+func flattenReleaseAgentDeploymentInput(m *release.AgentDeploymentInput) interface{} {
+	// TODO :
+	d := map[string]interface{}{}
+	d2 := flattenReleaseBaseDeploymentInput(m)
+	for k, v := range d2 {
+		d[k] = v
+	}
+	return d
+}
+
+func flattenReleaseGatesDeploymentInput(m *release.GatesDeploymentInput) interface{} {
+	// TODO :
+	return map[string]interface{}{}
+}
+
+func flattenReleaseMachineGroupDeploymentInput(m *release.MachineGroupDeploymentInput) interface{} {
+	// TODO :
+	return map[string]interface{}{}
+}
+
+func flattenReleaseServerDeploymentInput(m *release.ServerDeploymentInput) interface{} {
+	// TODO :
+	return map[string]interface{}{}
+}
+
+func flattenReleaseDeploymentInput(m interface{}, t release.DeployPhaseTypes) interface{} {
+	switch t {
+	// AgentBasedDeployPhase
+	case release.DeployPhaseTypesValues.AgentBasedDeployment:
+		if d, ok := m.(*release.AgentDeploymentInput); ok {
+			return flattenReleaseAgentDeploymentInput(d)
+		}
+	// GatesDeployPhase
+	case release.DeployPhaseTypesValues.DeploymentGates:
+		if d, ok := m.(*release.GatesDeploymentInput); ok {
+			return flattenReleaseGatesDeploymentInput(d)
+		}
+	// MachineGroupBasedDeployPhase
+	case release.DeployPhaseTypesValues.MachineGroupBasedDeployment:
+		if d, ok := m.(*release.MachineGroupDeploymentInput); ok {
+			return flattenReleaseMachineGroupDeploymentInput(d)
+		}
+	// RunOnServerDeployPhase
+	case release.DeployPhaseTypesValues.RunOnServer:
+		if d, ok := m.(*release.ServerDeploymentInput); ok {
+			return flattenReleaseServerDeploymentInput(d)
+		}
+	}
+	return nil
+}
+
+func flattenReleaseDeployPhases(m interface{}, t release.DeployPhaseTypes) interface{} {
+	ms := m.(map[string]interface{})
+	return map[string]interface{}{
+		"x": ms["x"],
+	}
+}
+
+func flattenReleaseDeployPhasesList(m *[]interface{}, t release.DeployPhaseTypes) []interface{} {
+	ds := make([]interface{}, 0, 0)
+	for _, d := range *m {
+		d2 := d.(release.ReleaseDeployPhase)
+		if d2.PhaseType == &t {
+			ds = append(ds, flattenReleaseDeploymentInput(d, t))
+		}
+	}
+	return ds
+}
+
 func flattenReleaseDefinitionEnvironment(m release.ReleaseDefinitionEnvironment) interface{} {
 	return map[string]interface{}{
 		"id":              m.Id,
@@ -917,7 +1006,12 @@ func flattenReleaseDefinitionEnvironment(m release.ReleaseDefinitionEnvironment)
 		"variable":        flattenReleaseDefinitionVariables(m.Variables),
 		"variable_groups": m.VariableGroups,
 		//"pre_deploy_approvals": flattenX(),
-		"deploy_step": flattenReleaseDefinitionDeployStep(m.DeployStep),
+		// "deploy_step": flattenReleaseDefinitionDeployStep(m.DeployStep),
+		//"post_deploy_approvals": flattenX(),
+		"agent_job": flattenReleaseDeployPhasesList(m.DeployPhases, release.DeployPhaseTypesValues.AgentBasedDeployment),
+		// "deploy_gate":        flattenReleaseDeployPhasesList(m.DeployPhases, release.DeployPhaseTypesValues.DeploymentGates),
+		//"deployment_group_job": flattenReleaseDeployPhasesList(m.DeployPhases, release.DeployPhaseTypesValues.MachineGroupBasedDeployment),
+		//"agentless_job":        flattenReleaseDeployPhasesList(m.DeployPhases, release.DeployPhaseTypesValues.RunOnServer),
 	}
 }
 
