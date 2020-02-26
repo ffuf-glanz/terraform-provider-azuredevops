@@ -16,6 +16,77 @@ import (
 )
 
 func resourceBuildDefinition() *schema.Resource {
+	var filterSchema = map[string]*schema.Schema{
+		"include": {
+			Type:          schema.TypeString,
+			ConflictsWith: []string{"exclude"},
+		},
+		"exclude": {
+			Type:          schema.TypeString,
+			ConflictsWith: []string{"exclude"},
+		},
+	}
+
+	var branchFilter = &schema.Schema{
+		Type:     schema.TypeSet,
+		Required: true,
+		MinItems: 1,
+		Elem: &schema.Resource{
+			Schema: filterSchema,
+		},
+	}
+
+	var pathFilter = &schema.Schema{
+		Type:     schema.TypeSet,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: filterSchema,
+		},
+	}
+
+	var scheduleSchema = map[string]*schema.Schema{
+		"branch_filter": branchFilter,
+		"schedule_job_id": {
+			Type: schema.TypeString,
+		},
+		"only_on_changes": {
+			Type:     schema.TypeBool,
+			Optional: true,
+			Default:  false,
+		},
+		"day": {
+			Type:         schema.TypeString,
+			Optional:     true,
+			ValidateFunc: validation.StringInSlice([]string{"None", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "All"}, false),
+		},
+		"hour": {
+			Type:     schema.TypeInt,
+			Optional: true,
+		},
+		"minute": {
+			Type:     schema.TypeInt,
+			Optional: true,
+		},
+		"time_zone_id": {
+			Type:     schema.TypeInt,
+			Optional: true,
+		},
+	}
+
+	var schedule = &schema.Schema{
+		Type:     schema.TypeSet,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: scheduleSchema,
+		},
+	}
+
+	// TODO : What is this? Why is it on PullRequest and ContinuousIntegration?
+	var settingsSourceType = &schema.Schema{
+		Type:     schema.TypeInt,
+		Optional: true,
+	}
+
 	return &schema.Resource{
 		Create: resourceBuildDefinitionCreate,
 		Read:   resourceBuildDefinitionRead,
@@ -98,6 +169,119 @@ func resourceBuildDefinition() *schema.Resource {
 							Optional: true,
 							Default:  "",
 						},
+					},
+				},
+			},
+			// BuildDefinition.triggers.
+			// TODO: if all triggers below are empty create a "None" trigger if the SDK doesn't do it automatically.
+			// TODO : convert triggers below to single Trigger array. Assign Enum Type to each from list below.
+			// None = 1, ContinuousIntegration = 2, BatchedContinuousIntegration = 4, Schedule = 8, GatedCheckIn = 16,
+			// BatchedGatedCheckIn = 32, PullRequest = 64, BuildCompletion = 128,
+			// TODO : can you mix and match triggers or have more than 1? If not then add "conflicts_with" to every trigger.
+			// TODO : convert "day" on schedule trigger into enum int. see below.
+			// None = 0, Monday = 1, Tuesday = 2, Wednesday = 4, Thursday = 8, Friday = 16, Saturday = 32, Sunday = 64, All = 127
+
+			"ci_trigger": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				MinItems: 1,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"batch": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  true,
+						},
+						"branch_filter": branchFilter,
+						"max_concurrent_builds_per_branch": {
+							Type:     schema.TypeInt,
+							Optional: true,
+						},
+						"path_filter": pathFilter,
+						"polling_interval": {
+							Type:     schema.TypeInt,
+							Optional: true,
+						},
+						"polling_job": {
+							Type: schema.TypeInt,
+							// TODO : is this required?
+							Optional: true,
+						},
+						"settings_source_type": settingsSourceType,
+					},
+				},
+			},
+			"schedule_trigger": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				MinItems: 1,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"schedule": schedule,
+					},
+				},
+			},
+			"gated_checkin_trigger": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				MinItems: 1,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"path_filter": pathFilter,
+						"run_ci": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  true,
+						},
+						"use_workspace_mappings": {
+							Type:     schema.TypeBool,
+							Optional: true,
+						},
+					},
+				},
+			},
+			"pull_request_trigger": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				MinItems: 1,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"auto_cancel": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  true,
+						},
+						"forks": {
+							Type:     schema.TypeSet,
+							Optional: true,
+							MinItems: 1,
+							MaxItems: 1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"enabled": {
+										Type:     schema.TypeBool,
+										Required: true,
+									},
+									"share_secrets": {
+										Type:     schema.TypeBool,
+										Required: true,
+									},
+								},
+							},
+						},
+						"branch_filter": branchFilter,
+						"path_filter":   pathFilter,
+						// isCommentRequiredForPullRequest && requireCommentsForNonTeamMembersOnly
+						"comment_required": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							ValidateFunc: validation.StringInSlice([]string{"All", "NonTeamMembers"}, false),
+						},
+						"settings_source_type": settingsSourceType,
 					},
 				},
 			},
