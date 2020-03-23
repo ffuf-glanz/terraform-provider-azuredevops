@@ -42,8 +42,8 @@ resource "azuredevops_build_definition" "build" {
 
   repository {
     repo_type   = "TfsGit"
-    repo_name   = azuredevops_azure_git_repository.repository.name
-    branch_name = azuredevops_azure_git_repository.repository.default_branch
+    repo_name   = azuredevops_git_repository.repository.name
+    branch_name = azuredevops_git_repository.repository.default_branch
     yml_path    = "azure-pipelines.yml"
   }
 
@@ -76,19 +76,32 @@ resource "azuredevops_variable_group" "vg" {
 }
 
 // This section configures an Azure DevOps Git Repository with branch policies
-resource "azuredevops_azure_git_repository" "repository" {
+resource "azuredevops_git_repository" "repository" {
   project_id = azuredevops_project.project.id
   name       = "Sample Repo"
   initialization {
     init_type = "Clean"
   }
 }
+
+// Configuration of AzureRm service end point
+resource "azuredevops_serviceendpoint_azurerm" "endpoint1" {
+  project_id                = azuredevops_project.project.id
+  service_endpoint_name     = "TestServiceAzureRM"
+  azurerm_spn_clientid      = "ee7f75a0-8553-4e6a-xxxx-xxxxxxxx"
+  azurerm_spn_clientsecret  = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  azurerm_spn_tenantid      = "2e3a33f9-66b1-4xxx-xxxx-xxxxxxxxx"
+  azurerm_subscription_id   = "8a7aace5-xxxx-xxxx-xxxx-xxxxxxxxxx"
+  azurerm_subscription_name = "Microsoft Azure DEMO"
+  azurerm_scope             = "/subscriptions/1da42ac9-xxxx-xxxxx-xxxx-xxxxxxxxxxx"
+}
+
 #
 # https://github.com/microsoft/terraform-provider-azuredevops/issues/83
 # resource "azuredevops_policy_build" "p1" {
 #   scope {
-#     repository_id  = azuredevops_azure_git_repository.repository.id
-#     repository_ref = azuredevops_azure_git_repository.repository.default_branch
+#     repository_id  = azuredevops_git_repository.repository.id
+#     repository_ref = azuredevops_git_repository.repository.default_branch
 #     match_type     = "Exact"
 #   }
 #   settings {
@@ -98,8 +111,8 @@ resource "azuredevops_azure_git_repository" "repository" {
 # }
 # resource "azuredevops_policy_min_reviewers" "p1" {
 #   scope {
-#     repository_id  = azuredevops_azure_git_repository.repository.id
-#     repository_ref = azuredevops_azure_git_repository.repository.default_branch
+#     repository_id  = azuredevops_git_repository.repository.id
+#     repository_ref = azuredevops_git_repository.repository.default_branch
 #     match_type     = "Exact"
 #   }
 #   settings {

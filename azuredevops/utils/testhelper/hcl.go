@@ -8,7 +8,7 @@ import (
 // TestAccAzureGitRepoResource HCL describing an AzDO GIT repository resource
 func TestAccAzureGitRepoResource(projectName string, gitRepoName string, initType string) string {
 	azureGitRepoResource := fmt.Sprintf(`
-resource "azuredevops_azure_git_repository" "gitrepo" {
+resource "azuredevops_git_repository" "gitrepo" {
 	project_id      = azuredevops_project.project.id
 	name            = "%s"
 	initialization {
@@ -76,6 +76,25 @@ func TestAccServiceEndpointDockerHubResource(projectName string, serviceEndpoint
 resource "azuredevops_serviceendpoint_dockerhub" "serviceendpoint" {
 	project_id             = azuredevops_project.project.id
 	service_endpoint_name  = "%s"
+}`, serviceEndpointName)
+
+	projectResource := TestAccProjectResource(projectName)
+	return fmt.Sprintf("%s\n%s", projectResource, serviceEndpointResource)
+}
+
+// TestAccServiceEndpointAzureRMResource HCL describing an AzDO service endpoint
+func TestAccServiceEndpointAzureRMResource(projectName string, serviceEndpointName string) string {
+	serviceEndpointResource := fmt.Sprintf(`
+resource "azuredevops_serviceendpoint_azurerm" "serviceendpointrm" {
+	project_id             = azuredevops_project.project.id
+	service_endpoint_name  = "%s"
+	azurerm_spn_clientid 	="e318e66b-ec4b-4dff-9124-41129b9d7150"
+	azurerm_spn_tenantid      = "9c59cbe5-2ca1-4516-b303-8968a070edd2"
+    azurerm_subscription_id   = "3b0fee91-c36d-4d70-b1e9-fc4b9d608c3d"
+    azurerm_subscription_name = "Microsoft Azure DEMO"
+    azurerm_scope             = "/subscriptions/3b0fee91-c36d-4d70-b1e9-fc4b9d608c3d"
+	azurerm_spn_clientsecret ="d9d210dd-f9f0-4176-afb8-a4df60e1ae72"
+
 }`, serviceEndpointName)
 
 	projectResource := TestAccProjectResource(projectName)
