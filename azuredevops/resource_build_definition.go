@@ -431,6 +431,42 @@ func flattenRepository(buildDefiniton *build.BuildDefinition) interface{} {
 	}}
 }
 
+func expandBuildDefinitionTrigger(d map[string]interface{}, triggerType build.DefinitionTriggerType) interface{} {
+	switch triggerType {
+	case build.DefinitionTriggerTypeValues.ContinuousIntegration:
+		return build.ContinuousIntegrationTrigger{
+			BatchChanges: converter.Bool(d["batch"].(bool)),
+			// TODO : map values
+		}
+	case build.DefinitionTriggerTypeValues.Schedule:
+		return build.ScheduleTrigger{
+			// TODO : map values
+		}
+	case build.DefinitionTriggerTypeValues.GatedCheckIn:
+		return build.GatedCheckInTrigger{
+			// TODO : map values
+		}
+	case build.DefinitionTriggerTypeValues.PullRequest:
+		return build.PullRequestTrigger{
+			// TODO : map values
+		}
+	}
+	return nil
+}
+func expandBuildDefinitionTriggerList(d []interface{}, triggerType build.DefinitionTriggerType) []interface{} {
+	vs := make([]interface{}, 0, len(d))
+	for _, v := range d {
+		val, ok := v.(map[string]interface{})
+		if ok {
+			vs = append(vs, expandBuildDefinitionTrigger(val, triggerType))
+		}
+	}
+	return vs
+}
+func expandBuildDefinitionTriggerSet(configured *schema.Set, triggerType build.DefinitionTriggerType) []interface{} {
+	return expandBuildDefinitionTriggerList(configured.List(), triggerType)
+}
+
 func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, string, error) {
 	projectID := d.Get("project_id").(string)
 	repositories := d.Get("repository").(*schema.Set).List()
@@ -455,6 +491,13 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 	if strings.EqualFold(repoType, "github") {
 		repoURL = fmt.Sprintf("https://github.com/%s.git", repoName)
 	}
+
+	ciTriggers := expandBuildDefinitionTriggerSet(d.Get("ci_trigger").(*schema.Set), build.DefinitionTriggerTypeValues.ContinuousIntegration)
+	scheduleTriggers := expandBuildDefinitionTriggerSet(d.Get("schedule_trigger").(*schema.Set), build.DefinitionTriggerTypeValues.Schedule)
+	gatedCheckinTriggers := expandBuildDefinitionTriggerSet(d.Get("gated_checkin_trigger").(*schema.Set), build.DefinitionTriggerTypeValues.GatedCheckIn)
+	pullRequestTriggers := expandBuildDefinitionTriggerSet(d.Get("pull_request_trigger").(*schema.Set), build.DefinitionTriggerTypeValues.PullRequest)
+
+	buildTriggers := append(append(append(ciTriggers, scheduleTriggers...), gatedCheckinTriggers...), pullRequestTriggers...)
 
 	// Look for the ID. This may not exist if we are within the context of a "create" operation,
 	// so it is OK if it is missing.
@@ -495,6 +538,7 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 		Type:           &build.DefinitionTypeValues.Build,
 		Quality:        &build.DefinitionQualityValues.Definition,
 		VariableGroups: &variableGroups,
+		Triggers:       &buildTriggers,
 	}
 
 	return &buildDefinition, projectID, nil
