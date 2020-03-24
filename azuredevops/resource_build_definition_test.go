@@ -52,9 +52,19 @@ var testBuildDefinition = build.BuildDefinition{
 			Name: converter.String("BuildPoolName"),
 		},
 	},
-	QueueStatus:    &build.DefinitionQueueStatusValues.Enabled,
-	Type:           &build.DefinitionTypeValues.Build,
-	Quality:        &build.DefinitionQualityValues.Definition,
+	QueueStatus: &build.DefinitionQueueStatusValues.Enabled,
+	Type:        &build.DefinitionTypeValues.Build,
+	Quality:     &build.DefinitionQualityValues.Definition,
+	Triggers: &[]interface{}{
+		map[string]interface{}{
+			//"branchFilters":                nil,
+			//"pathFilters":                  &[]string{"+$/CoreApps/INSOMNIAC Online/Dev"},
+			"batchChanges": converter.Bool(true),
+			//"maxConcurrentBuildsPerBranch": 1,
+			//"pollingInterval":              0,
+			"triggerType": converter.String("continuousIntegration"),
+		},
+	},
 	VariableGroups: &[]build.VariableGroup{},
 }
 

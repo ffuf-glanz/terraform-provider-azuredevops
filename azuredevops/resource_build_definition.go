@@ -408,35 +408,38 @@ func resourceBuildDefinitionUpdate(d *schema.ResourceData, m interface{}) error 
 	return nil
 }
 
-func flattenRepository(buildDefiniton *build.BuildDefinition) interface{} {
+func flattenRepository(buildDefinition *build.BuildDefinition) interface{} {
 	yamlFilePath := ""
 
 	// The process member can be of many types -- the only typing information
 	// available from the compiler is `interface{}` so we can probe for known
 	// implementations
-	if processMap, ok := buildDefiniton.Process.(map[string]interface{}); ok {
+	if processMap, ok := buildDefinition.Process.(map[string]interface{}); ok {
 		yamlFilePath = processMap["yamlFilename"].(string)
 	}
 
-	if yamlProcess, ok := buildDefiniton.Process.(*build.YamlProcess); ok {
+	if yamlProcess, ok := buildDefinition.Process.(*build.YamlProcess); ok {
 		yamlFilePath = *yamlProcess.YamlFilename
 	}
 
 	return []map[string]interface{}{{
 		"yml_path":              yamlFilePath,
-		"repo_name":             *buildDefiniton.Repository.Name,
-		"repo_type":             *buildDefiniton.Repository.Type,
-		"branch_name":           *buildDefiniton.Repository.DefaultBranch,
-		"service_connection_id": (*buildDefiniton.Repository.Properties)["connectedServiceId"],
+		"repo_name":             *buildDefinition.Repository.Name,
+		"repo_type":             *buildDefinition.Repository.Type,
+		"branch_name":           *buildDefinition.Repository.DefaultBranch,
+		"service_connection_id": (*buildDefinition.Repository.Properties)["connectedServiceId"],
 	}}
 }
 
 func expandBuildDefinitionTrigger(d map[string]interface{}, triggerType build.DefinitionTriggerType) interface{} {
 	switch triggerType {
 	case build.DefinitionTriggerTypeValues.ContinuousIntegration:
-		return build.ContinuousIntegrationTrigger{
-			BatchChanges: converter.Bool(d["batch"].(bool)),
-			// TODO : map values
+		return map[string]interface{}{
+			"batchChanges": converter.Bool(d["batch"].(bool)),
+			//"maxConcurrentBuildsPerBranch": converter.Int(d["max_concurrent_builds_per_branch"].(int)),
+			//"pollingInterval":              converter.Int(d["polling_interval"].(int)),
+			// PollingJobId: converter.Int(d["polling_job"].(int)), // TODO : UUID?
+			"triggerType": converter.String(string(t)),
 		}
 	case build.DefinitionTriggerTypeValues.Schedule:
 		return build.ScheduleTrigger{
@@ -453,18 +456,18 @@ func expandBuildDefinitionTrigger(d map[string]interface{}, triggerType build.De
 	}
 	return nil
 }
-func expandBuildDefinitionTriggerList(d []interface{}, triggerType build.DefinitionTriggerType) []interface{} {
+func expandBuildDefinitionTriggerList(d []interface{}, t build.DefinitionTriggerType) []interface{} {
 	vs := make([]interface{}, 0, len(d))
 	for _, v := range d {
 		val, ok := v.(map[string]interface{})
 		if ok {
-			vs = append(vs, expandBuildDefinitionTrigger(val, triggerType))
+			vs = append(vs, expandBuildDefinitionTrigger(val, t))
 		}
 	}
 	return vs
 }
-func expandBuildDefinitionTriggerSet(configured *schema.Set, triggerType build.DefinitionTriggerType) []interface{} {
-	return expandBuildDefinitionTriggerList(configured.List(), triggerType)
+func expandBuildDefinitionTriggerSet(configured *schema.Set, t build.DefinitionTriggerType) []interface{} {
+	return expandBuildDefinitionTriggerList(configured.List(), t)
 }
 
 func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, string, error) {
