@@ -315,6 +315,7 @@ func flattenBuildDefinition(d *schema.ResourceData, buildDefinition *build.Build
 	d.Set("agent_pool_name", *buildDefinition.Queue.Pool.Name)
 
 	d.Set("variable_groups", flattenVariableGroups(buildDefinition))
+	d.Set("ci_trigger", flattenReleaseDefinitionTriggers(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.ContinuousIntegration))
 
 	revision := 0
 	if buildDefinition.Revision != nil {
@@ -431,11 +432,100 @@ func flattenRepository(buildDefinition *build.BuildDefinition) interface{} {
 	}}
 }
 
-func expandBuildDefinitionTrigger(d map[string]interface{}, triggerType build.DefinitionTriggerType) interface{} {
-	switch triggerType {
+func flattenBuildDefinitionBranchFilter(m []string) interface{} {
+	var includes []string
+	var excludes []string
+
+	for _, v := range m {
+		if strings.HasPrefix(v, "-") {
+			excludes = append(excludes, strings.TrimPrefix(v, "-"))
+		} else if strings.HasPrefix(v, "+") {
+			includes = append(includes, strings.TrimPrefix(v, "+"))
+		}
+	}
+	return map[string]interface{}{
+		"includes": includes,
+		"excludes": excludes,
+	}
+}
+
+func flattenBuildDefinitionContinuousIntegrationTrigger(m interface{}) interface{} {
+	if ms, ok := m.(map[string]interface{}); ok {
+		return map[string]interface{}{
+			"batch":         ms["batchChanges"],
+			"branch_filter": flattenBuildDefinitionBranchFilter(ms["branchFilters"].([]string)),
+			//"max_concurrent_builds_per_branch": m.MaxConcurrentBuildsPerBranch,
+			//"path_filter":                      m.PathFilters,
+			//"polling_interval":                 m.PollingInterval,
+			//"polling_job":                      m.PollingJobId,
+			//"settings_source_type":             m.SettingsSourceType,
+		}
+	}
+	return nil
+}
+
+func flattenBuildDefinitionTrigger(m interface{}, t build.DefinitionTriggerType) interface{} {
+	if ms, ok := m.(map[string]interface{}); ok {
+		if *ms["triggerType"].(*string) != string(t) {
+			return nil
+		}
+		switch t {
+		case build.DefinitionTriggerTypeValues.ContinuousIntegration:
+			{
+				return flattenBuildDefinitionContinuousIntegrationTrigger(ms)
+			}
+			// TODO : below
+			//case build.DefinitionTriggerTypeValues.GatedCheckIn:
+			//	if d, ok := m.(*release.GatesDeploymentInput); ok {
+			//		return flattenReleaseGatesDeploymentInput(d)
+			//	}
+			//case build.DefinitionTriggerTypeValues.Schedule:
+			//	if d, ok := m.(*release.MachineGroupDeploymentInput); ok {
+			//		return flattenReleaseMachineGroupDeploymentInput(d)
+			//	}
+		}
+	}
+
+	return nil
+}
+
+func flattenReleaseDefinitionTriggers(m *[]interface{}, t build.DefinitionTriggerType) []interface{} {
+	ds := make([]interface{}, 0, len(*m))
+	for _, d := range *m {
+		f := flattenBuildDefinitionTrigger(d, t)
+		if f != nil {
+			ds = append(ds, f)
+		}
+	}
+	return ds
+}
+
+// TODO : EXPAND Branch Filter SET (does this call list?)
+func expandBuildDefinitionBranchFilter(d map[string][]string) []string {
+	return append(d["includes"], d["excludes"]...)
+}
+
+func expandBuildDefinitionBranchFilterList(d []interface{}) [][]string {
+	vs := make([][]string, 0, len(d))
+	for _, v := range d {
+		val, ok := v.(map[string][]string)
+		if ok {
+			vs = append(vs, expandBuildDefinitionBranchFilter(val))
+		}
+	}
+	return vs
+}
+
+func expandBuildDefinitionBranchFilterSet(configured *schema.Set) [][]string {
+	return expandBuildDefinitionBranchFilterList(configured.List())
+}
+
+func expandBuildDefinitionTrigger(d map[string]interface{}, t build.DefinitionTriggerType) interface{} {
+	switch t {
 	case build.DefinitionTriggerTypeValues.ContinuousIntegration:
 		return map[string]interface{}{
-			"batchChanges": converter.Bool(d["batch"].(bool)),
+			"batchChanges":  converter.Bool(d["batch"].(bool)),
+			"branchFilters": expandBuildDefinitionBranchFilterSet(d["branch_filters"].(*schema.Set)),
 			//"maxConcurrentBuildsPerBranch": converter.Int(d["max_concurrent_builds_per_branch"].(int)),
 			//"pollingInterval":              converter.Int(d["polling_interval"].(int)),
 			// PollingJobId: converter.Int(d["polling_job"].(int)), // TODO : UUID?

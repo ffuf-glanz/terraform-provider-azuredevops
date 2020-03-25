@@ -57,8 +57,13 @@ var testBuildDefinition = build.BuildDefinition{
 	Quality:     &build.DefinitionQualityValues.Definition,
 	Triggers: &[]interface{}{
 		map[string]interface{}{
-			//"branchFilters":                nil,
-			//"pathFilters":                  &[]string{"+$/CoreApps/INSOMNIAC Online/Dev"},
+			"branchFilters": &[]string{
+				"+master",
+				"+develop",
+				"+feature",
+				"-test",
+			},
+			//"pathFilters":                  &[]string{"+$/Root/Child Root/Child2", "-"},
 			"batchChanges": converter.Bool(true),
 			//"maxConcurrentBuildsPerBranch": 1,
 			//"pollingInterval":              0,
