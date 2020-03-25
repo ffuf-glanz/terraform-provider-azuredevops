@@ -18,12 +18,18 @@ import (
 func resourceBuildDefinition() *schema.Resource {
 	var filterSchema = map[string]*schema.Schema{
 		"include": {
-			Type:          schema.TypeString,
-			ConflictsWith: []string{"exclude"},
+			Type: schema.TypeSet,
+			Elem: &schema.Schema{
+				Type:         schema.TypeString,
+				ValidateFunc: validation.NoZeroValues,
+			},
 		},
 		"exclude": {
-			Type:          schema.TypeString,
-			ConflictsWith: []string{"exclude"},
+			Type: schema.TypeSet,
+			Elem: &schema.Schema{
+				Type:         schema.TypeString,
+				ValidateFunc: validation.NoZeroValues,
+			},
 		},
 	}
 
@@ -432,20 +438,22 @@ func flattenRepository(buildDefinition *build.BuildDefinition) interface{} {
 	}}
 }
 
-func flattenBuildDefinitionBranchFilter(m []string) interface{} {
-	var includes []string
-	var excludes []string
+func flattenBuildDefinitionBranchFilter(m *[]string) []interface{} {
+	var include []string
+	var exclude []string
 
-	for _, v := range m {
+	for _, v := range *m {
 		if strings.HasPrefix(v, "-") {
-			excludes = append(excludes, strings.TrimPrefix(v, "-"))
+			exclude = append(exclude, strings.TrimPrefix(v, "-"))
 		} else if strings.HasPrefix(v, "+") {
-			includes = append(includes, strings.TrimPrefix(v, "+"))
+			include = append(include, strings.TrimPrefix(v, "+"))
 		}
 	}
-	return map[string]interface{}{
-		"includes": includes,
-		"excludes": excludes,
+	return []interface{}{
+		map[string]interface{}{
+			"include": include,
+			"exclude": exclude,
+		},
 	}
 }
 
@@ -453,7 +461,7 @@ func flattenBuildDefinitionContinuousIntegrationTrigger(m interface{}) interface
 	if ms, ok := m.(map[string]interface{}); ok {
 		return map[string]interface{}{
 			"batch":         ms["batchChanges"],
-			"branch_filter": flattenBuildDefinitionBranchFilter(ms["branchFilters"].([]string)),
+			"branch_filter": flattenBuildDefinitionBranchFilter(ms["branchFilters"].(*[]string)),
 			//"max_concurrent_builds_per_branch": m.MaxConcurrentBuildsPerBranch,
 			//"path_filter":                      m.PathFilters,
 			//"polling_interval":                 m.PollingInterval,
