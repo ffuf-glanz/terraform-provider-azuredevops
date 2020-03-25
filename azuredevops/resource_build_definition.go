@@ -508,16 +508,43 @@ func flattenReleaseDefinitionTriggers(m *[]interface{}, t build.DefinitionTrigge
 	return ds
 }
 
+func expandStringList(d []interface{}) []string {
+	vs := make([]string, 0, len(d))
+	for _, v := range d {
+		val, ok := v.(string)
+		if ok && val != "" {
+			vs = append(vs, v.(string))
+		}
+	}
+	return vs
+}
+func expandStringSet(d *schema.Set) []string {
+	return expandStringList(d.List())
+}
+
 // TODO : EXPAND Branch Filter SET (does this call list?)
-func expandBuildDefinitionBranchFilter(d map[string][]string) []string {
-	return append(d["includes"], d["excludes"]...)
+func expandBuildDefinitionBranchFilter(d map[string]interface{}) []string {
+	var include = expandStringSet(d["include"].(*schema.Set))
+	var exclude = expandStringSet(d["exclude"].(*schema.Set))
+	var x = len(include) + len(exclude)
+	fmt.Print(x)
+	m := make([]string, len(include)+len(exclude))
+	var i = 0
+	for _, v := range include {
+		m[i] = "+" + v
+		i++
+	}
+	for _, v := range exclude {
+		m[i] = "-" + v
+		i++
+	}
+	return m
 }
 
 func expandBuildDefinitionBranchFilterList(d []interface{}) [][]string {
 	vs := make([][]string, 0, len(d))
 	for _, v := range d {
-		val, ok := v.(map[string][]string)
-		if ok {
+		if val, ok := v.(map[string]interface{}); ok {
 			vs = append(vs, expandBuildDefinitionBranchFilter(val))
 		}
 	}
@@ -533,7 +560,7 @@ func expandBuildDefinitionTrigger(d map[string]interface{}, t build.DefinitionTr
 	case build.DefinitionTriggerTypeValues.ContinuousIntegration:
 		return map[string]interface{}{
 			"batchChanges":  converter.Bool(d["batch"].(bool)),
-			"branchFilters": expandBuildDefinitionBranchFilterSet(d["branch_filters"].(*schema.Set)),
+			"branchFilters": expandBuildDefinitionBranchFilterSet(d["branch_filter"].(*schema.Set)),
 			//"maxConcurrentBuildsPerBranch": converter.Int(d["max_concurrent_builds_per_branch"].(int)),
 			//"pollingInterval":              converter.Int(d["polling_interval"].(int)),
 			// PollingJobId: converter.Int(d["polling_job"].(int)), // TODO : UUID?
