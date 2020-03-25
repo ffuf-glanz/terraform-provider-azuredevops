@@ -58,9 +58,9 @@ var testBuildDefinition = build.BuildDefinition{
 	Triggers: &[]interface{}{
 		map[string]interface{}{
 			"branchFilters": &[]string{
-				"+master",
 				"+develop",
 				"+feature",
+				"+master",
 				"-test",
 			},
 			//"pathFilters":                  &[]string{"+$/Root/Child Root/Child2", "-"},

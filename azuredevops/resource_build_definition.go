@@ -2,6 +2,7 @@ package azuredevops
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -449,6 +450,8 @@ func flattenBuildDefinitionBranchFilter(m *[]string) []interface{} {
 			include = append(include, strings.TrimPrefix(v, "+"))
 		}
 	}
+	sort.Strings(include)
+	sort.Strings(exclude)
 	return []interface{}{
 		map[string]interface{}{
 			"include": include,
@@ -523,11 +526,11 @@ func expandStringSet(d *schema.Set) []string {
 }
 
 // TODO : EXPAND Branch Filter SET (does this call list?)
-func expandBuildDefinitionBranchFilter(d map[string]interface{}) []string {
+func expandBuildDefinitionBranchFilter(d map[string]interface{}) *[]string {
 	var include = expandStringSet(d["include"].(*schema.Set))
 	var exclude = expandStringSet(d["exclude"].(*schema.Set))
-	var x = len(include) + len(exclude)
-	fmt.Print(x)
+	sort.Strings(include)
+	sort.Strings(exclude)
 	m := make([]string, len(include)+len(exclude))
 	var i = 0
 	for _, v := range include {
@@ -538,20 +541,20 @@ func expandBuildDefinitionBranchFilter(d map[string]interface{}) []string {
 		m[i] = "-" + v
 		i++
 	}
-	return m
+	return &m
 }
 
-func expandBuildDefinitionBranchFilterList(d []interface{}) [][]string {
-	vs := make([][]string, 0, len(d))
+func expandBuildDefinitionBranchFilterList(d []interface{}) *[]string {
+	vs := make([]*[]string, 0, len(d))
 	for _, v := range d {
 		if val, ok := v.(map[string]interface{}); ok {
 			vs = append(vs, expandBuildDefinitionBranchFilter(val))
 		}
 	}
-	return vs
+	return vs[0]
 }
 
-func expandBuildDefinitionBranchFilterSet(configured *schema.Set) [][]string {
+func expandBuildDefinitionBranchFilterSet(configured *schema.Set) *[]string {
 	return expandBuildDefinitionBranchFilterList(configured.List())
 }
 
