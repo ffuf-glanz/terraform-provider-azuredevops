@@ -25,6 +25,32 @@ import (
 
 var testProjectID = uuid.New().String()
 
+var manualCiTrigger = map[string]interface{}{
+	"branchFilters": &[]string{
+		"+develop",
+		"+feature",
+		"+master",
+		"-test",
+	},
+	"pathFilters": &[]string{
+		"+$/Root/Child Root/Child2",
+		"-",
+	},
+	"batchChanges":                 converter.Bool(true),
+	"maxConcurrentBuildsPerBranch": converter.Int(1),
+	"pollingInterval":              converter.Int(0),
+	"triggerType":                  converter.String("continuousIntegration"),
+}
+
+var yamlCiTrigger = map[string]interface{}{
+	"branchFilters":                &[]string{},
+	"pathFilters":                  &[]string{},
+	"settingsSourceType":           converter.Int(2),
+	"batchChanges":                 converter.Bool(false),
+	"maxConcurrentBuildsPerBranch": 1,
+	"triggerType":                  converter.String("continuousIntegration"),
+}
+
 // This definition matches the overall structure of what a configured git repository would
 // look like. Note that the ID and Name attributes match -- this is the service-side behavior
 // when configuring a GitHub repo.
@@ -46,30 +72,17 @@ var testBuildDefinition = build.BuildDefinition{
 	Process: &build.YamlProcess{
 		YamlFilename: converter.String("YamlFilename"),
 	},
+	// TODO Triggers BELOW
 	Queue: &build.AgentPoolQueue{
 		Name: converter.String("BuildPoolName"),
 		Pool: &build.TaskAgentPoolReference{
 			Name: converter.String("BuildPoolName"),
 		},
 	},
-	QueueStatus: &build.DefinitionQueueStatusValues.Enabled,
-	Type:        &build.DefinitionTypeValues.Build,
-	Quality:     &build.DefinitionQualityValues.Definition,
-	Triggers: &[]interface{}{
-		map[string]interface{}{
-			"branchFilters": &[]string{
-				"+develop",
-				"+feature",
-				"+master",
-				"-test",
-			},
-			//"pathFilters":                  &[]string{"+$/Root/Child Root/Child2", "-"},
-			"batchChanges": converter.Bool(true),
-			//"maxConcurrentBuildsPerBranch": 1,
-			//"pollingInterval":              0,
-			"triggerType": converter.String("continuousIntegration"),
-		},
-	},
+	QueueStatus:    &build.DefinitionQueueStatusValues.Enabled,
+	Type:           &build.DefinitionTypeValues.Build,
+	Quality:        &build.DefinitionQualityValues.Definition,
+	Triggers:       nil,
 	VariableGroups: &[]build.VariableGroup{},
 }
 
@@ -110,6 +123,10 @@ func TestAzureDevOpsBuildDefinition_PathInvalidStartingSlashIsError(t *testing.T
 // verifies that the flatten/expand round trip yields the same build definition
 func TestAzureDevOpsBuildDefinition_ExpandFlatten_Roundtrip(t *testing.T) {
 	resourceData := schema.TestResourceDataRaw(t, resourceBuildDefinition().Schema, nil)
+
+	testBuildDefinition.Triggers = &[]interface{}{yamlCiTrigger}
+	//testBuildDefinition.Triggers = &[]interface{}{manualCiTrigger}
+
 	flattenBuildDefinition(resourceData, &testBuildDefinition, testProjectID)
 
 	buildDefinitionAfterRoundTrip, projectID, err := expandBuildDefinition(resourceData)
@@ -117,6 +134,8 @@ func TestAzureDevOpsBuildDefinition_ExpandFlatten_Roundtrip(t *testing.T) {
 	require.Nil(t, err)
 	require.Equal(t, testBuildDefinition, *buildDefinitionAfterRoundTrip)
 	require.Equal(t, testProjectID, projectID)
+
+	testBuildDefinition.Triggers = nil
 }
 
 // verifies that an expand will fail if there is insufficient configuration data found in the resource
