@@ -351,12 +351,8 @@ func flattenBuildDefinition(d *schema.ResourceData, buildDefinition *build.Build
 
 	yamlCiTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.ContinuousIntegration, 2)
 	d.Set("enable_yaml_ci_trigger", yamlCiTrigger)
-	//if !yamlCiTrigger {
 	d.Set("ci_trigger", flattenReleaseDefinitionTriggers(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.ContinuousIntegration))
-	//}
 
-	var x = d.Get("ci_trigger").(*schema.Set)
-	fmt.Print(x)
 	revision := 0
 	if buildDefinition.Revision != nil {
 		revision = *buildDefinition.Revision
@@ -472,7 +468,7 @@ func flattenRepository(buildDefinition *build.BuildDefinition) interface{} {
 	}}
 }
 
-func flattenBuildDefinitionBranchFilter(m *[]string) []interface{} {
+func flattenBuildDefinitionBranchOrPathFilter(m *[]string) []interface{} {
 	var include []string
 	var exclude []string
 
@@ -497,11 +493,11 @@ func flattenBuildDefinitionContinuousIntegrationTrigger(m interface{}) interface
 	if ms, ok := m.(map[string]interface{}); ok {
 		return map[string]interface{}{
 			"batch":                            ms["batchChanges"],
-			"branch_filter":                    flattenBuildDefinitionBranchFilter(ms["branchFilters"].(*[]string)),
+			"branch_filter":                    flattenBuildDefinitionBranchOrPathFilter(ms["branchFilters"].(*[]string)),
 			"max_concurrent_builds_per_branch": ms["maxConcurrentBuildsPerBranch"],
 			"polling_interval":                 ms["pollingInterval"],
 			"polling_job":                      ms["pollingJobId"],
-			//"path_filter":                      ms["pathFilters"],
+			"path_filter":                      flattenBuildDefinitionBranchOrPathFilter(ms["pathFilters"].(*[]string)),
 		}
 	}
 	return nil
@@ -571,8 +567,7 @@ func expandStringSet(d *schema.Set) []string {
 	return expandStringList(d.List())
 }
 
-// TODO : EXPAND Branch Filter SET (does this call list?)
-func expandBuildDefinitionBranchFilter(d map[string]interface{}) []string {
+func expandBuildDefinitionBranchOrPathFilter(d map[string]interface{}) []string {
 	include := expandStringSet(d["include"].(*schema.Set))
 	exclude := expandStringSet(d["exclude"].(*schema.Set))
 	sort.Strings(include)
@@ -590,18 +585,18 @@ func expandBuildDefinitionBranchFilter(d map[string]interface{}) []string {
 	return m
 }
 
-func expandBuildDefinitionBranchFilterList(d []interface{}) [][]string {
+func expandBuildDefinitionBranchOrPathFilterList(d []interface{}) [][]string {
 	vs := make([][]string, 0, len(d))
 	for _, v := range d {
 		if val, ok := v.(map[string]interface{}); ok {
-			vs = append(vs, expandBuildDefinitionBranchFilter(val))
+			vs = append(vs, expandBuildDefinitionBranchOrPathFilter(val))
 		}
 	}
 	return vs
 }
 
-func expandBuildDefinitionBranchFilterSet(configured *schema.Set) *[]string {
-	d2 := expandBuildDefinitionBranchFilterList(configured.List())
+func expandBuildDefinitionBranchOrPathFilterSet(configured *schema.Set) *[]string {
+	d2 := expandBuildDefinitionBranchOrPathFilterList(configured.List())
 	if len(d2) != 1 {
 		return nil
 	}
@@ -613,14 +608,16 @@ func expandBuildDefinitionTrigger(d map[string]interface{}, yaml bool, t build.D
 	case build.DefinitionTriggerTypeValues.ContinuousIntegration:
 		vs := map[string]interface{}{
 			"batchChanges":                 converter.Bool(d["batch"].(bool)),
-			"branchFilters":                expandBuildDefinitionBranchFilterSet(d["branch_filter"].(*schema.Set)),
+			"branchFilters":                expandBuildDefinitionBranchOrPathFilterSet(d["branch_filter"].(*schema.Set)),
 			"maxConcurrentBuildsPerBranch": converter.Int(d["max_concurrent_builds_per_branch"].(int)),
-			"pollingInterval":              converter.Int(d["polling_interval"].(int)),
-			// PollingJobId: converter.Int(d["polling_job"].(int)), // TODO : UUID?
-			"triggerType": converter.String(string(t)),
+			"pathFilters":                  expandBuildDefinitionBranchOrPathFilterSet(d["path_filter"].(*schema.Set)),
+			"triggerType":                  converter.String(string(t)),
 		}
 		if yaml {
 			vs["settingsSourceType"] = converter.Int(2)
+		} else {
+			vs["pollingInterval"] = converter.Int(d["polling_interval"].(int))
+			// vs["pollingJobId"] = converter.String(d["polling_job"].(string))
 		}
 		return vs
 	case build.DefinitionTriggerTypeValues.Schedule:
