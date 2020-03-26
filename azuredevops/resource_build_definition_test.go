@@ -33,9 +33,9 @@ var manualCiTrigger = map[string]interface{}{
 		"-test",
 	},
 	"pathFilters": &[]string{
-		"+Root/Child1",
+		"+Root/Child1/*",
 		"+Root/Child2",
-		"-Root/Child3",
+		"-Root/Child3/*",
 	},
 	"batchChanges":                 converter.Bool(true),
 	"maxConcurrentBuildsPerBranch": converter.Int(1),
@@ -52,9 +52,43 @@ var yamlCiTrigger = map[string]interface{}{
 	"triggerType":                  converter.String("continuousIntegration"),
 }
 
-var triggers = []map[string]interface{}{
-	manualCiTrigger,
-	yamlCiTrigger,
+var manualPrTrigger = map[string]interface{}{
+	"autoCancel": converter.Bool(true),
+	"forks": &map[string]interface{}{
+		"enabled":      converter.Bool(false),
+		"allowSecrets": converter.Bool(false),
+	},
+	"branchFilters": &[]string{
+		"+develop",
+		"+master",
+	},
+	"pathFilters": &[]string{
+		"+Root/Child1/*",
+		"+Root/Child2",
+		"-Root/Child3/*",
+	},
+	"isCommentRequiredForPullRequest":      converter.Bool(true),
+	"requireCommentsForNonTeamMembersOnly": converter.Bool(true),
+	"triggerType":                          converter.String("pullRequest"),
+	"settingsSourceType":                   converter.Int(2),
+}
+
+var yamlPrTrigger = map[string]interface{}{
+	"forks": &map[string]interface{}{
+		"enabled":      converter.Bool(true),
+		"allowSecrets": converter.Bool(true),
+	},
+	"branchFilters":                        &[]string{"+develop"},
+	"pathFilters":                          &[]string{},
+	"settingsSourceType":                   converter.Int(2),
+	"requireCommentsForNonTeamMembersOnly": converter.Bool(false),
+	"isCommentRequiredForPullRequest":      converter.Bool(false),
+	"triggerType":                          converter.String("pullRequest"),
+}
+
+var triggerGroups = [][]interface{}{
+	{manualCiTrigger, manualPrTrigger},
+	{yamlCiTrigger, yamlPrTrigger},
 }
 
 // This definition matches the overall structure of what a configured git repository would
@@ -129,8 +163,8 @@ func TestAzureDevOpsBuildDefinition_PathInvalidStartingSlashIsError(t *testing.T
 // verifies that the flatten/expand round trip yields the same build definition
 func TestAzureDevOpsBuildDefinition_ExpandFlatten_Roundtrip(t *testing.T) {
 	resourceData := schema.TestResourceDataRaw(t, resourceBuildDefinition().Schema, nil)
-	for _, trigger := range triggers {
-		testBuildDefinition.Triggers = &[]interface{}{trigger}
+	for _, triggerGroup := range triggerGroups {
+		testBuildDefinition.Triggers = &triggerGroup
 		flattenBuildDefinition(resourceData, &testBuildDefinition, testProjectID)
 		buildDefinitionYamlAfterRoundTrip, projectID, err := expandBuildDefinition(resourceData)
 

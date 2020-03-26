@@ -22,6 +22,7 @@ func resourceBuildDefinition() *schema.Resource {
 			Type: schema.TypeSet,
 			Elem: &schema.Schema{
 				Type:         schema.TypeString,
+				Optional:     true,
 				ValidateFunc: validation.NoZeroValues,
 			},
 		},
@@ -29,6 +30,7 @@ func resourceBuildDefinition() *schema.Resource {
 			Type: schema.TypeSet,
 			Elem: &schema.Schema{
 				Type:         schema.TypeString,
+				Optional:     true,
 				ValidateFunc: validation.NoZeroValues,
 			},
 		},
@@ -95,14 +97,6 @@ func resourceBuildDefinition() *schema.Resource {
 		Elem: &schema.Resource{
 			Schema: scheduleSchema,
 		},
-	}
-
-	// TODO : What is this? Why is it on PullRequest and ContinuousIntegration?
-	// THIS Setting appears to point the pipeline at the YAML file vs the GUI
-	// 	* Override the YAML continuous integration trigger from here
-	settingsSourceType := &schema.Schema{
-		Type:     schema.TypeInt,
-		Optional: true,
 	}
 
 	return &schema.Resource{
@@ -227,21 +221,23 @@ func resourceBuildDefinition() *schema.Resource {
 							Type:     schema.TypeInt,
 							Optional: true,
 						},
-						"polling_job": {
-							Type: schema.TypeInt,
-							// TODO : is this required?
-							Optional: true,
+						"polling_job_id": {
+							Type:     schema.TypeString,
+							Computed: true,
 						},
 					},
 				},
-				ConflictsWith: []string{"enable_yaml_ci_trigger"},
 			},
 
 			"enable_yaml_pull_request_trigger": {
-				Type:          schema.TypeBool,
-				Optional:      true,
-				Default:       false,
-				ConflictsWith: []string{"pull_request_trigger"},
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+				ConflictsWith: []string{
+					"pull_request_trigger[0].auto_cancel",
+					"pull_request_trigger[0].branch_filter",
+					"pull_request_trigger[0].path_filter",
+				},
 			},
 			"pull_request_trigger": {
 				Type:     schema.TypeSet,
@@ -275,16 +271,13 @@ func resourceBuildDefinition() *schema.Resource {
 						},
 						"branch_filter": branchFilterRequired,
 						"path_filter":   pathFilter,
-						// isCommentRequiredForPullRequest && requireCommentsForNonTeamMembersOnly
 						"comment_required": {
 							Type:         schema.TypeString,
 							Optional:     true,
 							ValidateFunc: validation.StringInSlice([]string{"All", "NonTeamMembers"}, false),
 						},
-						"settings_source_type": settingsSourceType,
 					},
 				},
-				ConflictsWith: []string{"enable_yaml_pull_request_trigger"},
 			},
 
 			"schedule_trigger": {
@@ -352,6 +345,10 @@ func flattenBuildDefinition(d *schema.ResourceData, buildDefinition *build.Build
 	yamlCiTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.ContinuousIntegration, 2)
 	d.Set("enable_yaml_ci_trigger", yamlCiTrigger)
 	d.Set("ci_trigger", flattenReleaseDefinitionTriggers(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.ContinuousIntegration))
+
+	yamlPrTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.PullRequest, 2)
+	d.Set("enable_yaml_pull_request_trigger", yamlPrTrigger)
+	d.Set("pull_request_trigger", flattenReleaseDefinitionTriggers(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.PullRequest))
 
 	revision := 0
 	if buildDefinition.Revision != nil {
@@ -496,8 +493,35 @@ func flattenBuildDefinitionContinuousIntegrationTrigger(m interface{}) interface
 			"branch_filter":                    flattenBuildDefinitionBranchOrPathFilter(ms["branchFilters"].(*[]string)),
 			"max_concurrent_builds_per_branch": ms["maxConcurrentBuildsPerBranch"],
 			"polling_interval":                 ms["pollingInterval"],
-			"polling_job":                      ms["pollingJobId"],
+			"polling_job_id":                   ms["pollingJobId"],
 			"path_filter":                      flattenBuildDefinitionBranchOrPathFilter(ms["pathFilters"].(*[]string)),
+		}
+	}
+	return nil
+}
+
+func flattenBuildDefinitionPullRequestTrigger(m interface{}) interface{} {
+	if ms, ok := m.(map[string]interface{}); ok {
+		forks := *ms["forks"].(*map[string]interface{})
+		isCommentRequired := *ms["isCommentRequiredForPullRequest"].(*bool)
+		isCommentRequiredNonTeam := *ms["requireCommentsForNonTeamMembersOnly"].(*bool)
+		var commentRequired string
+		if isCommentRequired {
+			commentRequired = "All"
+		}
+		if isCommentRequired && isCommentRequiredNonTeam {
+			commentRequired = "NonTeamMembers"
+		}
+
+		return map[string]interface{}{
+			"auto_cancel":      ms["autoCancel"],
+			"branch_filter":    flattenBuildDefinitionBranchOrPathFilter(ms["branchFilters"].(*[]string)),
+			"comment_required": commentRequired,
+			"path_filter":      flattenBuildDefinitionBranchOrPathFilter(ms["pathFilters"].(*[]string)),
+			"forks": []map[string]interface{}{{
+				"enabled":       forks["enabled"],
+				"share_secrets": forks["allowSecrets"],
+			}},
 		}
 	}
 	return nil
@@ -510,21 +534,22 @@ func flattenBuildDefinitionTrigger(m interface{}, t build.DefinitionTriggerType)
 		}
 		switch t {
 		case build.DefinitionTriggerTypeValues.ContinuousIntegration:
-			{
-				return flattenBuildDefinitionContinuousIntegrationTrigger(ms)
-			}
-			// TODO : below
-			//case build.DefinitionTriggerTypeValues.GatedCheckIn:
-			//	if d, ok := m.(*release.GatesDeploymentInput); ok {
-			//		return flattenReleaseGatesDeploymentInput(d)
-			//	}
-			//case build.DefinitionTriggerTypeValues.Schedule:
-			//	if d, ok := m.(*release.MachineGroupDeploymentInput); ok {
-			//		return flattenReleaseMachineGroupDeploymentInput(d)
-			//	}
+			return flattenBuildDefinitionContinuousIntegrationTrigger(ms)
+		case build.DefinitionTriggerTypeValues.PullRequest:
+			return flattenBuildDefinitionPullRequestTrigger(ms)
+		case build.DefinitionTriggerTypeValues.GatedCheckIn:
+		case build.DefinitionTriggerTypeValues.Schedule:
+		case build.DefinitionTriggerTypeValues.BatchedContinuousIntegration:
+		case build.DefinitionTriggerTypeValues.BatchedGatedCheckIn:
+			// TODO : create flatten for these
+			return nil
+		case build.DefinitionTriggerTypeValues.All:
+			// TODO : have to get an example of this
+			return nil
+		case build.DefinitionTriggerTypeValues.None:
+			return nil
 		}
 	}
-
 	return nil
 }
 
@@ -603,6 +628,31 @@ func expandBuildDefinitionBranchOrPathFilterSet(configured *schema.Set) *[]strin
 	return &d2[0]
 }
 
+func expandBuildDefinitionFork(d map[string]interface{}) interface{} {
+	return map[string]interface{}{
+		"allowSecrets": converter.Bool(d["share_secrets"].(bool)),
+		"enabled":      converter.Bool(d["enabled"].(bool)),
+	}
+}
+
+func expandBuildDefinitionForkList(d []interface{}) []interface{} {
+	vs := make([]interface{}, 0, len(d))
+	for _, v := range d {
+		if val, ok := v.(map[string]interface{}); ok {
+			vs = append(vs, expandBuildDefinitionFork(val))
+		}
+	}
+	return vs
+}
+
+func expandBuildDefinitionForkSet(configured *schema.Set) interface{} {
+	d2 := expandBuildDefinitionForkList(configured.List())
+	if len(d2) != 1 {
+		return nil
+	}
+	return &d2[0]
+}
+
 func expandBuildDefinitionTrigger(d map[string]interface{}, yaml bool, t build.DefinitionTriggerType) interface{} {
 	switch t {
 	case build.DefinitionTriggerTypeValues.ContinuousIntegration:
@@ -617,7 +667,21 @@ func expandBuildDefinitionTrigger(d map[string]interface{}, yaml bool, t build.D
 			vs["settingsSourceType"] = converter.Int(2)
 		} else {
 			vs["pollingInterval"] = converter.Int(d["polling_interval"].(int))
-			// vs["pollingJobId"] = converter.String(d["polling_job"].(string))
+		}
+		return vs
+	case build.DefinitionTriggerTypeValues.PullRequest:
+		commentRequired := d["comment_required"].(string)
+		vs := map[string]interface{}{
+			"autoCancel":                           converter.Bool(d["auto_cancel"].(bool)),
+			"forks":                                expandBuildDefinitionForkSet(d["forks"].(*schema.Set)),
+			"branchFilters":                        expandBuildDefinitionBranchOrPathFilterSet(d["branch_filter"].(*schema.Set)),
+			"pathFilters":                          expandBuildDefinitionBranchOrPathFilterSet(d["path_filter"].(*schema.Set)),
+			"isCommentRequiredForPullRequest":      converter.Bool(len(commentRequired) > 0),
+			"requireCommentsForNonTeamMembersOnly": converter.Bool(commentRequired == "NonTeamMembers"),
+			"triggerType":                          converter.String(string(t)),
+		}
+		if yaml {
+			vs["settingsSourceType"] = converter.Int(2)
 		}
 		return vs
 	case build.DefinitionTriggerTypeValues.Schedule:
@@ -626,10 +690,6 @@ func expandBuildDefinitionTrigger(d map[string]interface{}, yaml bool, t build.D
 		}
 	case build.DefinitionTriggerTypeValues.GatedCheckIn:
 		return build.GatedCheckInTrigger{
-			// TODO : map values
-		}
-	case build.DefinitionTriggerTypeValues.PullRequest:
-		return build.PullRequestTrigger{
 			// TODO : map values
 		}
 	}
