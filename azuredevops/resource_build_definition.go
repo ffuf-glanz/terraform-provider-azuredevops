@@ -672,7 +672,6 @@ func expandBuildDefinitionTrigger(d map[string]interface{}, yaml bool, t build.D
 	case build.DefinitionTriggerTypeValues.PullRequest:
 		commentRequired := d["comment_required"].(string)
 		vs := map[string]interface{}{
-			"autoCancel":                           converter.Bool(d["auto_cancel"].(bool)),
 			"forks":                                expandBuildDefinitionForkSet(d["forks"].(*schema.Set)),
 			"branchFilters":                        expandBuildDefinitionBranchOrPathFilterSet(d["branch_filter"].(*schema.Set)),
 			"pathFilters":                          expandBuildDefinitionBranchOrPathFilterSet(d["path_filter"].(*schema.Set)),
@@ -682,6 +681,8 @@ func expandBuildDefinitionTrigger(d map[string]interface{}, yaml bool, t build.D
 		}
 		if yaml {
 			vs["settingsSourceType"] = converter.Int(2)
+		} else {
+			vs["autoCancel"] = converter.Bool(d["auto_cancel"].(bool))
 		}
 		return vs
 	case build.DefinitionTriggerTypeValues.Schedule:

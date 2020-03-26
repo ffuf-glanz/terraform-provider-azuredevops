@@ -70,7 +70,6 @@ var manualPrTrigger = map[string]interface{}{
 	"isCommentRequiredForPullRequest":      converter.Bool(true),
 	"requireCommentsForNonTeamMembersOnly": converter.Bool(true),
 	"triggerType":                          converter.String("pullRequest"),
-	"settingsSourceType":                   converter.Int(2),
 }
 
 var yamlPrTrigger = map[string]interface{}{
