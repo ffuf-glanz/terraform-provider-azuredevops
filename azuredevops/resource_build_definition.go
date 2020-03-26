@@ -628,15 +628,15 @@ func expandBuildDefinitionBranchOrPathFilterSet(configured *schema.Set) *[]strin
 	return &d2[0]
 }
 
-func expandBuildDefinitionFork(d map[string]interface{}) interface{} {
+func expandBuildDefinitionFork(d map[string]interface{}) map[string]interface{} {
 	return map[string]interface{}{
 		"allowSecrets": converter.Bool(d["share_secrets"].(bool)),
 		"enabled":      converter.Bool(d["enabled"].(bool)),
 	}
 }
 
-func expandBuildDefinitionForkList(d []interface{}) []interface{} {
-	vs := make([]interface{}, 0, len(d))
+func expandBuildDefinitionForkList(d []interface{}) []map[string]interface{} {
+	vs := make([]map[string]interface{}, 0, len(d))
 	for _, v := range d {
 		if val, ok := v.(map[string]interface{}); ok {
 			vs = append(vs, expandBuildDefinitionFork(val))
@@ -645,7 +645,7 @@ func expandBuildDefinitionForkList(d []interface{}) []interface{} {
 	return vs
 }
 
-func expandBuildDefinitionForkSet(configured *schema.Set) interface{} {
+func expandBuildDefinitionForkSet(configured *schema.Set) *map[string]interface{} {
 	d2 := expandBuildDefinitionForkList(configured.List())
 	if len(d2) != 1 {
 		return nil
