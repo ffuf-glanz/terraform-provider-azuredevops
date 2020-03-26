@@ -342,13 +342,15 @@ func flattenBuildDefinition(d *schema.ResourceData, buildDefinition *build.Build
 
 	d.Set("variable_groups", flattenVariableGroups(buildDefinition))
 
-	yamlCiTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.ContinuousIntegration, 2)
-	d.Set("enable_yaml_ci_trigger", yamlCiTrigger)
-	d.Set("ci_trigger", flattenReleaseDefinitionTriggers(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.ContinuousIntegration))
+	if buildDefinition.Triggers != nil {
+		yamlCiTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.ContinuousIntegration, 2)
+		d.Set("enable_yaml_ci_trigger", yamlCiTrigger)
+		d.Set("ci_trigger", flattenReleaseDefinitionTriggers(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.ContinuousIntegration))
 
-	yamlPrTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.PullRequest, 2)
-	d.Set("enable_yaml_pull_request_trigger", yamlPrTrigger)
-	d.Set("pull_request_trigger", flattenReleaseDefinitionTriggers(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.PullRequest))
+		yamlPrTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.PullRequest, 2)
+		d.Set("enable_yaml_pull_request_trigger", yamlPrTrigger)
+		d.Set("pull_request_trigger", flattenReleaseDefinitionTriggers(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.PullRequest))
+	}
 
 	revision := 0
 	if buildDefinition.Revision != nil {

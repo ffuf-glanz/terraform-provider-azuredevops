@@ -121,7 +121,7 @@ var testBuildDefinition = build.BuildDefinition{
 	QueueStatus:    &build.DefinitionQueueStatusValues.Enabled,
 	Type:           &build.DefinitionTypeValues.Build,
 	Quality:        &build.DefinitionQualityValues.Definition,
-	Triggers:       nil,
+	Triggers:       &[]interface{}{},
 	VariableGroups: &[]build.VariableGroup{},
 }
 
@@ -163,15 +163,15 @@ func TestAzureDevOpsBuildDefinition_PathInvalidStartingSlashIsError(t *testing.T
 func TestAzureDevOpsBuildDefinition_ExpandFlatten_Roundtrip(t *testing.T) {
 	resourceData := schema.TestResourceDataRaw(t, resourceBuildDefinition().Schema, nil)
 	for _, triggerGroup := range triggerGroups {
-		testBuildDefinition.Triggers = &triggerGroup
-		flattenBuildDefinition(resourceData, &testBuildDefinition, testProjectID)
+		testBuildDefinitionWithCustomTriggers := testBuildDefinition
+		testBuildDefinitionWithCustomTriggers.Triggers = &triggerGroup
+		flattenBuildDefinition(resourceData, &testBuildDefinitionWithCustomTriggers, testProjectID)
 		buildDefinitionYamlAfterRoundTrip, projectID, err := expandBuildDefinition(resourceData)
 
 		require.Nil(t, err)
-		require.Equal(t, testBuildDefinition, *buildDefinitionYamlAfterRoundTrip)
+		require.Equal(t, testBuildDefinitionWithCustomTriggers, *buildDefinitionYamlAfterRoundTrip)
 		require.Equal(t, testProjectID, projectID)
 	}
-	testBuildDefinition.Triggers = nil
 }
 
 // verifies that an expand will fail if there is insufficient configuration data found in the resource
