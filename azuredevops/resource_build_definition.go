@@ -17,7 +17,7 @@ import (
 )
 
 func resourceBuildDefinition() *schema.Resource {
-	var filterSchema = map[string]*schema.Schema{
+	filterSchema := map[string]*schema.Schema{
 		"include": {
 			Type: schema.TypeSet,
 			Elem: &schema.Schema{
@@ -34,7 +34,7 @@ func resourceBuildDefinition() *schema.Resource {
 		},
 	}
 
-	var branchFilter = &schema.Schema{
+	branchFilterRequired := &schema.Schema{
 		Type:     schema.TypeSet,
 		Required: true,
 		MinItems: 1,
@@ -43,7 +43,16 @@ func resourceBuildDefinition() *schema.Resource {
 		},
 	}
 
-	var pathFilter = &schema.Schema{
+	branchFilterOptional := &schema.Schema{
+		Type:     schema.TypeSet,
+		Optional: true,
+		MinItems: 1,
+		Elem: &schema.Resource{
+			Schema: filterSchema,
+		},
+	}
+
+	pathFilter := &schema.Schema{
 		Type:     schema.TypeSet,
 		Optional: true,
 		Elem: &schema.Resource{
@@ -51,8 +60,8 @@ func resourceBuildDefinition() *schema.Resource {
 		},
 	}
 
-	var scheduleSchema = map[string]*schema.Schema{
-		"branch_filter": branchFilter,
+	scheduleSchema := map[string]*schema.Schema{
+		"branch_filter": branchFilterRequired,
 		"schedule_job_id": {
 			Type: schema.TypeString,
 		},
@@ -80,7 +89,7 @@ func resourceBuildDefinition() *schema.Resource {
 		},
 	}
 
-	var schedule = &schema.Schema{
+	schedule := &schema.Schema{
 		Type:     schema.TypeSet,
 		Optional: true,
 		Elem: &schema.Resource{
@@ -91,7 +100,7 @@ func resourceBuildDefinition() *schema.Resource {
 	// TODO : What is this? Why is it on PullRequest and ContinuousIntegration?
 	// THIS Setting appears to point the pipeline at the YAML file vs the GUI
 	// 	* Override the YAML continuous integration trigger from here
-	var settingsSourceType = &schema.Schema{
+	settingsSourceType := &schema.Schema{
 		Type:     schema.TypeInt,
 		Optional: true,
 	}
@@ -208,7 +217,7 @@ func resourceBuildDefinition() *schema.Resource {
 							Optional: true,
 							Default:  true,
 						},
-						"branch_filter": branchFilter,
+						"branch_filter": branchFilterOptional,
 						"max_concurrent_builds_per_branch": {
 							Type:     schema.TypeInt,
 							Optional: true,
@@ -264,7 +273,7 @@ func resourceBuildDefinition() *schema.Resource {
 								},
 							},
 						},
-						"branch_filter": branchFilter,
+						"branch_filter": branchFilterRequired,
 						"path_filter":   pathFilter,
 						// isCommentRequiredForPullRequest && requireCommentsForNonTeamMembersOnly
 						"comment_required": {
@@ -340,7 +349,7 @@ func flattenBuildDefinition(d *schema.ResourceData, buildDefinition *build.Build
 
 	d.Set("variable_groups", flattenVariableGroups(buildDefinition))
 
-	var yamlCiTrigger = hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.ContinuousIntegration, 2)
+	yamlCiTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.ContinuousIntegration, 2)
 	d.Set("enable_yaml_ci_trigger", yamlCiTrigger)
 	//if !yamlCiTrigger {
 	d.Set("ci_trigger", flattenReleaseDefinitionTriggers(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.ContinuousIntegration))
@@ -484,20 +493,16 @@ func flattenBuildDefinitionBranchFilter(m *[]string) []interface{} {
 	}
 }
 
-func flattenBuildDefinitionContinuousIntegrationTrigger(m interface{}, k string) interface{} {
+func flattenBuildDefinitionContinuousIntegrationTrigger(m interface{}) interface{} {
 	if ms, ok := m.(map[string]interface{}); ok {
-		var f = map[string]interface{}{
+		return map[string]interface{}{
 			"batch":                            ms["batchChanges"],
 			"branch_filter":                    flattenBuildDefinitionBranchFilter(ms["branchFilters"].(*[]string)),
 			"max_concurrent_builds_per_branch": ms["maxConcurrentBuildsPerBranch"],
+			"polling_interval":                 ms["pollingInterval"],
+			"polling_job":                      ms["pollingJobId"],
 			//"path_filter":                      ms["pathFilters"],
-			"polling_interval": ms["pollingInterval"],
-			//"polling_job":                      ms["pollingJobId"]
 		}
-		if len(k) > 0 && *ms["settingsSourceType"].(*int) == 2 {
-			f[k] = true
-		}
-		return f
 	}
 	return nil
 }
@@ -510,7 +515,7 @@ func flattenBuildDefinitionTrigger(m interface{}, t build.DefinitionTriggerType)
 		switch t {
 		case build.DefinitionTriggerTypeValues.ContinuousIntegration:
 			{
-				flattenBuildDefinitionContinuousIntegrationTrigger(ms, "enable_yaml_ci_trigger")
+				return flattenBuildDefinitionContinuousIntegrationTrigger(ms)
 			}
 			// TODO : below
 			//case build.DefinitionTriggerTypeValues.GatedCheckIn:
@@ -528,7 +533,7 @@ func flattenBuildDefinitionTrigger(m interface{}, t build.DefinitionTriggerType)
 }
 
 func hasSettingsSourceType(m *[]interface{}, t build.DefinitionTriggerType, sst int) bool {
-	var hasSetting = false
+	hasSetting := false
 	for _, d := range *m {
 		if ms, ok := d.(map[string]interface{}); ok {
 			if *ms["triggerType"].(*string) == string(t) {
@@ -567,13 +572,13 @@ func expandStringSet(d *schema.Set) []string {
 }
 
 // TODO : EXPAND Branch Filter SET (does this call list?)
-func expandBuildDefinitionBranchFilter(d map[string]interface{}) *[]string {
-	var include = expandStringSet(d["include"].(*schema.Set))
-	var exclude = expandStringSet(d["exclude"].(*schema.Set))
+func expandBuildDefinitionBranchFilter(d map[string]interface{}) []string {
+	include := expandStringSet(d["include"].(*schema.Set))
+	exclude := expandStringSet(d["exclude"].(*schema.Set))
 	sort.Strings(include)
 	sort.Strings(exclude)
 	m := make([]string, len(include)+len(exclude))
-	var i = 0
+	i := 0
 	for _, v := range include {
 		m[i] = "+" + v
 		i++
@@ -582,27 +587,31 @@ func expandBuildDefinitionBranchFilter(d map[string]interface{}) *[]string {
 		m[i] = "-" + v
 		i++
 	}
-	return &m
+	return m
 }
 
-func expandBuildDefinitionBranchFilterList(d []interface{}) *[]string {
-	vs := make([]*[]string, 0, len(d))
+func expandBuildDefinitionBranchFilterList(d []interface{}) [][]string {
+	vs := make([][]string, 0, len(d))
 	for _, v := range d {
 		if val, ok := v.(map[string]interface{}); ok {
 			vs = append(vs, expandBuildDefinitionBranchFilter(val))
 		}
 	}
-	return vs[0]
+	return vs
 }
 
 func expandBuildDefinitionBranchFilterSet(configured *schema.Set) *[]string {
-	return expandBuildDefinitionBranchFilterList(configured.List())
+	d2 := expandBuildDefinitionBranchFilterList(configured.List())
+	if len(d2) != 1 {
+		return nil
+	}
+	return &d2[0]
 }
 
 func expandBuildDefinitionTrigger(d map[string]interface{}, yaml bool, t build.DefinitionTriggerType) interface{} {
 	switch t {
 	case build.DefinitionTriggerTypeValues.ContinuousIntegration:
-		var vs = map[string]interface{}{
+		vs := map[string]interface{}{
 			"batchChanges":                 converter.Bool(d["batch"].(bool)),
 			"branchFilters":                expandBuildDefinitionBranchFilterSet(d["branch_filter"].(*schema.Set)),
 			"maxConcurrentBuildsPerBranch": converter.Int(d["max_concurrent_builds_per_branch"].(int)),

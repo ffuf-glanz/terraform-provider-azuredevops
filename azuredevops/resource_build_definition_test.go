@@ -47,7 +47,7 @@ var yamlCiTrigger = map[string]interface{}{
 	"pathFilters":                  &[]string{},
 	"settingsSourceType":           converter.Int(2),
 	"batchChanges":                 converter.Bool(false),
-	"maxConcurrentBuildsPerBranch": 1,
+	"maxConcurrentBuildsPerBranch": converter.Int(1),
 	"triggerType":                  converter.String("continuousIntegration"),
 }
 
