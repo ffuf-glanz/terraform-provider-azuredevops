@@ -16,6 +16,13 @@ import (
 	"github.com/microsoft/azure-devops-go-api/azuredevops/build"
 )
 
+//func diffIsYaml(k, old, new string, d *schema.ResourceData) bool {
+//	if strings.ToLower(old) == strings.ToLower(new) {
+//		return true
+//	}
+//	return false
+//}
+
 func resourceBuildDefinition() *schema.Resource {
 	filterSchema := map[string]*schema.Schema{
 		"include": {
@@ -186,12 +193,6 @@ func resourceBuildDefinition() *schema.Resource {
 			// TODO : convert "day" on schedule trigger into enum int. see below.
 			// None = 0, Monday = 1, Tuesday = 2, Wednesday = 4, Thursday = 8, Friday = 16, Saturday = 32, Sunday = 64, All = 127
 
-			"enable_yaml_ci_trigger": {
-				Type:          schema.TypeBool,
-				Optional:      true,
-				Default:       false,
-				ConflictsWith: []string{"ci_trigger"},
-			},
 			"ci_trigger": {
 				Type:     schema.TypeSet,
 				Optional: true,
@@ -199,6 +200,20 @@ func resourceBuildDefinition() *schema.Resource {
 				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
+						"use_yaml": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+							ConflictsWith: []string{
+								"ci_trigger.0.batch",
+								"ci_trigger.0.branch_filter",
+								"ci_trigger.0.max_concurrent_builds_per_branch",
+								"ci_trigger.0.path_filter",
+								"ci_trigger.0.polling_interval",
+								"ci_trigger.0.polling_interval",
+								"ci_trigger.0.polling_job_id",
+							},
+						},
 						"batch": {
 							Type:     schema.TypeBool,
 							Optional: true,
@@ -222,16 +237,6 @@ func resourceBuildDefinition() *schema.Resource {
 				},
 			},
 
-			"enable_yaml_pull_request_trigger": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
-				ConflictsWith: []string{
-					"pull_request_trigger.0.auto_cancel",
-					"pull_request_trigger.0.branch_filter",
-					"pull_request_trigger.0.path_filter",
-				},
-			},
 			"pull_request_trigger": {
 				Type:     schema.TypeSet,
 				Optional: true,
@@ -239,10 +244,19 @@ func resourceBuildDefinition() *schema.Resource {
 				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
+						"use_yaml": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+							ConflictsWith: []string{
+								"pull_request_trigger.0.auto_cancel",
+								"pull_request_trigger.0.branch_filter",
+								"pull_request_trigger.0.path_filter",
+							},
+						},
 						"auto_cancel": {
 							Type:     schema.TypeBool,
 							Optional: true,
-							Default:  true,
 						},
 						"forks": {
 							Type:     schema.TypeSet,
@@ -337,12 +351,10 @@ func flattenBuildDefinition(d *schema.ResourceData, buildDefinition *build.Build
 
 	if buildDefinition.Triggers != nil {
 		yamlCiTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.ContinuousIntegration, 2)
-		d.Set("enable_yaml_ci_trigger", yamlCiTrigger)
-		d.Set("ci_trigger", flattenReleaseDefinitionTriggers(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.ContinuousIntegration))
+		d.Set("ci_trigger", flattenReleaseDefinitionTriggers(buildDefinition.Triggers, yamlCiTrigger, build.DefinitionTriggerTypeValues.ContinuousIntegration))
 
 		yamlPrTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.PullRequest, 2)
-		d.Set("enable_yaml_pull_request_trigger", yamlPrTrigger)
-		d.Set("pull_request_trigger", flattenReleaseDefinitionTriggers(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.PullRequest))
+		d.Set("pull_request_trigger", flattenReleaseDefinitionTriggers(buildDefinition.Triggers, yamlPrTrigger, build.DefinitionTriggerTypeValues.PullRequest))
 	}
 
 	revision := 0
@@ -483,21 +495,25 @@ func flattenBuildDefinitionBranchOrPathFilter(m []interface{}) []interface{} {
 	}
 }
 
-func flattenBuildDefinitionContinuousIntegrationTrigger(m interface{}) interface{} {
+func flattenBuildDefinitionContinuousIntegrationTrigger(m interface{}, isYaml bool) interface{} {
 	if ms, ok := m.(map[string]interface{}); ok {
-		return map[string]interface{}{
-			"batch":                            ms["batchChanges"],
-			"branch_filter":                    flattenBuildDefinitionBranchOrPathFilter(ms["branchFilters"].([]interface{})),
-			"max_concurrent_builds_per_branch": ms["maxConcurrentBuildsPerBranch"],
-			"polling_interval":                 ms["pollingInterval"],
-			"polling_job_id":                   ms["pollingJobId"],
-			"path_filter":                      flattenBuildDefinitionBranchOrPathFilter(ms["pathFilters"].([]interface{})),
+		f := map[string]interface{}{
+			"use_yaml": isYaml,
 		}
+		if !isYaml {
+			f["batch"] = ms["batchChanges"]
+			f["branch_filter"] = flattenBuildDefinitionBranchOrPathFilter(ms["branchFilters"].([]interface{}))
+			f["max_concurrent_builds_per_branch"] = ms["maxConcurrentBuildsPerBranch"]
+			f["polling_interval"] = ms["pollingInterval"]
+			f["polling_job_id"] = ms["pollingJobId"]
+			f["path_filter"] = flattenBuildDefinitionBranchOrPathFilter(ms["pathFilters"].([]interface{}))
+		}
+		return f
 	}
 	return nil
 }
 
-func flattenBuildDefinitionPullRequestTrigger(m interface{}) interface{} {
+func flattenBuildDefinitionPullRequestTrigger(m interface{}, isYaml bool) interface{} {
 	if ms, ok := m.(map[string]interface{}); ok {
 		forks := ms["forks"].(map[string]interface{})
 		isCommentRequired := ms["isCommentRequiredForPullRequest"].(bool)
@@ -510,30 +526,34 @@ func flattenBuildDefinitionPullRequestTrigger(m interface{}) interface{} {
 			commentRequired = "NonTeamMembers"
 		}
 
-		return map[string]interface{}{
-			"auto_cancel":      ms["autoCancel"],
-			"branch_filter":    flattenBuildDefinitionBranchOrPathFilter(ms["branchFilters"].([]interface{})),
+		f := map[string]interface{}{
+			"use_yaml":         isYaml,
 			"comment_required": commentRequired,
-			"path_filter":      flattenBuildDefinitionBranchOrPathFilter(ms["pathFilters"].([]interface{})),
 			"forks": []map[string]interface{}{{
 				"enabled":       forks["enabled"],
 				"share_secrets": forks["allowSecrets"],
 			}},
 		}
+		if !isYaml {
+			f["auto_cancel"] = ms["autoCancel"]
+			f["branch_filter"] = flattenBuildDefinitionBranchOrPathFilter(ms["branchFilters"].([]interface{}))
+			f["path_filter"] = flattenBuildDefinitionBranchOrPathFilter(ms["pathFilters"].([]interface{}))
+		}
+		return f
 	}
 	return nil
 }
 
-func flattenBuildDefinitionTrigger(m interface{}, t build.DefinitionTriggerType) interface{} {
+func flattenBuildDefinitionTrigger(m interface{}, isYaml bool, t build.DefinitionTriggerType) interface{} {
 	if ms, ok := m.(map[string]interface{}); ok {
 		if ms["triggerType"].(string) != string(t) {
 			return nil
 		}
 		switch t {
 		case build.DefinitionTriggerTypeValues.ContinuousIntegration:
-			return flattenBuildDefinitionContinuousIntegrationTrigger(ms)
+			return flattenBuildDefinitionContinuousIntegrationTrigger(ms, isYaml)
 		case build.DefinitionTriggerTypeValues.PullRequest:
-			return flattenBuildDefinitionPullRequestTrigger(ms)
+			return flattenBuildDefinitionPullRequestTrigger(ms, isYaml)
 		case build.DefinitionTriggerTypeValues.GatedCheckIn:
 		case build.DefinitionTriggerTypeValues.Schedule:
 		case build.DefinitionTriggerTypeValues.BatchedContinuousIntegration:
@@ -564,10 +584,10 @@ func hasSettingsSourceType(m *[]interface{}, t build.DefinitionTriggerType, sst 
 	return hasSetting
 }
 
-func flattenReleaseDefinitionTriggers(m *[]interface{}, t build.DefinitionTriggerType) []interface{} {
+func flattenReleaseDefinitionTriggers(m *[]interface{}, isYaml bool, t build.DefinitionTriggerType) []interface{} {
 	ds := make([]interface{}, 0, len(*m))
 	for _, d := range *m {
-		f := flattenBuildDefinitionTrigger(d, t)
+		f := flattenBuildDefinitionTrigger(d, isYaml, t)
 		if f != nil {
 			ds = append(ds, f)
 		}
@@ -646,35 +666,48 @@ func expandBuildDefinitionForkSet(configured *schema.Set) map[string]interface{}
 	return d2[0]
 }
 
-func expandBuildDefinitionTrigger(d map[string]interface{}, yaml bool, t build.DefinitionTriggerType) interface{} {
+func expandBuildDefinitionTrigger(d map[string]interface{}, t build.DefinitionTriggerType) interface{} {
 	switch t {
 	case build.DefinitionTriggerTypeValues.ContinuousIntegration:
-		vs := map[string]interface{}{
-			"batchChanges":                 d["batch"].(bool),
-			"branchFilters":                expandBuildDefinitionBranchOrPathFilterSet(d["branch_filter"].(*schema.Set)),
-			"maxConcurrentBuildsPerBranch": d["max_concurrent_builds_per_branch"].(int),
-			"pathFilters":                  expandBuildDefinitionBranchOrPathFilterSet(d["path_filter"].(*schema.Set)),
-			"triggerType":                  string(t),
-		}
-		if yaml {
-			vs["settingsSourceType"] = float64(2)
+		isYaml := d["use_yaml"].(bool)
+		if isYaml {
+			return map[string]interface{}{
+				"batchChanges":                 false,
+				"branchFilters":                []interface{}{},
+				"maxConcurrentBuildsPerBranch": 1,
+				"pathFilters":                  []interface{}{},
+				"triggerType":                  string(t),
+				"settingsSourceType":           float64(2),
+			}
 		} else {
-			vs["pollingInterval"] = d["polling_interval"].(int)
+			return map[string]interface{}{
+				"batchChanges":                 d["batch"].(bool),
+				"branchFilters":                expandBuildDefinitionBranchOrPathFilterSet(d["branch_filter"].(*schema.Set)),
+				"maxConcurrentBuildsPerBranch": d["max_concurrent_builds_per_branch"].(int),
+				"pathFilters":                  expandBuildDefinitionBranchOrPathFilterSet(d["path_filter"].(*schema.Set)),
+				"triggerType":                  string(t),
+				"pollingInterval":              d["polling_interval"].(int),
+			}
 		}
-		return vs
 	case build.DefinitionTriggerTypeValues.PullRequest:
+		isYaml := d["use_yaml"].(bool)
 		commentRequired := d["comment_required"].(string)
 		vs := map[string]interface{}{
 			"forks":                                expandBuildDefinitionForkSet(d["forks"].(*schema.Set)),
-			"branchFilters":                        expandBuildDefinitionBranchOrPathFilterSet(d["branch_filter"].(*schema.Set)),
-			"pathFilters":                          expandBuildDefinitionBranchOrPathFilterSet(d["path_filter"].(*schema.Set)),
 			"isCommentRequiredForPullRequest":      len(commentRequired) > 0,
 			"requireCommentsForNonTeamMembersOnly": commentRequired == "NonTeamMembers",
 			"triggerType":                          string(t),
 		}
-		if yaml {
+		if isYaml {
+			vs["branchFilters"] = []interface{}{
+				// TODO : how to get the source branch into here?
+				"+develop",
+			}
+			vs["pathFilters"] = []interface{}{}
 			vs["settingsSourceType"] = float64(2)
 		} else {
+			vs["branchFilters"] = expandBuildDefinitionBranchOrPathFilterSet(d["branch_filter"].(*schema.Set))
+			vs["pathFilters"] = expandBuildDefinitionBranchOrPathFilterSet(d["path_filter"].(*schema.Set))
 			vs["autoCancel"] = d["auto_cancel"].(bool)
 		}
 		return vs
@@ -689,18 +722,18 @@ func expandBuildDefinitionTrigger(d map[string]interface{}, yaml bool, t build.D
 	}
 	return nil
 }
-func expandBuildDefinitionTriggerList(d []interface{}, yaml bool, t build.DefinitionTriggerType) []interface{} {
+func expandBuildDefinitionTriggerList(d []interface{}, t build.DefinitionTriggerType) []interface{} {
 	vs := make([]interface{}, 0, len(d))
 	for _, v := range d {
 		val, ok := v.(map[string]interface{})
 		if ok {
-			vs = append(vs, expandBuildDefinitionTrigger(val, yaml, t))
+			vs = append(vs, expandBuildDefinitionTrigger(val, t))
 		}
 	}
 	return vs
 }
-func expandBuildDefinitionTriggerSet(configured *schema.Set, yaml bool, t build.DefinitionTriggerType) []interface{} {
-	return expandBuildDefinitionTriggerList(configured.List(), yaml, t)
+func expandBuildDefinitionTriggerSet(configured *schema.Set, t build.DefinitionTriggerType) []interface{} {
+	return expandBuildDefinitionTriggerList(configured.List(), t)
 }
 
 func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, string, error) {
@@ -730,23 +763,18 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 
 	ciTriggers := expandBuildDefinitionTriggerSet(
 		d.Get("ci_trigger").(*schema.Set),
-		d.Get("enable_yaml_ci_trigger").(bool),
 		build.DefinitionTriggerTypeValues.ContinuousIntegration,
 	)
 	pullRequestTriggers := expandBuildDefinitionTriggerSet(
 		d.Get("pull_request_trigger").(*schema.Set),
-		d.Get("enable_yaml_pull_request_trigger").(bool),
 		build.DefinitionTriggerTypeValues.PullRequest,
 	)
-
 	scheduleTriggers := expandBuildDefinitionTriggerSet(
 		d.Get("schedule_trigger").(*schema.Set),
-		false,
 		build.DefinitionTriggerTypeValues.Schedule,
 	)
 	gatedCheckinTriggers := expandBuildDefinitionTriggerSet(
 		d.Get("gated_checkin_trigger").(*schema.Set),
-		false,
 		build.DefinitionTriggerTypeValues.GatedCheckIn,
 	)
 
