@@ -353,20 +353,6 @@ func flattenBuildDefinition(d *schema.ResourceData, buildDefinition *build.Build
 	d.Set("revision", revision)
 }
 
-func flattenVariableGroups(buildDefinition *build.BuildDefinition) []int {
-	if buildDefinition.VariableGroups == nil {
-		return nil
-	}
-
-	variableGroups := make([]int, len(*buildDefinition.VariableGroups))
-
-	for i, variableGroup := range *buildDefinition.VariableGroups {
-		variableGroups[i] = *variableGroup.Id
-	}
-
-	return variableGroups
-}
-
 func createBuildDefinition(clients *config.AggregatedClient, buildDefinition *build.BuildDefinition, project string) (*build.BuildDefinition, error) {
 	createdBuild, err := clients.BuildClient.CreateDefinition(clients.Ctx, build.CreateDefinitionArgs{
 		Definition: buildDefinition,
@@ -437,6 +423,20 @@ func resourceBuildDefinitionUpdate(d *schema.ResourceData, m interface{}) error 
 	return nil
 }
 
+func flattenVariableGroups(buildDefinition *build.BuildDefinition) []int {
+	if buildDefinition.VariableGroups == nil {
+		return nil
+	}
+
+	variableGroups := make([]int, len(*buildDefinition.VariableGroups))
+
+	for i, variableGroup := range *buildDefinition.VariableGroups {
+		variableGroups[i] = *variableGroup.Id
+	}
+
+	return variableGroups
+}
+
 func flattenRepository(buildDefinition *build.BuildDefinition) interface{} {
 	yamlFilePath := ""
 
@@ -460,11 +460,11 @@ func flattenRepository(buildDefinition *build.BuildDefinition) interface{} {
 	}}
 }
 
-func flattenBuildDefinitionBranchOrPathFilter(m *[]string) []interface{} {
+func flattenBuildDefinitionBranchOrPathFilter(m []string) []interface{} {
 	var include []string
 	var exclude []string
 
-	for _, v := range *m {
+	for _, v := range m {
 		if strings.HasPrefix(v, "-") {
 			exclude = append(exclude, strings.TrimPrefix(v, "-"))
 		} else if strings.HasPrefix(v, "+") {
@@ -485,11 +485,11 @@ func flattenBuildDefinitionContinuousIntegrationTrigger(m interface{}) interface
 	if ms, ok := m.(map[string]interface{}); ok {
 		return map[string]interface{}{
 			"batch":                            ms["batchChanges"],
-			"branch_filter":                    flattenBuildDefinitionBranchOrPathFilter(ms["branchFilters"].(*[]string)),
+			"branch_filter":                    flattenBuildDefinitionBranchOrPathFilter(ms["branchFilters"].([]string)),
 			"max_concurrent_builds_per_branch": ms["maxConcurrentBuildsPerBranch"],
 			"polling_interval":                 ms["pollingInterval"],
 			"polling_job_id":                   ms["pollingJobId"],
-			"path_filter":                      flattenBuildDefinitionBranchOrPathFilter(ms["pathFilters"].(*[]string)),
+			"path_filter":                      flattenBuildDefinitionBranchOrPathFilter(ms["pathFilters"].([]string)),
 		}
 	}
 	return nil
@@ -497,9 +497,9 @@ func flattenBuildDefinitionContinuousIntegrationTrigger(m interface{}) interface
 
 func flattenBuildDefinitionPullRequestTrigger(m interface{}) interface{} {
 	if ms, ok := m.(map[string]interface{}); ok {
-		forks := *ms["forks"].(*map[string]interface{})
-		isCommentRequired := *ms["isCommentRequiredForPullRequest"].(*bool)
-		isCommentRequiredNonTeam := *ms["requireCommentsForNonTeamMembersOnly"].(*bool)
+		forks := ms["forks"].(map[string]interface{})
+		isCommentRequired := ms["isCommentRequiredForPullRequest"].(bool)
+		isCommentRequiredNonTeam := ms["requireCommentsForNonTeamMembersOnly"].(bool)
 		var commentRequired string
 		if isCommentRequired {
 			commentRequired = "All"
@@ -510,9 +510,9 @@ func flattenBuildDefinitionPullRequestTrigger(m interface{}) interface{} {
 
 		return map[string]interface{}{
 			"auto_cancel":      ms["autoCancel"],
-			"branch_filter":    flattenBuildDefinitionBranchOrPathFilter(ms["branchFilters"].(*[]string)),
+			"branch_filter":    flattenBuildDefinitionBranchOrPathFilter(ms["branchFilters"].([]string)),
 			"comment_required": commentRequired,
-			"path_filter":      flattenBuildDefinitionBranchOrPathFilter(ms["pathFilters"].(*[]string)),
+			"path_filter":      flattenBuildDefinitionBranchOrPathFilter(ms["pathFilters"].([]string)),
 			"forks": []map[string]interface{}{{
 				"enabled":       forks["enabled"],
 				"share_secrets": forks["allowSecrets"],
@@ -524,7 +524,7 @@ func flattenBuildDefinitionPullRequestTrigger(m interface{}) interface{} {
 
 func flattenBuildDefinitionTrigger(m interface{}, t build.DefinitionTriggerType) interface{} {
 	if ms, ok := m.(map[string]interface{}); ok {
-		if *ms["triggerType"].(*string) != string(t) {
+		if ms["triggerType"].(string) != string(t) {
 			return nil
 		}
 		switch t {
@@ -604,7 +604,6 @@ func expandBuildDefinitionBranchOrPathFilter(d map[string]interface{}) []string 
 	}
 	return m
 }
-
 func expandBuildDefinitionBranchOrPathFilterList(d []interface{}) [][]string {
 	vs := make([][]string, 0, len(d))
 	for _, v := range d {
@@ -614,22 +613,20 @@ func expandBuildDefinitionBranchOrPathFilterList(d []interface{}) [][]string {
 	}
 	return vs
 }
-
-func expandBuildDefinitionBranchOrPathFilterSet(configured *schema.Set) *[]string {
+func expandBuildDefinitionBranchOrPathFilterSet(configured *schema.Set) []string {
 	d2 := expandBuildDefinitionBranchOrPathFilterList(configured.List())
 	if len(d2) != 1 {
 		return nil
 	}
-	return &d2[0]
+	return d2[0]
 }
 
 func expandBuildDefinitionFork(d map[string]interface{}) map[string]interface{} {
 	return map[string]interface{}{
-		"allowSecrets": converter.Bool(d["share_secrets"].(bool)),
-		"enabled":      converter.Bool(d["enabled"].(bool)),
+		"allowSecrets": d["share_secrets"].(bool),
+		"enabled":      d["enabled"].(bool),
 	}
 }
-
 func expandBuildDefinitionForkList(d []interface{}) []map[string]interface{} {
 	vs := make([]map[string]interface{}, 0, len(d))
 	for _, v := range d {
@@ -639,29 +636,28 @@ func expandBuildDefinitionForkList(d []interface{}) []map[string]interface{} {
 	}
 	return vs
 }
-
-func expandBuildDefinitionForkSet(configured *schema.Set) *map[string]interface{} {
+func expandBuildDefinitionForkSet(configured *schema.Set) map[string]interface{} {
 	d2 := expandBuildDefinitionForkList(configured.List())
 	if len(d2) != 1 {
 		return nil
 	}
-	return &d2[0]
+	return d2[0]
 }
 
 func expandBuildDefinitionTrigger(d map[string]interface{}, yaml bool, t build.DefinitionTriggerType) interface{} {
 	switch t {
 	case build.DefinitionTriggerTypeValues.ContinuousIntegration:
 		vs := map[string]interface{}{
-			"batchChanges":                 converter.Bool(d["batch"].(bool)),
+			"batchChanges":                 d["batch"].(bool),
 			"branchFilters":                expandBuildDefinitionBranchOrPathFilterSet(d["branch_filter"].(*schema.Set)),
-			"maxConcurrentBuildsPerBranch": converter.Int(d["max_concurrent_builds_per_branch"].(int)),
+			"maxConcurrentBuildsPerBranch": d["max_concurrent_builds_per_branch"].(int),
 			"pathFilters":                  expandBuildDefinitionBranchOrPathFilterSet(d["path_filter"].(*schema.Set)),
-			"triggerType":                  converter.String(string(t)),
+			"triggerType":                  string(t),
 		}
 		if yaml {
-			vs["settingsSourceType"] = converter.Int(2)
+			vs["settingsSourceType"] = float64(2)
 		} else {
-			vs["pollingInterval"] = converter.Int(d["polling_interval"].(int))
+			vs["pollingInterval"] = d["polling_interval"].(int)
 		}
 		return vs
 	case build.DefinitionTriggerTypeValues.PullRequest:
@@ -670,14 +666,14 @@ func expandBuildDefinitionTrigger(d map[string]interface{}, yaml bool, t build.D
 			"forks":                                expandBuildDefinitionForkSet(d["forks"].(*schema.Set)),
 			"branchFilters":                        expandBuildDefinitionBranchOrPathFilterSet(d["branch_filter"].(*schema.Set)),
 			"pathFilters":                          expandBuildDefinitionBranchOrPathFilterSet(d["path_filter"].(*schema.Set)),
-			"isCommentRequiredForPullRequest":      converter.Bool(len(commentRequired) > 0),
-			"requireCommentsForNonTeamMembersOnly": converter.Bool(commentRequired == "NonTeamMembers"),
-			"triggerType":                          converter.String(string(t)),
+			"isCommentRequiredForPullRequest":      len(commentRequired) > 0,
+			"requireCommentsForNonTeamMembersOnly": commentRequired == "NonTeamMembers",
+			"triggerType":                          string(t),
 		}
 		if yaml {
-			vs["settingsSourceType"] = converter.Int(2)
+			vs["settingsSourceType"] = float64(2)
 		} else {
-			vs["autoCancel"] = converter.Bool(d["auto_cancel"].(bool))
+			vs["autoCancel"] = d["auto_cancel"].(bool)
 		}
 		return vs
 	case build.DefinitionTriggerTypeValues.Schedule:

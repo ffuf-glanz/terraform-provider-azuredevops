@@ -26,13 +26,13 @@ import (
 var testProjectID = uuid.New().String()
 
 var manualCiTrigger = map[string]interface{}{
-	"branchFilters": &[]string{
+	"branchFilters": []string{
 		"+develop",
 		"+feature",
 		"+master",
 		"-test",
 	},
-	"pathFilters": &[]string{
+	"pathFilters": []string{
 		"+Root/Child1/*",
 		"+Root/Child2",
 		"-Root/Child3/*",
@@ -44,9 +44,9 @@ var manualCiTrigger = map[string]interface{}{
 }
 
 var yamlCiTrigger = map[string]interface{}{
-	"branchFilters":                &[]string{},
-	"pathFilters":                  &[]string{},
-	"settingsSourceType":           2,
+	"branchFilters":                []string{},
+	"pathFilters":                  []string{},
+	"settingsSourceType":           float64(2),
 	"batchChanges":                 false,
 	"maxConcurrentBuildsPerBranch": 1,
 	"triggerType":                  "continuousIntegration",
@@ -54,15 +54,15 @@ var yamlCiTrigger = map[string]interface{}{
 
 var manualPrTrigger = map[string]interface{}{
 	"autoCancel": true,
-	"forks": &map[string]interface{}{
+	"forks": map[string]interface{}{
 		"enabled":      false,
 		"allowSecrets": false,
 	},
-	"branchFilters": &[]string{
+	"branchFilters": []string{
 		"+develop",
 		"+master",
 	},
-	"pathFilters": &[]string{
+	"pathFilters": []string{
 		"+Root/Child1/*",
 		"+Root/Child2",
 		"-Root/Child3/*",
@@ -73,13 +73,13 @@ var manualPrTrigger = map[string]interface{}{
 }
 
 var yamlPrTrigger = map[string]interface{}{
-	"forks": &map[string]interface{}{
+	"forks": map[string]interface{}{
 		"enabled":      true,
 		"allowSecrets": true,
 	},
-	"branchFilters":                        &[]string{"+develop"},
-	"pathFilters":                          &[]string{},
-	"settingsSourceType":                   2,
+	"branchFilters":                        []string{"+develop"},
+	"pathFilters":                          []string{},
+	"settingsSourceType":                   float64(2),
 	"requireCommentsForNonTeamMembersOnly": false,
 	"isCommentRequiredForPullRequest":      false,
 	"triggerType":                          "pullRequest",
