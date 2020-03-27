@@ -26,13 +26,13 @@ import (
 var testProjectID = uuid.New().String()
 
 var manualCiTrigger = map[string]interface{}{
-	"branchFilters": []string{
+	"branchFilters": []interface{}{
 		"+develop",
 		"+feature",
 		"+master",
 		"-test",
 	},
-	"pathFilters": []string{
+	"pathFilters": []interface{}{
 		"+Root/Child1/*",
 		"+Root/Child2",
 		"-Root/Child3/*",
@@ -44,8 +44,8 @@ var manualCiTrigger = map[string]interface{}{
 }
 
 var yamlCiTrigger = map[string]interface{}{
-	"branchFilters":                []string{},
-	"pathFilters":                  []string{},
+	"branchFilters":                []interface{}{},
+	"pathFilters":                  []interface{}{},
 	"settingsSourceType":           float64(2),
 	"batchChanges":                 false,
 	"maxConcurrentBuildsPerBranch": 1,
@@ -58,11 +58,11 @@ var manualPrTrigger = map[string]interface{}{
 		"enabled":      false,
 		"allowSecrets": false,
 	},
-	"branchFilters": []string{
+	"branchFilters": []interface{}{
 		"+develop",
 		"+master",
 	},
-	"pathFilters": []string{
+	"pathFilters": []interface{}{
 		"+Root/Child1/*",
 		"+Root/Child2",
 		"-Root/Child3/*",
@@ -77,8 +77,8 @@ var yamlPrTrigger = map[string]interface{}{
 		"enabled":      true,
 		"allowSecrets": true,
 	},
-	"branchFilters":                        []string{"+develop"},
-	"pathFilters":                          []string{},
+	"branchFilters":                        []interface{}{"+develop"},
+	"pathFilters":                          []interface{}{},
 	"settingsSourceType":                   float64(2),
 	"requireCommentsForNonTeamMembersOnly": false,
 	"isCommentRequiredForPullRequest":      false,

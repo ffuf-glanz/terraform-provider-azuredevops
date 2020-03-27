@@ -460,15 +460,17 @@ func flattenRepository(buildDefinition *build.BuildDefinition) interface{} {
 	}}
 }
 
-func flattenBuildDefinitionBranchOrPathFilter(m []string) []interface{} {
+func flattenBuildDefinitionBranchOrPathFilter(m []interface{}) []interface{} {
 	var include []string
 	var exclude []string
 
 	for _, v := range m {
-		if strings.HasPrefix(v, "-") {
-			exclude = append(exclude, strings.TrimPrefix(v, "-"))
-		} else if strings.HasPrefix(v, "+") {
-			include = append(include, strings.TrimPrefix(v, "+"))
+		if v2, ok := v.(string); ok {
+			if strings.HasPrefix(v2, "-") {
+				exclude = append(exclude, strings.TrimPrefix(v2, "-"))
+			} else if strings.HasPrefix(v2, "+") {
+				include = append(include, strings.TrimPrefix(v2, "+"))
+			}
 		}
 	}
 	sort.Strings(include)
@@ -485,11 +487,11 @@ func flattenBuildDefinitionContinuousIntegrationTrigger(m interface{}) interface
 	if ms, ok := m.(map[string]interface{}); ok {
 		return map[string]interface{}{
 			"batch":                            ms["batchChanges"],
-			"branch_filter":                    flattenBuildDefinitionBranchOrPathFilter(ms["branchFilters"].([]string)),
+			"branch_filter":                    flattenBuildDefinitionBranchOrPathFilter(ms["branchFilters"].([]interface{})),
 			"max_concurrent_builds_per_branch": ms["maxConcurrentBuildsPerBranch"],
 			"polling_interval":                 ms["pollingInterval"],
 			"polling_job_id":                   ms["pollingJobId"],
-			"path_filter":                      flattenBuildDefinitionBranchOrPathFilter(ms["pathFilters"].([]string)),
+			"path_filter":                      flattenBuildDefinitionBranchOrPathFilter(ms["pathFilters"].([]interface{})),
 		}
 	}
 	return nil
@@ -510,9 +512,9 @@ func flattenBuildDefinitionPullRequestTrigger(m interface{}) interface{} {
 
 		return map[string]interface{}{
 			"auto_cancel":      ms["autoCancel"],
-			"branch_filter":    flattenBuildDefinitionBranchOrPathFilter(ms["branchFilters"].([]string)),
+			"branch_filter":    flattenBuildDefinitionBranchOrPathFilter(ms["branchFilters"].([]interface{})),
 			"comment_required": commentRequired,
-			"path_filter":      flattenBuildDefinitionBranchOrPathFilter(ms["pathFilters"].([]string)),
+			"path_filter":      flattenBuildDefinitionBranchOrPathFilter(ms["pathFilters"].([]interface{})),
 			"forks": []map[string]interface{}{{
 				"enabled":       forks["enabled"],
 				"share_secrets": forks["allowSecrets"],
@@ -587,12 +589,12 @@ func expandStringSet(d *schema.Set) []string {
 	return expandStringList(d.List())
 }
 
-func expandBuildDefinitionBranchOrPathFilter(d map[string]interface{}) []string {
+func expandBuildDefinitionBranchOrPathFilter(d map[string]interface{}) []interface{} {
 	include := expandStringSet(d["include"].(*schema.Set))
 	exclude := expandStringSet(d["exclude"].(*schema.Set))
 	sort.Strings(include)
 	sort.Strings(exclude)
-	m := make([]string, len(include)+len(exclude))
+	m := make([]interface{}, len(include)+len(exclude))
 	i := 0
 	for _, v := range include {
 		m[i] = "+" + v
@@ -604,8 +606,8 @@ func expandBuildDefinitionBranchOrPathFilter(d map[string]interface{}) []string 
 	}
 	return m
 }
-func expandBuildDefinitionBranchOrPathFilterList(d []interface{}) [][]string {
-	vs := make([][]string, 0, len(d))
+func expandBuildDefinitionBranchOrPathFilterList(d []interface{}) [][]interface{} {
+	vs := make([][]interface{}, 0, len(d))
 	for _, v := range d {
 		if val, ok := v.(map[string]interface{}); ok {
 			vs = append(vs, expandBuildDefinitionBranchOrPathFilter(val))
@@ -613,7 +615,7 @@ func expandBuildDefinitionBranchOrPathFilterList(d []interface{}) [][]string {
 	}
 	return vs
 }
-func expandBuildDefinitionBranchOrPathFilterSet(configured *schema.Set) []string {
+func expandBuildDefinitionBranchOrPathFilterSet(configured *schema.Set) []interface{} {
 	d2 := expandBuildDefinitionBranchOrPathFilterList(configured.List())
 	if len(d2) != 1 {
 		return nil
