@@ -16,13 +16,6 @@ import (
 	"github.com/microsoft/azure-devops-go-api/azuredevops/build"
 )
 
-//func diffIsYaml(k, old, new string, d *schema.ResourceData) bool {
-//	if strings.ToLower(old) == strings.ToLower(new) {
-//		return true
-//	}
-//	return false
-//}
-
 func resourceBuildDefinition() *schema.Resource {
 	filterSchema := map[string]*schema.Schema{
 		"include": {
@@ -201,37 +194,39 @@ func resourceBuildDefinition() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"use_yaml": {
-							Type:     schema.TypeBool,
+							Type:          schema.TypeBool,
+							Optional:      true,
+							Default:       false,
+							ConflictsWith: []string{"ci_trigger.0.override"},
+						},
+						"override": {
+							Type:     schema.TypeSet,
 							Optional: true,
-							Default:  false,
-							ConflictsWith: []string{
-								"ci_trigger.0.batch",
-								"ci_trigger.0.branch_filter",
-								"ci_trigger.0.max_concurrent_builds_per_branch",
-								"ci_trigger.0.path_filter",
-								"ci_trigger.0.polling_interval",
-								"ci_trigger.0.polling_interval",
-								"ci_trigger.0.polling_job_id",
+							MinItems: 1,
+							MaxItems: 1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"batch": {
+										Type:     schema.TypeBool,
+										Optional: true,
+										Default:  true,
+									},
+									"branch_filter": branchFilter,
+									"max_concurrent_builds_per_branch": {
+										Type:     schema.TypeInt,
+										Optional: true,
+									},
+									"path_filter": pathFilter,
+									"polling_interval": {
+										Type:     schema.TypeInt,
+										Optional: true,
+									},
+									"polling_job_id": {
+										Type:     schema.TypeString,
+										Computed: true,
+									},
+								},
 							},
-						},
-						"batch": {
-							Type:     schema.TypeBool,
-							Optional: true,
-							Default:  true,
-						},
-						"branch_filter": branchFilter,
-						"max_concurrent_builds_per_branch": {
-							Type:     schema.TypeInt,
-							Optional: true,
-						},
-						"path_filter": pathFilter,
-						"polling_interval": {
-							Type:     schema.TypeInt,
-							Optional: true,
-						},
-						"polling_job_id": {
-							Type:     schema.TypeString,
-							Computed: true,
 						},
 					},
 				},
@@ -245,22 +240,30 @@ func resourceBuildDefinition() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"use_yaml": {
-							Type:     schema.TypeBool,
-							Optional: true,
-							Default:  false,
-							ConflictsWith: []string{
-								"pull_request_trigger.0.auto_cancel",
-								"pull_request_trigger.0.branch_filter",
-								"pull_request_trigger.0.path_filter",
-							},
+							Type:          schema.TypeBool,
+							Optional:      true,
+							Default:       false,
+							ConflictsWith: []string{"pull_request_trigger.0.override"},
 						},
-						"auto_cancel": {
-							Type:     schema.TypeBool,
+						"override": {
+							Type:     schema.TypeSet,
 							Optional: true,
+							MinItems: 1,
+							MaxItems: 1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"auto_cancel": {
+										Type:     schema.TypeBool,
+										Optional: true,
+									},
+									"branch_filter": branchFilter,
+									"path_filter":   pathFilter,
+								},
+							},
 						},
 						"forks": {
 							Type:     schema.TypeSet,
-							Optional: true,
+							Required: true,
 							MinItems: 1,
 							MaxItems: 1,
 							Elem: &schema.Resource{
@@ -276,8 +279,6 @@ func resourceBuildDefinition() *schema.Resource {
 								},
 							},
 						},
-						"branch_filter": branchFilter,
-						"path_filter":   pathFilter,
 						"comment_required": {
 							Type:         schema.TypeString,
 							Optional:     true,
@@ -501,12 +502,14 @@ func flattenBuildDefinitionContinuousIntegrationTrigger(m interface{}, isYaml bo
 			"use_yaml": isYaml,
 		}
 		if !isYaml {
-			f["batch"] = ms["batchChanges"]
-			f["branch_filter"] = flattenBuildDefinitionBranchOrPathFilter(ms["branchFilters"].([]interface{}))
-			f["max_concurrent_builds_per_branch"] = ms["maxConcurrentBuildsPerBranch"]
-			f["polling_interval"] = ms["pollingInterval"]
-			f["polling_job_id"] = ms["pollingJobId"]
-			f["path_filter"] = flattenBuildDefinitionBranchOrPathFilter(ms["pathFilters"].([]interface{}))
+			f["override"] = []map[string]interface{}{{
+				"batch":                            ms["batchChanges"],
+				"branch_filter":                    flattenBuildDefinitionBranchOrPathFilter(ms["branchFilters"].([]interface{})),
+				"max_concurrent_builds_per_branch": ms["maxConcurrentBuildsPerBranch"],
+				"polling_interval":                 ms["pollingInterval"],
+				"polling_job_id":                   ms["pollingJobId"],
+				"path_filter":                      flattenBuildDefinitionBranchOrPathFilter(ms["pathFilters"].([]interface{})),
+			}}
 		}
 		return f
 	}
@@ -535,9 +538,11 @@ func flattenBuildDefinitionPullRequestTrigger(m interface{}, isYaml bool) interf
 			}},
 		}
 		if !isYaml {
-			f["auto_cancel"] = ms["autoCancel"]
-			f["branch_filter"] = flattenBuildDefinitionBranchOrPathFilter(ms["branchFilters"].([]interface{}))
-			f["path_filter"] = flattenBuildDefinitionBranchOrPathFilter(ms["pathFilters"].([]interface{}))
+			f["override"] = []map[string]interface{}{{
+				"auto_cancel":   ms["autoCancel"],
+				"branch_filter": flattenBuildDefinitionBranchOrPathFilter(ms["branchFilters"].([]interface{})),
+				"path_filter":   flattenBuildDefinitionBranchOrPathFilter(ms["pathFilters"].([]interface{})),
+			}}
 		}
 		return f
 	}
@@ -666,6 +671,57 @@ func expandBuildDefinitionForkSet(configured *schema.Set) map[string]interface{}
 	return d2[0]
 }
 
+func expandBuildDefinitionManualPullRequestTrigger(d map[string]interface{}) map[string]interface{} {
+	return map[string]interface{}{
+		"branchFilters": expandBuildDefinitionBranchOrPathFilterSet(d["branch_filter"].(*schema.Set)),
+		"pathFilters":   expandBuildDefinitionBranchOrPathFilterSet(d["path_filter"].(*schema.Set)),
+		"autoCancel":    d["auto_cancel"].(bool),
+	}
+}
+func expandBuildDefinitionManualPullRequestTriggerList(d []interface{}) []map[string]interface{} {
+	vs := make([]map[string]interface{}, 0, len(d))
+	for _, v := range d {
+		if val, ok := v.(map[string]interface{}); ok {
+			vs = append(vs, expandBuildDefinitionManualPullRequestTrigger(val))
+		}
+	}
+	return vs
+}
+func expandBuildDefinitionManualPullRequestTriggerSet(configured *schema.Set) map[string]interface{} {
+	d2 := expandBuildDefinitionManualPullRequestTriggerList(configured.List())
+	if len(d2) != 1 {
+		return nil
+	}
+	return d2[0]
+}
+
+func expandBuildDefinitionManualContinuousIntegrationTrigger(d map[string]interface{}) map[string]interface{} {
+	return map[string]interface{}{
+		"batchChanges":                 d["batch"].(bool),
+		"branchFilters":                expandBuildDefinitionBranchOrPathFilterSet(d["branch_filter"].(*schema.Set)),
+		"maxConcurrentBuildsPerBranch": d["max_concurrent_builds_per_branch"].(int),
+		"pathFilters":                  expandBuildDefinitionBranchOrPathFilterSet(d["path_filter"].(*schema.Set)),
+		"triggerType":                  string(build.DefinitionTriggerTypeValues.ContinuousIntegration),
+		"pollingInterval":              d["polling_interval"].(int),
+	}
+}
+func expandBuildDefinitionManualContinuousIntegrationTriggerList(d []interface{}) []map[string]interface{} {
+	vs := make([]map[string]interface{}, 0, len(d))
+	for _, v := range d {
+		if val, ok := v.(map[string]interface{}); ok {
+			vs = append(vs, expandBuildDefinitionManualContinuousIntegrationTrigger(val))
+		}
+	}
+	return vs
+}
+func expandBuildDefinitionManualContinuousIntegrationTriggerSet(configured *schema.Set) map[string]interface{} {
+	d2 := expandBuildDefinitionManualContinuousIntegrationTriggerList(configured.List())
+	if len(d2) != 1 {
+		return nil
+	}
+	return d2[0]
+}
+
 func expandBuildDefinitionTrigger(d map[string]interface{}, t build.DefinitionTriggerType) interface{} {
 	switch t {
 	case build.DefinitionTriggerTypeValues.ContinuousIntegration:
@@ -680,14 +736,7 @@ func expandBuildDefinitionTrigger(d map[string]interface{}, t build.DefinitionTr
 				"settingsSourceType":           float64(2),
 			}
 		} else {
-			return map[string]interface{}{
-				"batchChanges":                 d["batch"].(bool),
-				"branchFilters":                expandBuildDefinitionBranchOrPathFilterSet(d["branch_filter"].(*schema.Set)),
-				"maxConcurrentBuildsPerBranch": d["max_concurrent_builds_per_branch"].(int),
-				"pathFilters":                  expandBuildDefinitionBranchOrPathFilterSet(d["path_filter"].(*schema.Set)),
-				"triggerType":                  string(t),
-				"pollingInterval":              d["polling_interval"].(int),
-			}
+			return expandBuildDefinitionManualContinuousIntegrationTriggerSet(d["override"].(*schema.Set))
 		}
 	case build.DefinitionTriggerTypeValues.PullRequest:
 		isYaml := d["use_yaml"].(bool)
@@ -706,9 +755,10 @@ func expandBuildDefinitionTrigger(d map[string]interface{}, t build.DefinitionTr
 			vs["pathFilters"] = []interface{}{}
 			vs["settingsSourceType"] = float64(2)
 		} else {
-			vs["branchFilters"] = expandBuildDefinitionBranchOrPathFilterSet(d["branch_filter"].(*schema.Set))
-			vs["pathFilters"] = expandBuildDefinitionBranchOrPathFilterSet(d["path_filter"].(*schema.Set))
-			vs["autoCancel"] = d["auto_cancel"].(bool)
+			override := expandBuildDefinitionManualPullRequestTriggerSet(d["override"].(*schema.Set))
+			vs["branchFilters"] = override["branchFilters"]
+			vs["pathFilters"] = override["pathFilters"]
+			vs["autoCancel"] = override["autoCancel"]
 		}
 		return vs
 	case build.DefinitionTriggerTypeValues.Schedule:
