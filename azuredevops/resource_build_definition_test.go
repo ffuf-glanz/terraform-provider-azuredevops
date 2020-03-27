@@ -37,26 +37,26 @@ var manualCiTrigger = map[string]interface{}{
 		"+Root/Child2",
 		"-Root/Child3/*",
 	},
-	"batchChanges":                 converter.Bool(true),
-	"maxConcurrentBuildsPerBranch": converter.Int(1),
-	"pollingInterval":              converter.Int(0),
-	"triggerType":                  converter.String("continuousIntegration"),
+	"batchChanges":                 true,
+	"maxConcurrentBuildsPerBranch": 1,
+	"pollingInterval":              0,
+	"triggerType":                  "continuousIntegration",
 }
 
 var yamlCiTrigger = map[string]interface{}{
 	"branchFilters":                &[]string{},
 	"pathFilters":                  &[]string{},
-	"settingsSourceType":           converter.Int(2),
-	"batchChanges":                 converter.Bool(false),
-	"maxConcurrentBuildsPerBranch": converter.Int(1),
-	"triggerType":                  converter.String("continuousIntegration"),
+	"settingsSourceType":           2,
+	"batchChanges":                 false,
+	"maxConcurrentBuildsPerBranch": 1,
+	"triggerType":                  "continuousIntegration",
 }
 
 var manualPrTrigger = map[string]interface{}{
-	"autoCancel": converter.Bool(true),
+	"autoCancel": true,
 	"forks": &map[string]interface{}{
-		"enabled":      converter.Bool(false),
-		"allowSecrets": converter.Bool(false),
+		"enabled":      false,
+		"allowSecrets": false,
 	},
 	"branchFilters": &[]string{
 		"+develop",
@@ -67,22 +67,22 @@ var manualPrTrigger = map[string]interface{}{
 		"+Root/Child2",
 		"-Root/Child3/*",
 	},
-	"isCommentRequiredForPullRequest":      converter.Bool(true),
-	"requireCommentsForNonTeamMembersOnly": converter.Bool(true),
-	"triggerType":                          converter.String("pullRequest"),
+	"isCommentRequiredForPullRequest":      true,
+	"requireCommentsForNonTeamMembersOnly": true,
+	"triggerType":                          "pullRequest",
 }
 
 var yamlPrTrigger = map[string]interface{}{
 	"forks": &map[string]interface{}{
-		"enabled":      converter.Bool(true),
-		"allowSecrets": converter.Bool(true),
+		"enabled":      true,
+		"allowSecrets": true,
 	},
 	"branchFilters":                        &[]string{"+develop"},
 	"pathFilters":                          &[]string{},
-	"settingsSourceType":                   converter.Int(2),
-	"requireCommentsForNonTeamMembersOnly": converter.Bool(false),
-	"isCommentRequiredForPullRequest":      converter.Bool(false),
-	"triggerType":                          converter.String("pullRequest"),
+	"settingsSourceType":                   2,
+	"requireCommentsForNonTeamMembersOnly": false,
+	"isCommentRequiredForPullRequest":      false,
+	"triggerType":                          "pullRequest",
 }
 
 var triggerGroups = [][]interface{}{

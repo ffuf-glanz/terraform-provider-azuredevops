@@ -19,33 +19,24 @@ import (
 func resourceBuildDefinition() *schema.Resource {
 	filterSchema := map[string]*schema.Schema{
 		"include": {
-			Type: schema.TypeSet,
+			Type:     schema.TypeSet,
+			Optional: true,
 			Elem: &schema.Schema{
 				Type:         schema.TypeString,
-				Optional:     true,
 				ValidateFunc: validation.NoZeroValues,
 			},
 		},
 		"exclude": {
-			Type: schema.TypeSet,
+			Type:     schema.TypeSet,
+			Optional: true,
 			Elem: &schema.Schema{
 				Type:         schema.TypeString,
-				Optional:     true,
 				ValidateFunc: validation.NoZeroValues,
 			},
 		},
 	}
 
-	branchFilterRequired := &schema.Schema{
-		Type:     schema.TypeSet,
-		Required: true,
-		MinItems: 1,
-		Elem: &schema.Resource{
-			Schema: filterSchema,
-		},
-	}
-
-	branchFilterOptional := &schema.Schema{
+	branchFilter := &schema.Schema{
 		Type:     schema.TypeSet,
 		Optional: true,
 		MinItems: 1,
@@ -63,9 +54,11 @@ func resourceBuildDefinition() *schema.Resource {
 	}
 
 	scheduleSchema := map[string]*schema.Schema{
-		"branch_filter": branchFilterRequired,
+		"branch_filter": branchFilter,
 		"schedule_job_id": {
 			Type: schema.TypeString,
+			// TODO : Is this optional or required?
+			Optional: true,
 		},
 		"only_on_changes": {
 			Type:     schema.TypeBool,
@@ -138,13 +131,13 @@ func resourceBuildDefinition() *schema.Resource {
 				ValidateFunc: validate.Path,
 			},
 			"variable_groups": {
-				Type: schema.TypeSet,
+				Type:     schema.TypeSet,
+				Optional: true,
+				MinItems: 1,
 				Elem: &schema.Schema{
 					Type:         schema.TypeInt,
 					ValidateFunc: validation.IntAtLeast(1),
 				},
-				MinItems: 1,
-				Optional: true,
 			},
 			"agent_pool_name": {
 				Type:     schema.TypeString,
@@ -211,7 +204,7 @@ func resourceBuildDefinition() *schema.Resource {
 							Optional: true,
 							Default:  true,
 						},
-						"branch_filter": branchFilterOptional,
+						"branch_filter": branchFilter,
 						"max_concurrent_builds_per_branch": {
 							Type:     schema.TypeInt,
 							Optional: true,
@@ -234,9 +227,9 @@ func resourceBuildDefinition() *schema.Resource {
 				Optional: true,
 				Default:  false,
 				ConflictsWith: []string{
-					"pull_request_trigger[0].auto_cancel",
-					"pull_request_trigger[0].branch_filter",
-					"pull_request_trigger[0].path_filter",
+					"pull_request_trigger.0.auto_cancel",
+					"pull_request_trigger.0.branch_filter",
+					"pull_request_trigger.0.path_filter",
 				},
 			},
 			"pull_request_trigger": {
@@ -269,7 +262,7 @@ func resourceBuildDefinition() *schema.Resource {
 								},
 							},
 						},
-						"branch_filter": branchFilterRequired,
+						"branch_filter": branchFilter,
 						"path_filter":   pathFilter,
 						"comment_required": {
 							Type:         schema.TypeString,
@@ -559,9 +552,9 @@ func hasSettingsSourceType(m *[]interface{}, t build.DefinitionTriggerType, sst 
 	hasSetting := false
 	for _, d := range *m {
 		if ms, ok := d.(map[string]interface{}); ok {
-			if *ms["triggerType"].(*string) == string(t) {
+			if ms["triggerType"].(string) == string(t) {
 				if val, ok := ms["settingsSourceType"]; ok {
-					hasSetting = *val.(*int) == sst
+					hasSetting = int(val.(float64)) == sst
 				}
 			}
 		}
