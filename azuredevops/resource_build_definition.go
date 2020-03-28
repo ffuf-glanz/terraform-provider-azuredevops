@@ -645,9 +645,8 @@ func expandBuildDefinitionTrigger(d map[string]interface{}, t build.DefinitionTr
 				"triggerType":                  string(t),
 				"settingsSourceType":           float64(2),
 			}
-		} else {
-			return expandBuildDefinitionManualContinuousIntegrationTriggerSet(d["override"].(*schema.Set))
 		}
+		return expandBuildDefinitionManualContinuousIntegrationTriggerSet(d["override"].(*schema.Set))
 	case build.DefinitionTriggerTypeValues.PullRequest:
 		isYaml := d["use_yaml"].(bool)
 		commentRequired := d["comment_required"].(string)
@@ -721,16 +720,8 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 		d.Get("pull_request_trigger").(*schema.Set),
 		build.DefinitionTriggerTypeValues.PullRequest,
 	)
-	scheduleTriggers := expandBuildDefinitionTriggerSet(
-		d.Get("schedule_trigger").(*schema.Set),
-		build.DefinitionTriggerTypeValues.Schedule,
-	)
-	gatedCheckinTriggers := expandBuildDefinitionTriggerSet(
-		d.Get("gated_checkin_trigger").(*schema.Set),
-		build.DefinitionTriggerTypeValues.GatedCheckIn,
-	)
 
-	buildTriggers := append(append(append(ciTriggers, scheduleTriggers...), gatedCheckinTriggers...), pullRequestTriggers...)
+	buildTriggers := append(ciTriggers, pullRequestTriggers...)
 
 	// Look for the ID. This may not exist if we are within the context of a "create" operation,
 	// so it is OK if it is missing.
