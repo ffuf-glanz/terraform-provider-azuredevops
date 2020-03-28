@@ -177,15 +177,6 @@ func resourceBuildDefinition() *schema.Resource {
 					},
 				},
 			},
-			// BuildDefinition.triggers.
-			// TODO: if all triggers below are empty create a "None" trigger if the SDK doesn't do it automatically.
-			// TODO : convert triggers below to single Trigger array. Assign Enum Type to each from list below.
-			// None = 1, ContinuousIntegration = 2, BatchedContinuousIntegration = 4, Schedule = 8, GatedCheckIn = 16,
-			// BatchedGatedCheckIn = 32, PullRequest = 64, BuildCompletion = 128,
-			// TODO : can you mix and match triggers or have more than 1? If not then add "conflicts_with" to every trigger.
-			// TODO : convert "day" on schedule trigger into enum int. see below.
-			// None = 0, Monday = 1, Tuesday = 2, Wednesday = 4, Thursday = 8, Friday = 16, Saturday = 32, Sunday = 64, All = 127
-
 			"ci_trigger": {
 				Type:     schema.TypeSet,
 				Optional: true,
@@ -231,7 +222,6 @@ func resourceBuildDefinition() *schema.Resource {
 					},
 				},
 			},
-
 			"pull_request_trigger": {
 				Type:     schema.TypeSet,
 				Optional: true,
@@ -521,6 +511,7 @@ func flattenBuildDefinitionPullRequestTrigger(m interface{}, isYaml bool) interf
 		forks := ms["forks"].(map[string]interface{})
 		isCommentRequired := ms["isCommentRequiredForPullRequest"].(bool)
 		isCommentRequiredNonTeam := ms["requireCommentsForNonTeamMembersOnly"].(bool)
+
 		var commentRequired string
 		if isCommentRequired {
 			commentRequired = "All"
@@ -563,10 +554,8 @@ func flattenBuildDefinitionTrigger(m interface{}, isYaml bool, t build.Definitio
 		case build.DefinitionTriggerTypeValues.Schedule:
 		case build.DefinitionTriggerTypeValues.BatchedContinuousIntegration:
 		case build.DefinitionTriggerTypeValues.BatchedGatedCheckIn:
-			// TODO : create flatten for these
 			return nil
 		case build.DefinitionTriggerTypeValues.All:
-			// TODO : have to get an example of this
 			return nil
 		case build.DefinitionTriggerTypeValues.None:
 			return nil
