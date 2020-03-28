@@ -53,45 +53,6 @@ func resourceBuildDefinition() *schema.Resource {
 		},
 	}
 
-	scheduleSchema := map[string]*schema.Schema{
-		"branch_filter": branchFilter,
-		"schedule_job_id": {
-			Type: schema.TypeString,
-			// TODO : Is this optional or required?
-			Optional: true,
-		},
-		"only_on_changes": {
-			Type:     schema.TypeBool,
-			Optional: true,
-			Default:  false,
-		},
-		"day": {
-			Type:         schema.TypeString,
-			Optional:     true,
-			ValidateFunc: validation.StringInSlice([]string{"None", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "All"}, false),
-		},
-		"hour": {
-			Type:     schema.TypeInt,
-			Optional: true,
-		},
-		"minute": {
-			Type:     schema.TypeInt,
-			Optional: true,
-		},
-		"time_zone_id": {
-			Type:     schema.TypeInt,
-			Optional: true,
-		},
-	}
-
-	schedule := &schema.Schema{
-		Type:     schema.TypeSet,
-		Optional: true,
-		Elem: &schema.Resource{
-			Schema: scheduleSchema,
-		},
-	}
-
 	return &schema.Resource{
 		Create: resourceBuildDefinitionCreate,
 		Read:   resourceBuildDefinitionRead,
@@ -273,38 +234,6 @@ func resourceBuildDefinition() *schema.Resource {
 							Type:         schema.TypeString,
 							Optional:     true,
 							ValidateFunc: validation.StringInSlice([]string{"All", "NonTeamMembers"}, false),
-						},
-					},
-				},
-			},
-
-			"schedule_trigger": {
-				Type:     schema.TypeSet,
-				Optional: true,
-				MinItems: 1,
-				MaxItems: 1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"schedule": schedule,
-					},
-				},
-			},
-			"gated_checkin_trigger": {
-				Type:     schema.TypeSet,
-				Optional: true,
-				MinItems: 1,
-				MaxItems: 1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"path_filter": pathFilter,
-						"run_ci": {
-							Type:     schema.TypeBool,
-							Optional: true,
-							Default:  true,
-						},
-						"use_workspace_mappings": {
-							Type:     schema.TypeBool,
-							Optional: true,
 						},
 					},
 				},
@@ -550,15 +479,6 @@ func flattenBuildDefinitionTrigger(m interface{}, isYaml bool, t build.Definitio
 			return flattenBuildDefinitionContinuousIntegrationTrigger(ms, isYaml)
 		case build.DefinitionTriggerTypeValues.PullRequest:
 			return flattenBuildDefinitionPullRequestTrigger(ms, isYaml)
-		case build.DefinitionTriggerTypeValues.GatedCheckIn:
-		case build.DefinitionTriggerTypeValues.Schedule:
-		case build.DefinitionTriggerTypeValues.BatchedContinuousIntegration:
-		case build.DefinitionTriggerTypeValues.BatchedGatedCheckIn:
-			return nil
-		case build.DefinitionTriggerTypeValues.All:
-			return nil
-		case build.DefinitionTriggerTypeValues.None:
-			return nil
 		}
 	}
 	return nil
@@ -750,14 +670,6 @@ func expandBuildDefinitionTrigger(d map[string]interface{}, t build.DefinitionTr
 			vs["autoCancel"] = override["autoCancel"]
 		}
 		return vs
-	case build.DefinitionTriggerTypeValues.Schedule:
-		return build.ScheduleTrigger{
-			// TODO : map values
-		}
-	case build.DefinitionTriggerTypeValues.GatedCheckIn:
-		return build.GatedCheckInTrigger{
-			// TODO : map values
-		}
 	}
 	return nil
 }
