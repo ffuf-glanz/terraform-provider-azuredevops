@@ -167,6 +167,7 @@ func resourceBuildDefinition() *schema.Resource {
 									"max_concurrent_builds_per_branch": {
 										Type:     schema.TypeInt,
 										Optional: true,
+										Default:  1,
 									},
 									"path_filter": pathFilter,
 									"polling_interval": {
