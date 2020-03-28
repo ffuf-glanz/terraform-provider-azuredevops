@@ -111,7 +111,6 @@ var testBuildDefinition = build.BuildDefinition{
 	Process: &build.YamlProcess{
 		YamlFilename: converter.String("YamlFilename"),
 	},
-	// TODO Triggers BELOW
 	Queue: &build.AgentPoolQueue{
 		Name: converter.String("BuildPoolName"),
 		Pool: &build.TaskAgentPoolReference{
