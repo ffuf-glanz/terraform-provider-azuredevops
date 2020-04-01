@@ -1,24 +1,20 @@
 package azuredevops
 
 import (
-	//"context"
-	//"errors"
 	"fmt"
+	"github.com/stretchr/testify/require"
 
-	//"github.com/microsoft/terraform-provider-azuredevops/azdosdkmocks"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/testhelper"
 	"strconv"
 	"testing"
 
-	//"github.com/golang/mock/gomock"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	//"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/release"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/config"
-	//"github.com/stretchr/testify/require"
 )
 
 var testReleaseDefinition = release.ReleaseDefinition{
@@ -33,30 +29,6 @@ var testReleaseDefinition = release.ReleaseDefinition{
  * Begin unit tests
  */
 
-// validates that all supported repo types are allowed by the schema
-/*
-func TestAzureDevOpsReleaseDefinition_RepoTypeListIsCorrect(t *testing.T) {
-	expectedRepoTypes := []string{"GitHub", "TfsGit"}
-	repoSchema := resourceReleaseDefinition().Schema["repository"]
-	repoTypeSchema := repoSchema.Elem.(*schema.Resource).Schema["repo_type"]
-
-	for _, repoType := range expectedRepoTypes {
-		_, errors := repoTypeSchema.ValidateFunc(repoType, "")
-		require.Equal(t, 0, len(errors), "Repo type unexpectedly did not pass validation")
-	}
-}
-
-// validates that and error is thrown if any of the un-supported file path characters are used
-func TestAzureDevOpsReleaseDefinition_PathInvalidCharacterListIsError(t *testing.T) {
-	expectedInvalidPathCharacters := []string{"<", ">", "|", ":", "$", "@", "\"", "/", "%", "+", "*", "?"}
-	pathSchema := resourceReleaseDefinition().Schema["path"]
-
-	for _, repoType := range expectedInvalidPathCharacters {
-		_, errors := pathSchema.ValidateFunc(repoType, "")
-		require.Equal(t, "<>|:$@\"/%+*? are not allowed", errors[0].Error())
-	}
-}
-
 // verifies that the flatten/expand round trip yields the same release definition
 func TestAzureDevOpsReleaseDefinition_ExpandFlatten_Roundtrip(t *testing.T) {
 	resourceData := schema.TestResourceDataRaw(t, resourceReleaseDefinition().Schema, nil)
@@ -69,107 +41,6 @@ func TestAzureDevOpsReleaseDefinition_ExpandFlatten_Roundtrip(t *testing.T) {
 	require.Equal(t, testProjectID, projectID)
 }
 
-// verifies that an expand will fail if there is insufficient configuration data found in the resource
-func TestAzureDevOpsReleaseDefinition_Expand_FailsIfNotEnoughData(t *testing.T) {
-	resourceData := schema.TestResourceDataRaw(t, resourceReleaseDefinition().Schema, nil)
-	_, _, err := expandReleaseDefinition(resourceData)
-	require.NotNil(t, err)
-}
-
-// verifies that if an error is produced on create, the error is not swallowed
-func TestAzureDevOpsReleaseDefinition_Create_DoesNotSwallowError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	resourceData := schema.TestResourceDataRaw(t, resourceReleaseDefinition().Schema, nil)
-	flattenReleaseDefinition(resourceData, &testReleaseDefinition, testProjectID)
-
-	releaseClient := azdosdkmocks.NewMockReleaseClient(ctrl)
-	clients := &config.AggregatedClient{ReleaseClient: releaseClient, Ctx: context.Background()}
-
-	expectedArgs := release.CreateDefinitionArgs{Definition: &testReleaseDefinition, Project: &testProjectID}
-	releaseClient.
-		EXPECT().
-		CreateDefinition(clients.Ctx, expectedArgs).
-		Return(nil, errors.New("CreateDefinition() Failed")).
-		Times(1)
-
-	err := resourceReleaseDefinitionCreate(resourceData, clients)
-	require.Contains(t, err.Error(), "CreateDefinition() Failed")
-}
-
-// verifies that if an error is produced on a read, it is not swallowed
-func TestAzureDevOpsReleaseDefinition_Read_DoesNotSwallowError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	resourceData := schema.TestResourceDataRaw(t, resourceReleaseDefinition().Schema, nil)
-	flattenReleaseDefinition(resourceData, &testReleaseDefinition, testProjectID)
-
-	releaseClient := azdosdkmocks.NewMockReleaseClient(ctrl)
-	clients := &config.AggregatedClient{ReleaseClient: releaseClient, Ctx: context.Background()}
-
-	expectedArgs := release.GetDefinitionArgs{DefinitionId: testReleaseDefinition.Id, Project: &testProjectID}
-	releaseClient.
-		EXPECT().
-		GetDefinition(clients.Ctx, expectedArgs).
-		Return(nil, errors.New("GetDefinition() Failed")).
-		Times(1)
-
-	err := resourceReleaseDefinitionRead(resourceData, clients)
-	require.Equal(t, "GetDefinition() Failed", err.Error())
-}
-
-// verifies that if an error is produced on a delete, it is not swallowed
-func TestAzureDevOpsReleaseDefinition_Delete_DoesNotSwallowError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	resourceData := schema.TestResourceDataRaw(t, resourceReleaseDefinition().Schema, nil)
-	flattenReleaseDefinition(resourceData, &testReleaseDefinition, testProjectID)
-
-	releaseClient := azdosdkmocks.NewMockReleaseClient(ctrl)
-	clients := &config.AggregatedClient{ReleaseClient: releaseClient, Ctx: context.Background()}
-
-	expectedArgs := release.DeleteDefinitionArgs{DefinitionId: testReleaseDefinition.Id, Project: &testProjectID}
-	releaseClient.
-		EXPECT().
-		DeleteDefinition(clients.Ctx, expectedArgs).
-		Return(errors.New("DeleteDefinition() Failed")).
-		Times(1)
-
-	err := resourceReleaseDefinitionDelete(resourceData, clients)
-	require.Equal(t, "DeleteDefinition() Failed", err.Error())
-}
-
-// verifies that if an error is produced on an update, it is not swallowed
-func TestAzureDevOpsReleaseDefinition_Update_DoesNotSwallowError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	resourceData := schema.TestResourceDataRaw(t, resourceReleaseDefinition().Schema, nil)
-	flattenReleaseDefinition(resourceData, &testReleaseDefinition, testProjectID)
-
-	releaseClient := azdosdkmocks.NewMockReleaseClient(ctrl)
-	clients := &config.AggregatedClient{ReleaseClient: releaseClient, Ctx: context.Background()}
-
-	expectedArgs := release.UpdateDefinitionArgs{
-		Definition:   &testReleaseDefinition,
-		DefinitionId: testReleaseDefinition.Id,
-		Project:      &testProjectID,
-	}
-
-	releaseClient.
-		EXPECT().
-		UpdateDefinition(clients.Ctx, expectedArgs).
-		Return(nil, errors.New("UpdateDefinition() Failed")).
-		Times(1)
-
-	err := resourceReleaseDefinitionUpdate(resourceData, clients)
-	require.Equal(t, "UpdateDefinition() Failed", err.Error())
-}
-*/
-
 /**
  * Begin acceptance tests
  */
@@ -177,9 +48,9 @@ func TestAzureDevOpsReleaseDefinition_Update_DoesNotSwallowError(t *testing.T) {
 // validates that an apply followed by another apply (i.e., resource update) will be reflected in AzDO and the
 // underlying terraform state.
 func TestAccAzureDevOpsReleaseDefinition_CreateAndUpdate(t *testing.T) {
-	projectName := testAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	projectName := testhelper.TestAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	releaseDefinitionPathEmpty := ""
-	releaseDefinitionNameFirst := testAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	releaseDefinitionNameFirst := testhelper.TestAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	//releaseDefinitionNameSecond := testAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 
 	//releaseDefinitionPathFirst := `\` + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
@@ -190,7 +61,7 @@ func TestAccAzureDevOpsReleaseDefinition_CreateAndUpdate(t *testing.T) {
 
 	tfReleaseDefNode := "azuredevops_release_definition.release"
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testhelper.TestAccPreCheck(t) },
+		PreCheck:     func() { testhelper.TestAccPreCheck(t, nil) },
 		Providers:    testAccProviders,
 		CheckDestroy: testAccReleaseDefinitionCheckDestroy,
 		Steps: []resource.TestStep{
@@ -256,13 +127,13 @@ func TestAccAzureDevOpsReleaseDefinition_CreateAndUpdate(t *testing.T) {
 }
 
 func TestAccAzureDevOpsReleaseDefinition_CreateAndUpdate_Temp(t *testing.T) {
-	projectName := testAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	projectName := testhelper.TestAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	releaseDefinitionPathEmpty := ""
-	releaseDefinitionNameFirst := testAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	releaseDefinitionNameFirst := testhelper.TestAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 
 	tfReleaseDefNode := "azuredevops_release_definition.release"
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testhelper.TestAccPreCheck(t) },
+		PreCheck:     func() { testhelper.TestAccPreCheck(t, nil) },
 		Providers:    testAccProviders,
 		CheckDestroy: testAccReleaseDefinitionCheckDestroy,
 		Steps: []resource.TestStep{
@@ -281,13 +152,13 @@ func TestAccAzureDevOpsReleaseDefinition_CreateAndUpdate_Temp(t *testing.T) {
 }
 
 func TestAccAzureDevOpsReleaseDefinition_CreateAndUpdate_Agentless(t *testing.T) {
-	projectName := testAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	projectName := testhelper.TestAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	releaseDefinitionPathEmpty := ""
-	releaseDefinitionNameFirst := testAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	releaseDefinitionNameFirst := testhelper.TestAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 
 	tfReleaseDefNode := "azuredevops_release_definition.release"
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testhelper.TestAccPreCheck(t) },
+		PreCheck:     func() { testhelper.TestAccPreCheck(t, nil) },
 		Providers:    testAccProviders,
 		CheckDestroy: testAccReleaseDefinitionCheckDestroy,
 		Steps: []resource.TestStep{
