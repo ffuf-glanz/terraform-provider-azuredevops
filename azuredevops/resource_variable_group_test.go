@@ -7,7 +7,6 @@ package azuredevops
 
 import (
 	"fmt"
-	"github.com/microsoft/azure-devops-go-api/azuredevops/build"
 	"strconv"
 	"testing"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/terraform"
+	"github.com/microsoft/azure-devops-go-api/azuredevops/build"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/taskagent"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/config"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
@@ -74,7 +74,7 @@ func TestAzureDevOpsVariableGroup_ExpandFlatten_Roundtrip(t *testing.T) {
  * Begin acceptance tests
  */
 
-func TestAccAzureDevOpsVariableGroup_CreateAndUpdate(t *testing.T) {
+func TestAccAccAzureDevOpsVariableGroup_CreateAndUpdate(t *testing.T) {
 	projectName := testhelper.TestAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	vargroupNameFirst := testhelper.TestAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	vargroupNameSecond := testhelper.TestAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
@@ -94,8 +94,19 @@ func TestAccAzureDevOpsVariableGroup_CreateAndUpdate(t *testing.T) {
 					resource.TestCheckResourceAttr(tfVarGroupNode, "name", vargroupNameFirst),
 					testAccCheckVariableGroupResourceExists(vargroupNameFirst, allowAccessFirst),
 				),
+				// due to the value of "secret" variables not being returned in the API response.
+				ExpectNonEmptyPlan: true,
 			}, {
 				Config: testhelper.TestAccVariableGroupResource(projectName, vargroupNameSecond, allowAccessSecond),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrSet(tfVarGroupNode, "project_id"),
+					resource.TestCheckResourceAttr(tfVarGroupNode, "name", vargroupNameSecond),
+					testAccCheckVariableGroupResourceExists(vargroupNameSecond, allowAccessSecond),
+				),
+				// due to the value of "secret" variables not being returned in the API response.
+				ExpectNonEmptyPlan: true,
+			}, {
+				Config: testhelper.TestAccVariableGroupResourceNoSecrets(projectName, vargroupNameSecond, allowAccessSecond),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttrSet(tfVarGroupNode, "project_id"),
 					resource.TestCheckResourceAttr(tfVarGroupNode, "name", vargroupNameSecond),
@@ -142,7 +153,6 @@ func testAccCheckVariableGroupResourceExists(expectedName string, expectedAllowA
 			if len(*definitionReference) > 0 {
 				return fmt.Errorf("Definition reference should be empty for allow access false")
 			}
-
 		} else {
 			if len(*definitionReference) == 0 {
 				return fmt.Errorf("Definition reference should be not empty for allow access true")
@@ -170,7 +180,7 @@ func testAccVariableGroupCheckDestroy(s *terraform.State) error {
 
 		// Indicates the definition reference still exists -- this should fail the test
 		if _, err := getDefinitionResourceFromVariableGroupResource(resource); err == nil {
-			return fmt.Errorf("Unexpectedly found a defintion reference for allow access that should be deleted")
+			return fmt.Errorf("Unexpectedly found a definition reference for allow access that should be deleted")
 		}
 	}
 
@@ -197,7 +207,6 @@ func getVariableGroupFromResource(resource *terraform.ResourceState) (*taskagent
 
 // Given a resource from the state, return a definition Reference (and error)
 func getDefinitionResourceFromVariableGroupResource(resource *terraform.ResourceState) (*[]build.DefinitionResourceReference, error) {
-
 	projectID := resource.Primary.Attributes["project_id"]
 	clients := testAccProvider.Meta().(*config.AggregatedClient)
 

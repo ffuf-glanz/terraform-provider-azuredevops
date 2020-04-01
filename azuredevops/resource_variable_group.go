@@ -2,14 +2,16 @@ package azuredevops
 
 import (
 	"fmt"
+	"strconv"
+
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/build"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/taskagent"
+	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/config"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/tfhelper"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/validate"
-	"strconv"
 )
 
 func resourceVariableGroup() *schema.Resource {
@@ -74,10 +76,6 @@ func resourceVariableGroup() *schema.Resource {
 				},
 				Required: true,
 				MinItems: 1,
-				Set: func(i interface{}) int {
-					item := i.(map[string]interface{})
-					return schema.HashString(item["name"].(string))
-				},
 			},
 		},
 	}
@@ -122,6 +120,10 @@ func resourceVariableGroupRead(d *schema.ResourceData, m interface{}) error {
 		},
 	)
 	if err != nil {
+		if utils.ResponseWasNotFound(err) {
+			d.SetId("")
+			return nil
+		}
 		return fmt.Errorf("Error looking up variable group given ID (%v) and project ID (%v): %v", variableGroupID, projectID, err)
 	}
 
@@ -281,7 +283,6 @@ func flattenVariables(variableGroup *taskagent.VariableGroup) interface{} {
 
 // Convert internal Terraform data structure to an AzDO data structure for Allow Access
 func expandDefinitionResourceAuth(d *schema.ResourceData, createdVariableGroup *taskagent.VariableGroup) []build.DefinitionResourceReference {
-
 	resourceRefType := "variablegroup"
 	variableGroupID := strconv.Itoa(*createdVariableGroup.Id)
 
@@ -301,7 +302,6 @@ func expandDefinitionResourceAuth(d *schema.ResourceData, createdVariableGroup *
 
 // Make the Azure DevOps API call to update the Definition resource = Allow Access
 func updateDefinitionResourceAuth(clients *config.AggregatedClient, definitionResource []build.DefinitionResourceReference, project *string) (*[]build.DefinitionResourceReference, error) {
-
 	definitionResourceReference, err := clients.BuildClient.AuthorizeProjectResources(
 		clients.Ctx, build.AuthorizeProjectResourcesArgs{
 			Resources: &definitionResource,
@@ -313,7 +313,6 @@ func updateDefinitionResourceAuth(clients *config.AggregatedClient, definitionRe
 
 // Make the Azure DevOps API call to delete the resource Auth Authorized=false
 func deleteDefinitionResourceAuth(clients *config.AggregatedClient, variableGroupID *string, project *string) (*[]build.DefinitionResourceReference, error) {
-
 	resourceRefType := "variablegroup"
 	auth := false
 	name := ""
