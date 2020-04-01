@@ -178,7 +178,7 @@ resource "azuredevops_build_definition" "build" {
 	return fmt.Sprintf("%s\n%s", projectResource, buildDefinitionResource)
 }
 
-// HCL describing an AzDO release definition
+// TestAccReleaseDefinitionResource HCL describing an AzDO release definition
 func TestAccReleaseDefinitionResource(projectName string, releaseDefinitionName string, releasePath string) string {
 	tasks := TestAccReleaseDefinitionTasks()
 	releaseDefinitionResource := fmt.Sprintf(`
@@ -296,6 +296,7 @@ YAML
 	return fmt.Sprintf("%s\n%s", projectResource, releaseDefinitionResource)
 }
 
+// TestAccReleaseDefinitionTasks yaml of release tasks
 func TestAccReleaseDefinitionTasks() string {
 	return `
 #refName: ''
@@ -355,6 +356,7 @@ func TestAccReleaseDefinitionTasks() string {
 `
 }
 
+// TestAccReleaseDefinitionResourceTemp full terraform stanza to standup a release pipeline
 func TestAccReleaseDefinitionResourceTemp(projectName string, releaseDefinitionName string, releasePath string) string {
 	releaseDefinitionResource := fmt.Sprintf(`
 resource "azuredevops_release_definition" "release" {
@@ -369,7 +371,7 @@ resource "azuredevops_release_definition" "release" {
     deployment_group_job {
       name = "Deployment group job 1"
       rank = 1
-      deployment_group_id = 1619 // QueueId
+      deployment_group_id = 1619 // QueueID
       //DeploymentHealthOption: OneAtATime
       tags = ["deployment_group_job_1"]
       timeout_in_minutes = 0
@@ -421,6 +423,7 @@ resource "azuredevops_release_definition" "release" {
 	return fmt.Sprintf("%s\n%s", projectResource, releaseDefinitionResource)
 }
 
+// TestAccReleaseDefinitionResourceAgentless full terraform stanza to standup a release pipeline
 func TestAccReleaseDefinitionResourceAgentless(projectName string, releaseDefinitionName string, releasePath string) string {
 	releaseDefinitionResource := fmt.Sprintf(`
 resource "azuredevops_release_definition" "release" {

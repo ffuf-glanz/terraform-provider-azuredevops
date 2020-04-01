@@ -14,6 +14,7 @@ import (
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/validate"
 )
 
+// RepoType the type of the repository
 type RepoType string
 
 type repoTypeValuesType struct {
@@ -21,6 +22,7 @@ type repoTypeValuesType struct {
 	TfsGit RepoType
 }
 
+// RepoTypeValues enum of the type of the repository
 var RepoTypeValues = repoTypeValuesType{
 	GitHub: "GitHub",
 	TfsGit: "TfsGit",

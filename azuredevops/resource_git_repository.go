@@ -16,6 +16,7 @@ import (
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/validate"
 )
 
+// RepoInitType strategy for initializing the repo
 type RepoInitType string
 
 type repoInitTypeValuesType struct {
@@ -25,6 +26,7 @@ type repoInitTypeValuesType struct {
 	Import        RepoInitType
 }
 
+// RepoInitTypeValues enum of strategy for initializing the repo
 var RepoInitTypeValues = repoInitTypeValuesType{
 	Uninitialized: "Uninitialized",
 	Clean:         "Clean",

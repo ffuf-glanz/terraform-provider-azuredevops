@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+// AgentDeploymentInput phase type which contains tasks executed on agent
 type AgentDeploymentInput struct {
 	// Gets or sets the job condition.
 	Condition *string `json:"condition,omitempty"`
@@ -26,17 +27,18 @@ type AgentDeploymentInput struct {
 	// Indicates whether to include access token in deployment job or not.
 	EnableAccessToken *bool `json:"enableAccessToken,omitempty"`
 	// Id of the pool on which job get executed.
-	QueueId *int `json:"queueId,omitempty"`
+	QueueID *int `json:"queueId,omitempty"`
 	// Indicates whether artifacts downloaded while job execution or not.
 	SkipArtifactsDownload *bool `json:"skipArtifactsDownload,omitempty"`
 	// Specification for an agent on which a job gets executed.
 	AgentSpecification *release.AgentSpecification `json:"agentSpecification,omitempty"`
 	// Gets or sets the image ID.
-	ImageId *int `json:"imageId,omitempty"`
+	ImageID *int `json:"imageId,omitempty"`
 	// Gets or sets the parallel execution input.
 	ParallelExecution interface{} `json:"parallelExecution,omitempty"`
 }
 
+// ServerDeploymentInput phase type which contains tasks executed by server
 type ServerDeploymentInput struct {
 	// Gets or sets the job condition.
 	Condition *string `json:"condition,omitempty"`
@@ -50,12 +52,14 @@ type ServerDeploymentInput struct {
 	ParallelExecution interface{} `json:"parallelExecution,omitempty"`
 }
 
+// Properties properties collection
 type Properties struct {
 	DefinitionCreationSource *string
 	IntegrateJiraWorkItems   *bool
 	IntegrateBoardsWorkItems *bool
 }
 
+// ReleaseDeployPhase the deploy phase
 type ReleaseDeployPhase struct {
 	// Dynamic based on PhaseType
 	DeploymentInput interface{} `json:"deploymentInput,omitempty"`
@@ -110,6 +114,7 @@ type ReleaseDeployPhase struct {
 	//ErrorLog *string `json:"errorLog,omitempty"`
 }
 
+// ArtifactDownloadModeType download type
 type ArtifactDownloadModeType string
 type artifactDownloadModeTypeValuesType struct {
 	Skip      ArtifactDownloadModeType
@@ -117,23 +122,27 @@ type artifactDownloadModeTypeValuesType struct {
 	All       ArtifactDownloadModeType
 }
 
+// ArtifactDownloadModeTypeValues enum of download type
 var ArtifactDownloadModeTypeValues = artifactDownloadModeTypeValuesType{
 	Skip:      "Skip",
 	Selective: "Selective",
 	All:       "All",
 }
 
+// DeploymentHealthOptionType health check type
 type DeploymentHealthOptionType string
 type deploymentHealthOptionValuesType struct {
 	OneTargetAtATime ArtifactDownloadModeType
 	Custom           ArtifactDownloadModeType
 }
 
+// DeploymentHealthOptionTypeValues enum of health check type
 var DeploymentHealthOptionTypeValues = deploymentHealthOptionValuesType{
 	OneTargetAtATime: "OneTargetAtATime",
 	Custom:           "Custom",
 }
 
+// ReleaseDefinitionDemand demand
 type ReleaseDefinitionDemand struct {
 	// Name of the demand.
 	Name *string `json:"name,omitempty"`
@@ -141,12 +150,14 @@ type ReleaseDefinitionDemand struct {
 	Value *string `json:"value,omitempty"`
 }
 
+// MachineGroupDeploymentMultiple phase type which contains tasks executed on deployment group machines.
 type MachineGroupDeploymentMultiple struct {
 }
 
+// ReleaseHostedAzurePipelines hosted agent details
 type ReleaseHostedAzurePipelines struct {
 	AgentSpecification *release.AgentSpecification
-	QueueId            *int
+	QueueID            *int
 }
 
 func expandStringList(d []interface{}) []string {
@@ -518,7 +529,7 @@ func expandReleaseHostedAzurePipelines(d map[string]interface{}) ReleaseHostedAz
 	agentSpecification := expandReleaseAgentSpecification(d)
 	return ReleaseHostedAzurePipelines{
 		AgentSpecification: &agentSpecification,
-		QueueId:            converter.Int(d["agent_pool_id"].(int)),
+		QueueID:            converter.Int(d["agent_pool_id"].(int)),
 	}
 }
 func expandReleaseHostedAzurePipelinesList(d []interface{}) []ReleaseHostedAzurePipelines {
@@ -536,7 +547,7 @@ func expandReleaseHostedAzurePipelinesSet(d *schema.Set) (*release.AgentSpecific
 	if len(d2) != 1 {
 		return nil, 0
 	}
-	return d2[0].AgentSpecification, *d2[0].QueueId
+	return d2[0].AgentSpecification, *d2[0].QueueID
 }
 
 func expandReleaseArtifactsDownloadInputSet(d *schema.Set) *release.ArtifactsDownloadInput {
@@ -575,7 +586,7 @@ func expandReleaseAgentDeploymentInput(d map[string]interface{}) AgentDeployment
 	demands := expandReleaseDefinitionDemandSet(d["demand"].(*schema.Set))
 	agentPoolPrivate := expandReleaseAgentSpecificationSet(d["agent_pool_private"].(*schema.Set))
 
-	agentPoolHostedAzurePipelines, queueId := expandReleaseHostedAzurePipelinesSet(d["agent_pool_hosted_azure_pipelines"].(*schema.Set))
+	agentPoolHostedAzurePipelines, queueID := expandReleaseHostedAzurePipelinesSet(d["agent_pool_hosted_azure_pipelines"].(*schema.Set))
 	//if agentPoolPrivate != nil && agentPoolHostedAzurePipelines != nil { // TODO : how to solve
 	//	return nil, fmt.Errorf("conflit %s and %s specify only one", "agent_pool_hosted_azure_pipelines", "agent_pool_private")
 	//}
@@ -608,10 +619,10 @@ func expandReleaseAgentDeploymentInput(d map[string]interface{}) AgentDeployment
 		ArtifactsDownloadInput:    artifactsDownloadInput,
 		Demands:                   &demands,
 		EnableAccessToken:         converter.Bool(d["allow_scripts_to_access_oauth_token"].(bool)), // TODO : enable_access_token
-		QueueId:                   &queueId,
+		QueueID:                   &queueID,
 		SkipArtifactsDownload:     converter.Bool(d["skip_artifacts_download"].(bool)),
 		AgentSpecification:        agentSpecification,
-		// ImageId: ,
+		// ImageID: ,
 		ParallelExecution: &parallelExecution,
 	}
 }
@@ -683,10 +694,10 @@ func expandReleaseWorkFlowTask(d map[string]interface{}) release.WorkflowTask {
 	task := strings.Split(d["task"].(string), "@")
 	taskName, version := task[0], task[1]
 	configInputs := d["inputs"].(map[string]interface{})
-	configId := d["id"].(string)
-	taskId, err := uuid.Parse(configId)
+	configID := d["id"].(string)
+	taskID, err := uuid.Parse(configID)
 	if err != nil {
-		taskId = distributedtask.TasksMap[taskName]
+		taskID = distributedtask.TasksMap[taskName]
 	}
 
 	inputs := make(map[string]string)
@@ -695,7 +706,7 @@ func expandReleaseWorkFlowTask(d map[string]interface{}) release.WorkflowTask {
 	}
 
 	return release.WorkflowTask{
-		TaskId:          &taskId,
+		TaskId:          &taskID,
 		AlwaysRun:       converter.Bool(d["always_run"].(bool)),
 		Condition:       converter.String(d["condition"].(string)),
 		ContinueOnError: converter.Bool(d["continue_on_error"].(bool)),
