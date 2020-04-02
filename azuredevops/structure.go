@@ -52,13 +52,6 @@ type ServerDeploymentInput struct {
 	ParallelExecution interface{} `json:"parallelExecution,omitempty"`
 }
 
-// Properties properties collection
-type Properties struct {
-	DefinitionCreationSource *string
-	IntegrateJiraWorkItems   *bool
-	IntegrateBoardsWorkItems *bool
-}
-
 // ReleaseDeployPhase the deploy phase
 type ReleaseDeployPhase struct {
 	// Dynamic based on PhaseType
@@ -188,25 +181,40 @@ func expandIntSet(configured *schema.Set) []int {
 	return expandIntList(configured.List())
 }
 
-func expandReleaseDefinitionsProperties(d map[string]interface{}) Properties {
-	return Properties{
-		DefinitionCreationSource: converter.String(d["definition_creation_source"].(string)),
-		IntegrateJiraWorkItems:   converter.Bool(d["integrate_jira_work_items"].(bool)),
-		IntegrateBoardsWorkItems: converter.Bool(d["integrate_boards_work_items"].(bool)),
+func expandReleaseDefinitionSource(d string) release.ReleaseDefinitionSource {
+	switch d {
+	case string(release.ReleaseDefinitionSourceValues.RestApi):
+		return release.ReleaseDefinitionSourceValues.RestApi
+	case string(release.ReleaseDefinitionSourceValues.Ibiza):
+		return release.ReleaseDefinitionSourceValues.Ibiza
+	case string(release.ReleaseDefinitionSourceValues.PortalExtensionApi):
+		return release.ReleaseDefinitionSourceValues.PortalExtensionApi
+	case string(release.ReleaseDefinitionSourceValues.UserInterface):
+		return release.ReleaseDefinitionSourceValues.UserInterface
+	}
+	return release.ReleaseDefinitionSourceValues.Undefined
+}
+
+func expandReleaseDefinitionProperties(d map[string]interface{}) map[string]interface{} {
+	return map[string]interface{}{
+		"DefinitionCreationSource": d["definition_creation_source"].(string),
+		"IntegrateJiraWorkItems":   d["integrate_jira_work_items"].(bool),
+		"IntegrateBoardsWorkItems": d["integrate_boards_work_items"].(bool),
+		"JiraServiceEndpointId":    d["jira_service_endpoint_id"].(string),
 	}
 }
-func expandReleaseDefinitionsPropertiesList(d []interface{}) []Properties {
-	vs := make([]Properties, 0, len(d))
+func expandReleaseDefinitionPropertiesList(d []interface{}) []map[string]interface{} {
+	vs := make([]map[string]interface{}, 0, len(d))
 	for _, v := range d {
 		val, ok := v.(map[string]interface{})
 		if ok {
-			vs = append(vs, expandReleaseDefinitionsProperties(val))
+			vs = append(vs, expandReleaseDefinitionProperties(val))
 		}
 	}
 	return vs
 }
-func expandReleaseDefinitionsPropertiesSet(d *schema.Set) interface{} {
-	d2 := expandReleaseDefinitionsPropertiesList(d.List())
+func expandReleaseDefinitionPropertiesSet(d *schema.Set) interface{} {
+	d2 := expandReleaseDefinitionPropertiesList(d.List())
 	if len(d2) != 1 {
 		return nil
 	}
@@ -246,7 +254,7 @@ func expandReleaseDefinitionEnvironment(d map[string]interface{}) release.Releas
 	retentionPolicy := expandReleaseEnvironmentRetentionPolicySet(d["retention_policy"].(*schema.Set))
 	preDeployApprovals := expandReleaseDefinitionApprovalsSet(d["pre_deploy_approval"].(*schema.Set))
 	postDeployApprovals := expandReleaseDefinitionApprovalsSet(d["post_deploy_approval"].(*schema.Set))
-	properties := expandReleaseDefinitionsPropertiesSet(d["properties"].(*schema.Set))
+	properties := expandReleaseDefinitionPropertiesSet(d["properties"].(*schema.Set))
 	agentJobs := expandReleaseDeployPhaseSet(d["agent_job"].(*schema.Set), release.DeployPhaseTypesValues.AgentBasedDeployment)
 	deploymentGroupJobs := expandReleaseDeployPhaseSet(d["deployment_group_job"].(*schema.Set), release.DeployPhaseTypesValues.MachineGroupBasedDeployment)
 	agentlessJobs := expandReleaseDeployPhaseSet(d["agentless_job"].(*schema.Set), release.DeployPhaseTypesValues.RunOnServer)
@@ -890,6 +898,7 @@ func flattenReleaseDefinitionProperties(m interface{}) interface{} {
 			"definition_creation_source":  properties["DefinitionCreationSource"],
 			"integrate_jira_work_items":   properties["IntegrateBoardsWorkItems"],
 			"integrate_boards_work_items": properties["IntegrateJiraWorkItems"],
+			"jira_service_endpoint_id":    properties["JiraServiceEndpointId"],
 		}
 		return []map[string]interface{}{d}
 	}

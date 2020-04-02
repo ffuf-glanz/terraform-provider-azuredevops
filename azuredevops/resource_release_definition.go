@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
+	"github.com/microsoft/azure-devops-go-api/azuredevops"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/release"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/config"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/tfhelper"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/validate"
 	"strconv"
+	"time"
 )
 
 // TagsSchema list of tags
@@ -530,6 +532,10 @@ func resourceReleaseDefinition() *schema.Resource {
 					Type:     schema.TypeBool,
 					Optional: true,
 					Default:  false,
+				},
+				"jira_service_endpoint_id": {
+					Type:     schema.TypeString,
+					Optional: true,
 				},
 			},
 		},
@@ -1081,9 +1087,8 @@ func flattenReleaseDefinition(d *schema.ResourceData, releaseDefinition *release
 	d.Set("tags", *releaseDefinition.Tags)
 	d.Set("properties", flattenReleaseDefinitionProperties(releaseDefinition.Properties))
 	d.Set("comment", *releaseDefinition.Comment)
-	d.Set("created_on", *releaseDefinition.CreatedOn)
-	d.Set("modified_on", *releaseDefinition.ModifiedOn)
-
+	d.Set("created_on", releaseDefinition.CreatedOn.Time.Format(time.RFC3339))
+	d.Set("modified_on", releaseDefinition.ModifiedOn.Time.Format(time.RFC3339))
 	d.Set("stage", flattenReleaseDefinitionEnvironmentList(releaseDefinition.Environments))
 
 	// TODO : build flattening for 3 items below.
@@ -1199,10 +1204,13 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		releaseDefinitionReference = &releaseDefinitionID
 	}
 
+	createdOn, _ := time.Parse(time.RFC3339, d.Get("created_on").(string))
+	modifiedOn, _ := time.Parse(time.RFC3339, d.Get("modified_on").(string))
+	source := expandReleaseDefinitionSource(d.Get("source").(string))
 	variableGroups := expandIntList(d.Get("variable_groups").([]interface{}))
 	environments := expandReleaseDefinitionEnvironmentSet(d.Get("stage").(*schema.Set))
 	variables := expandReleaseConfigurationVariableValueSet(d.Get("variable").(*schema.Set))
-	properties := expandReleaseDefinitionsPropertiesSet(d.Get("properties").(*schema.Set))
+	properties := expandReleaseDefinitionPropertiesSet(d.Get("properties").(*schema.Set))
 	//artifacts := expandReleaseArtifactSet(d.Get("artifact").(*schema.Set))
 	tags := expandStringList(d.Get("tags").([]interface{}))
 
@@ -1216,10 +1224,15 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		Variables:         &variables,
 		ReleaseNameFormat: converter.String(d.Get("release_name_format").(string)),
 		VariableGroups:    &variableGroups,
-		Properties:        &properties,
+		Properties:        properties,
 		//Artifacts:         &artifacts,
-		Comment: converter.String(d.Get("comment").(string)),
-		Tags:    &tags,
+		Url:        converter.String(d.Get("url").(string)),
+		Comment:    converter.String(d.Get("comment").(string)),
+		Tags:       &tags,
+		CreatedOn:  &azuredevops.Time{Time: createdOn},
+		ModifiedOn: &azuredevops.Time{Time: modifiedOn},
+		IsDeleted:  converter.Bool(d.Get("is_deleted").(bool)),
+		Source:     &source,
 	}
 
 	data, err := json.Marshal(releaseDefinition)

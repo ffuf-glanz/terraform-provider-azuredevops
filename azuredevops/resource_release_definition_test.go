@@ -21,6 +21,9 @@ import (
 
 var testReleaseProjectID = uuid.New().String()
 
+// format and parse to remove monotonic clock
+var now, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+
 var testReleaseDefinition = release.ReleaseDefinition{
 	Id:             converter.Int(100),
 	Revision:       converter.Int(1),
@@ -39,28 +42,16 @@ var testReleaseDefinition = release.ReleaseDefinition{
 	Tags:              &[]string{},
 	ReleaseNameFormat: converter.String("Release-$(rev:r)"),
 	Url:               converter.String(fmt.Sprintf("https://vsrm.dev.azure.com/Demo/%s/_apis/Release/definitions/2", testReleaseProjectID)),
-	Properties: &map[string]interface{}{
-		"DefinitionCreationSource": &map[string]interface{}{
-			"$type":  "System.String",
-			"$value": "ReleaseNew",
-		},
-		"IntegrateBoardsWorkItems": &map[string]interface{}{
-			"$type":  "System.String",
-			"$value": "True",
-		},
-		"IntegrateJiraWorkItems": &map[string]interface{}{
-			"$type":  "System.String",
-			"$value": "true",
-		},
-		"JiraServiceEndpointId": &map[string]interface{}{
-			"$type":  "System.String",
-			"$value": uuid.New().String(),
-		},
+	Properties: map[string]interface{}{
+		"DefinitionCreationSource": "ReleaseNew",
+		"IntegrateBoardsWorkItems": true,
+		"IntegrateJiraWorkItems":   true,
+		"JiraServiceEndpointId":    uuid.New().String(),
 	},
 	IsDeleted:  converter.Bool(false),
 	Comment:    converter.String("Comment"),
-	CreatedOn:  &azuredevops.Time{Time: time.Now()},
-	ModifiedOn: &azuredevops.Time{Time: time.Now()},
+	CreatedOn:  &azuredevops.Time{Time: now},
+	ModifiedOn: &azuredevops.Time{Time: now},
 }
 
 /**
