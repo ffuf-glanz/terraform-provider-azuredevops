@@ -11,4 +11,5 @@ require (
 	github.com/microsoft/azure-devops-go-api/azuredevops v0.0.0-20200327121006-543de4815ec2
 	github.com/stretchr/testify v1.3.0
 	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
+	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
 )
