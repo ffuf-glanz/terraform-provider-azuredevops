@@ -1,7 +1,6 @@
 package azuredevops
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
@@ -550,6 +549,26 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 	}
 
+	releaseTrigger := map[string]*schema.Schema{
+		"trigger_type": {
+			Type:     schema.TypeString,
+			Required: true,
+			ValidateFunc: validation.StringInSlice([]string{
+				string(release.EnvironmentTriggerTypeValues.Undefined),
+				string(release.EnvironmentTriggerTypeValues.DeploymentGroupRedeploy),
+				string(release.EnvironmentTriggerTypeValues.RollbackRedeploy),
+			}, false),
+		},
+	}
+
+	releaseTriggers := &schema.Schema{
+		Type:     schema.TypeSet,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: releaseTrigger,
+		},
+	}
+
 	environmentTrigger := map[string]*schema.Schema{
 		"definition_environment_id": {
 			Type:     schema.TypeInt,
@@ -1003,7 +1022,18 @@ func resourceReleaseDefinition() *schema.Resource {
 		Read:   resourceReleaseDefinitionRead,
 		Update: resourceReleaseDefinitionUpdate,
 		Delete: resourceReleaseDefinitionDelete,
+		Importer: &schema.ResourceImporter{
+			State: func(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+				projectID, buildDefinitionID, err := ParseImportedProjectIDAndID(meta.(*config.AggregatedClient), d.Id())
+				if err != nil {
+					return nil, fmt.Errorf("error parsing the build definition ID from the Terraform resource data: %v", err)
+				}
+				d.Set("project_id", projectID)
+				d.SetId(fmt.Sprintf("%d", buildDefinitionID))
 
+				return []*schema.ResourceData{d}, nil
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"project_id": {
 				Type:     schema.TypeString,
@@ -1066,6 +1096,7 @@ func resourceReleaseDefinition() *schema.Resource {
 			},
 			"stage":     stage,
 			"artifacts": artifacts,
+			"triggers":  releaseTriggers,
 		},
 	}
 }
@@ -1090,16 +1121,8 @@ func flattenReleaseDefinition(d *schema.ResourceData, releaseDefinition *release
 	d.Set("created_on", releaseDefinition.CreatedOn.Time.Format(time.RFC3339))
 	d.Set("modified_on", releaseDefinition.ModifiedOn.Time.Format(time.RFC3339))
 	d.Set("stage", flattenReleaseDefinitionEnvironmentList(releaseDefinition.Environments))
-
-	// TODO : build flattening for 3 items below.
-	// d.Set("artifacts", flattenReleaseDefinitionArtifactsList(releaseDefinition.Environments))
-	// d.Set("triggers", flattenReleaseDefinitionTriggersList(releaseDefinition.Environments))
-
-	//d2 := d.Get("stage").(*schema.Set)
-	//d4 := d.Get("name")
-	//
-	//d3, _ := d2.List()[0].(map[string]interface{})
-	//fmt.Println(d3, d4)
+	d.Set("artifacts", flattenReleaseDefinitionArtifactsList(releaseDefinition.Artifacts))
+	d.Set("triggers", flattenReleaseDefinitionTriggersList(releaseDefinition.Triggers))
 
 	revision := 0
 	if releaseDefinition.Revision != nil {
@@ -1211,7 +1234,8 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 	environments := expandReleaseDefinitionEnvironmentSet(d.Get("stage").(*schema.Set))
 	variables := expandReleaseConfigurationVariableValueSet(d.Get("variable").(*schema.Set))
 	properties := expandReleaseDefinitionPropertiesSet(d.Get("properties").(*schema.Set))
-	//artifacts := expandReleaseArtifactSet(d.Get("artifact").(*schema.Set))
+	triggers := expandReleaseDefinitionTriggersSet(d.Get("triggers").(*schema.Set))
+	artifacts := expandReleaseArtifactSet(d.Get("artifacts").(*schema.Set))
 	tags := expandStringList(d.Get("tags").([]interface{}))
 
 	releaseDefinition := release.ReleaseDefinition{
@@ -1225,18 +1249,19 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 		ReleaseNameFormat: converter.String(d.Get("release_name_format").(string)),
 		VariableGroups:    &variableGroups,
 		Properties:        properties,
-		//Artifacts:         &artifacts,
-		Url:        converter.String(d.Get("url").(string)),
-		Comment:    converter.String(d.Get("comment").(string)),
-		Tags:       &tags,
-		CreatedOn:  &azuredevops.Time{Time: createdOn},
-		ModifiedOn: &azuredevops.Time{Time: modifiedOn},
-		IsDeleted:  converter.Bool(d.Get("is_deleted").(bool)),
-		Source:     &source,
+		Artifacts:         &artifacts,
+		Url:               converter.String(d.Get("url").(string)),
+		Comment:           converter.String(d.Get("comment").(string)),
+		Tags:              &tags,
+		CreatedOn:         &azuredevops.Time{Time: createdOn},
+		ModifiedOn:        &azuredevops.Time{Time: modifiedOn},
+		IsDeleted:         converter.Bool(d.Get("is_deleted").(bool)),
+		Source:            &source,
+		Triggers:          &triggers,
 	}
 
-	data, err := json.Marshal(releaseDefinition)
-	fmt.Println(string(data))
+	//data, err := json.Marshal(releaseDefinition)
+	//fmt.Println(string(data))
 
 	return &releaseDefinition, projectID, nil
 }

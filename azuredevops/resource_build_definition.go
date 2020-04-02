@@ -38,7 +38,7 @@ func resourceBuildDefinition() *schema.Resource {
 			State: func(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 				projectID, buildDefinitionID, err := ParseImportedProjectIDAndID(meta.(*config.AggregatedClient), d.Id())
 				if err != nil {
-					return nil, fmt.Errorf("Error parsing the build definition ID from the Terraform resource data: %v", err)
+					return nil, fmt.Errorf("error parsing the build definition ID from the Terraform resource data: %v", err)
 				}
 				d.Set("project_id", projectID)
 				d.SetId(fmt.Sprintf("%d", buildDefinitionID))

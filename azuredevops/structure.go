@@ -221,6 +221,23 @@ func expandReleaseDefinitionPropertiesSet(d *schema.Set) interface{} {
 	return d2[0]
 }
 
+func expandReleaseDefinitionTriggers(d map[string]interface{}) map[string]interface{} {
+	return map[string]interface{}{}
+}
+func expandReleaseDefinitionTriggersList(d []interface{}) []interface{} {
+	vs := make([]interface{}, 0, len(d))
+	for _, v := range d {
+		val, ok := v.(map[string]interface{})
+		if ok {
+			vs = append(vs, expandReleaseDefinitionTriggers(val))
+		}
+	}
+	return vs
+}
+func expandReleaseDefinitionTriggersSet(d *schema.Set) []interface{} {
+	return expandReleaseDefinitionTriggersList(d.List())
+}
+
 func expandReleaseCondition(d map[string]interface{}) release.Condition {
 	conditionType := release.ConditionType(d["condition_type"].(string))
 	return release.Condition{
@@ -1039,6 +1056,28 @@ func flattenReleaseDefinitionEnvironmentList(m *[]release.ReleaseDefinitionEnvir
 	ds := make([]interface{}, 0, len(*m))
 	for _, d := range *m {
 		ds = append(ds, flattenReleaseDefinitionEnvironment(d))
+	}
+	return ds
+}
+
+func flattenReleaseDefinitionTriggers(m interface{}) interface{} {
+	return map[string]interface{}{}
+}
+func flattenReleaseDefinitionTriggersList(m *[]interface{}) []interface{} {
+	ds := make([]interface{}, 0, len(*m))
+	for _, d := range *m {
+		ds = append(ds, flattenReleaseDefinitionTriggers(d))
+	}
+	return ds
+}
+
+func flattenReleaseDefinitionArtifacts(m release.Artifact) interface{} {
+	return map[string]interface{}{}
+}
+func flattenReleaseDefinitionArtifactsList(m *[]release.Artifact) []interface{} {
+	ds := make([]interface{}, 0, len(*m))
+	for _, d := range *m {
+		ds = append(ds, flattenReleaseDefinitionArtifacts(d))
 	}
 	return ds
 }

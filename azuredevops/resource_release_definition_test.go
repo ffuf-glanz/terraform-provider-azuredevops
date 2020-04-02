@@ -34,7 +34,9 @@ var testReleaseDefinition = release.ReleaseDefinition{
 	Description:    converter.String("Description"),
 	Variables: &map[string]release.ConfigurationVariableValue{
 		"artifactRoot": {
-			Value: converter.String("$(System.DefaultWorkingDirectory)/Directory"),
+			Value:         converter.String("$(System.DefaultWorkingDirectory)/Directory"),
+			IsSecret:      converter.Bool(false),
+			AllowOverride: converter.Bool(false),
 		},
 	},
 	Environments:      &[]release.ReleaseDefinitionEnvironment{},
@@ -52,6 +54,7 @@ var testReleaseDefinition = release.ReleaseDefinition{
 	Comment:    converter.String("Comment"),
 	CreatedOn:  &azuredevops.Time{Time: now},
 	ModifiedOn: &azuredevops.Time{Time: now},
+	Artifacts:  &[]release.Artifact{},
 }
 
 /**
