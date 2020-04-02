@@ -117,6 +117,7 @@ func resourceBuildDefinition() *schema.Resource {
 					},
 				},
 			},
+			"tags": TagsSchema,
 		},
 	}
 }

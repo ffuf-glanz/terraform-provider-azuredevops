@@ -13,14 +13,16 @@ import (
 	"strconv"
 )
 
+// TagsSchema list of tags
+var TagsSchema = &schema.Schema{
+	Type:     schema.TypeList,
+	Optional: true,
+	Elem: &schema.Schema{
+		Type: schema.TypeString,
+	},
+}
+
 func resourceReleaseDefinition() *schema.Resource {
-	tags := &schema.Schema{
-		Type:     schema.TypeList,
-		Optional: true,
-		Elem: &schema.Schema{
-			Type: schema.TypeString,
-		},
-	}
 
 	rank := &schema.Schema{
 		Type:     schema.TypeInt,
@@ -842,7 +844,7 @@ func resourceReleaseDefinition() *schema.Resource {
 					Type:     schema.TypeInt,
 					Required: true,
 				},
-				"tags": tags,
+				"tags": TagsSchema,
 				"multiple": {
 					Type:     schema.TypeSet,
 					Optional: true,
@@ -1015,7 +1017,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				Type:         schema.TypeString,
 				Optional:     true,
 				Default:      "\\",
-				ValidateFunc: validate.FilePathOrEmpty,
+				ValidateFunc: validate.Path,
 			},
 			"variable_groups": variableGroups,
 			"source": {
@@ -1041,7 +1043,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				Type:     schema.TypeBool,
 				Computed: true,
 			},
-			"tags":       tags,
+			"tags":       TagsSchema,
 			"properties": releaseDefinitionProperties,
 			"comment": {
 				Type:     schema.TypeString,

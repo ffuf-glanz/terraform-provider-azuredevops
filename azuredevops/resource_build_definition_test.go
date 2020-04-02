@@ -56,6 +56,7 @@ var testBuildDefinition = build.BuildDefinition{
 	Type:           &build.DefinitionTypeValues.Build,
 	Quality:        &build.DefinitionQualityValues.Definition,
 	VariableGroups: &[]build.VariableGroup{},
+	Tags:           &[]string{},
 }
 
 /**
