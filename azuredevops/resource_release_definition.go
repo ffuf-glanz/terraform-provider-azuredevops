@@ -1090,11 +1090,11 @@ func flattenReleaseDefinition(d *schema.ResourceData, releaseDefinition *release
 	// d.Set("artifacts", flattenReleaseDefinitionArtifactsList(releaseDefinition.Environments))
 	// d.Set("triggers", flattenReleaseDefinitionTriggersList(releaseDefinition.Environments))
 
-	d2 := d.Get("stage").(*schema.Set)
-	d4 := d.Get("name")
-
-	d3, _ := d2.List()[0].(map[string]interface{})
-	fmt.Println(d3, d4)
+	//d2 := d.Get("stage").(*schema.Set)
+	//d4 := d.Get("name")
+	//
+	//d3, _ := d2.List()[0].(map[string]interface{})
+	//fmt.Println(d3, d4)
 
 	revision := 0
 	if releaseDefinition.Revision != nil {

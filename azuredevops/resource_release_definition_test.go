@@ -2,10 +2,14 @@ package azuredevops
 
 import (
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/microsoft/azure-devops-go-api/azuredevops"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/testhelper"
+	"github.com/stretchr/testify/require"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/acctest"
@@ -15,31 +19,65 @@ import (
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/config"
 )
 
+var testReleaseProjectID = uuid.New().String()
+
 var testReleaseDefinition = release.ReleaseDefinition{
 	Id:             converter.Int(100),
 	Revision:       converter.Int(1),
 	Name:           converter.String("Name"),
 	Path:           converter.String("\\"),
 	VariableGroups: &[]int{},
+	Source:         &release.ReleaseDefinitionSourceValues.RestApi,
+	Description:    converter.String("Description"),
+	Variables: &map[string]release.ConfigurationVariableValue{
+		"artifactRoot": {
+			Value: converter.String("$(System.DefaultWorkingDirectory)/Directory"),
+		},
+	},
+	Environments:      &[]release.ReleaseDefinitionEnvironment{},
+	Triggers:          &[]interface{}{},
+	Tags:              &[]string{},
+	ReleaseNameFormat: converter.String("Release-$(rev:r)"),
+	Url:               converter.String(fmt.Sprintf("https://vsrm.dev.azure.com/Demo/%s/_apis/Release/definitions/2", testReleaseProjectID)),
+	Properties: &map[string]interface{}{
+		"DefinitionCreationSource": &map[string]interface{}{
+			"$type":  "System.String",
+			"$value": "ReleaseNew",
+		},
+		"IntegrateBoardsWorkItems": &map[string]interface{}{
+			"$type":  "System.String",
+			"$value": "True",
+		},
+		"IntegrateJiraWorkItems": &map[string]interface{}{
+			"$type":  "System.String",
+			"$value": "true",
+		},
+		"JiraServiceEndpointId": &map[string]interface{}{
+			"$type":  "System.String",
+			"$value": uuid.New().String(),
+		},
+	},
+	IsDeleted:  converter.Bool(false),
+	Comment:    converter.String("Comment"),
+	CreatedOn:  &azuredevops.Time{Time: time.Now()},
+	ModifiedOn: &azuredevops.Time{Time: time.Now()},
 }
-
-var testReleaseProjectID = uuid.New().String()
 
 /**
  * Begin unit tests
  */
 
 // verifies that the flatten/expand round trip yields the same release definition
-//func TestAzureDevOpsReleaseDefinition_ExpandFlatten_Roundtrip(t *testing.T) {
-//	resourceData := schema.TestResourceDataRaw(t, resourceReleaseDefinition().Schema, nil)
-//	flattenReleaseDefinition(resourceData, &testReleaseDefinition, testReleaseProjectID)
-//
-//	releaseDefinitionAfterRoundTrip, projectID, err := expandReleaseDefinition(resourceData)
-//
-//	require.Nil(t, err)
-//	require.Equal(t, testReleaseDefinition, *releaseDefinitionAfterRoundTrip)
-//	require.Equal(t, testReleaseProjectID, projectID)
-//}
+func TestAzureDevOpsReleaseDefinition_ExpandFlatten_Roundtrip(t *testing.T) {
+	resourceData := schema.TestResourceDataRaw(t, resourceReleaseDefinition().Schema, nil)
+	flattenReleaseDefinition(resourceData, &testReleaseDefinition, testReleaseProjectID)
+
+	releaseDefinitionAfterRoundTrip, projectID, err := expandReleaseDefinition(resourceData)
+
+	require.Nil(t, err)
+	require.Equal(t, testReleaseDefinition, *releaseDefinitionAfterRoundTrip)
+	require.Equal(t, testReleaseProjectID, projectID)
+}
 
 /**
  * Begin acceptance tests
