@@ -1,7 +1,11 @@
 package azuredevops
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
+	"log"
 	"strconv"
 	"strings"
 
@@ -77,7 +81,7 @@ func resourceBuildDefinition() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"yml_path": {
 							Type:     schema.TypeString,
-							Required: true,
+							Optional: true,
 						},
 						"repo_name": {
 							Type:     schema.TypeString,
@@ -97,6 +101,39 @@ func resourceBuildDefinition() *schema.Resource {
 							Type:     schema.TypeString,
 							Optional: true,
 							Default:  "",
+						},
+					},
+				},
+			},
+			"step": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"task": {
+							Type:     schema.TypeSet,
+							Required: true,
+							MaxItems: 1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"identifier": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"definition_type": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"version": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+								},
+							},
+						},
+						"inputs": {
+							Type:     schema.TypeMap,
+							Optional: true,
 						},
 					},
 				},
@@ -131,6 +168,7 @@ func flattenBuildDefinition(d *schema.ResourceData, buildDefinition *build.Build
 	d.Set("agent_pool_name", *buildDefinition.Queue.Pool.Name)
 
 	d.Set("variable_groups", flattenVariableGroups(buildDefinition))
+	d.Set("process", flattenProcess(buildDefinition.Process))
 
 	revision := 0
 	if buildDefinition.Revision != nil {
@@ -138,6 +176,12 @@ func flattenBuildDefinition(d *schema.ResourceData, buildDefinition *build.Build
 	}
 
 	d.Set("revision", revision)
+}
+
+func flattenProcess(process interface{}) interface{} {
+	val, _ := json.Marshal(process)
+	valStr := string(val[:])
+	return valStr
 }
 
 func flattenVariableGroups(buildDefinition *build.BuildDefinition) []int {
@@ -235,20 +279,31 @@ func flattenRepository(buildDefiniton *build.BuildDefinition) interface{} {
 	// available from the compiler is `interface{}` so we can probe for known
 	// implementations
 	if processMap, ok := buildDefiniton.Process.(map[string]interface{}); ok {
-		yamlFilePath = processMap["yamlFilename"].(string)
+		if processMap["yamlFilename"] != nil {
+			yamlFilePath = processMap["yamlFilename"].(string)
+		}
 	}
 
 	if yamlProcess, ok := buildDefiniton.Process.(*build.YamlProcess); ok {
 		yamlFilePath = *yamlProcess.YamlFilename
 	}
 
-	return []map[string]interface{}{{
-		"yml_path":              yamlFilePath,
-		"repo_name":             *buildDefiniton.Repository.Name,
-		"repo_type":             *buildDefiniton.Repository.Type,
-		"branch_name":           *buildDefiniton.Repository.DefaultBranch,
-		"service_connection_id": (*buildDefiniton.Repository.Properties)["connectedServiceId"],
-	}}
+	if yamlFilePath != "" {
+		return []map[string]interface{}{{
+			"yml_path":              yamlFilePath,
+			"repo_name":             *buildDefiniton.Repository.Name,
+			"repo_type":             *buildDefiniton.Repository.Type,
+			"branch_name":           *buildDefiniton.Repository.DefaultBranch,
+			"service_connection_id": (*buildDefiniton.Repository.Properties)["connectedServiceId"],
+		}}
+	} else {
+		return []map[string]interface{}{{
+			"repo_name":             *buildDefiniton.Repository.Name,
+			"repo_type":             *buildDefiniton.Repository.Type,
+			"branch_name":           *buildDefiniton.Repository.DefaultBranch,
+			"service_connection_id": (*buildDefiniton.Repository.Properties)["connectedServiceId"],
+		}}
+	}
 }
 
 func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, string, error) {
@@ -260,6 +315,16 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 
 	for i, variableGroup := range variableGroupsInterface {
 		variableGroups[i] = *buildVariableGroup(variableGroup.(int))
+	}
+
+	stepsInterface := d.Get("step").(*schema.Set).List()
+
+	var steps []build.BuildDefinitionStep
+	for _, step := range stepsInterface {
+		stepBuilt := buildStep(step.(map[string]interface{}))
+		if stepBuilt != nil {
+			steps = append(steps, *stepBuilt)
+		}
 	}
 
 	// Note: If configured, this will be of length 1 based on the schema definition above.
@@ -290,6 +355,48 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 	}
 
 	agentPoolName := d.Get("agent_pool_name").(string)
+
+	var process interface{}
+
+	ymlPath := converter.String(repository["yml_path"].(string))
+	if ymlPath != nil {
+		process = &build.YamlProcess{
+			YamlFilename: ymlPath,
+		}
+	} else {
+		var phaseName = "Agent Job 1"
+		var refName = "Job_1"
+		var condition = "succeeded()"
+
+		var Type = 1
+		var target = &build.PhaseTarget{
+			Type: &Type,
+		}
+
+		var phase = &build.Phase{
+			Name:      &phaseName,
+			RefName:   &refName,
+			Condition: &condition,
+			Steps:     &steps,
+			Target:    target,
+		}
+		var phases = []build.Phase{
+			*phase,
+		}
+
+		agentSpecificationId := "ubuntu-18.04"
+		var processTarget = &build.DesignerProcessTarget{
+			AgentSpecification: &build.AgentSpecification{
+				Identifier: &agentSpecificationId,
+			},
+		}
+
+		process = &build.DesignerProcess{
+			Phases: &phases,
+			Target: processTarget,
+		}
+	}
+
 	buildDefinition := build.BuildDefinition{
 		Id:       buildDefinitionReference,
 		Name:     converter.String(d.Get("name").(string)),
@@ -305,9 +412,7 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 				"connectedServiceId": repository["service_connection_id"].(string),
 			},
 		},
-		Process: &build.YamlProcess{
-			YamlFilename: converter.String(repository["yml_path"].(string)),
-		},
+		Process: process,
 		Queue: &build.AgentPoolQueue{
 			Name: &agentPoolName,
 			Pool: &build.TaskAgentPoolReference{
@@ -320,7 +425,42 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 		VariableGroups: &variableGroups,
 	}
 
+	body, _ := json.Marshal(&buildDefinition)
+	goStyleString := string(bytes.Split(body[:], []byte{0})[0])
+	log.Print(goStyleString)
+
 	return &buildDefinition, projectID, nil
+}
+
+func buildStep(m map[string]interface{}) *build.BuildDefinitionStep {
+
+	inputs := m["inputs"].(map[string]interface{})
+	inputStrings := make(map[string]string)
+
+	for key, value := range inputs {
+		strKey := fmt.Sprintf("%v", key)
+		strValue := fmt.Sprintf("%v", value)
+		inputStrings[strKey] = strValue
+	}
+
+	tasks := m["task"].(*schema.Set).List()
+	if len(tasks) == 1 {
+
+		return &build.BuildDefinitionStep{
+			Task:   buildTask(tasks[0].(map[string]interface{})),
+			Inputs: &inputStrings,
+		}
+	}
+	return nil
+}
+
+func buildTask(m map[string]interface{}) *build.TaskDefinitionReference {
+	taskId := uuid.MustParse(m["identifier"].(string))
+	return &build.TaskDefinitionReference{
+		DefinitionType: converter.String(m["definition_type"].(string)),
+		Id:             &taskId,
+		VersionSpec:    converter.String(m["version"].(string)),
+	}
 }
 
 func buildVariableGroup(id int) *build.VariableGroup {
