@@ -86,7 +86,7 @@ func resourceBuildDefinition() *schema.Resource {
 						"repo_type": {
 							Type:         schema.TypeString,
 							Required:     true,
-							ValidateFunc: validation.StringInSlice([]string{"GitHub", "TfsGit"}, false),
+							ValidateFunc: validation.StringInSlice([]string{"GitHub", "TfsGit", "Bitbucket"}, false),
 						},
 						"branch_name": {
 							Type:     schema.TypeString,
@@ -274,6 +274,9 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 	repoURL := ""
 	if strings.EqualFold(repoType, "github") {
 		repoURL = fmt.Sprintf("https://github.com/%s.git", repoName)
+	}
+	if strings.EqualFold(repoType, "bitbucket") {
+		repoURL = fmt.Sprintf("https://bitbucket.org/%s.git", repoName)
 	}
 
 	// Look for the ID. This may not exist if we are within the context of a "create" operation,
