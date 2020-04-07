@@ -446,9 +446,11 @@ func buildStep(m map[string]interface{}) *build.BuildDefinitionStep {
 	tasks := m["task"].(*schema.Set).List()
 	if len(tasks) == 1 {
 
+		enabled := true;
 		return &build.BuildDefinitionStep{
 			Task:   buildTask(tasks[0].(map[string]interface{})),
 			Inputs: &inputStrings,
+			Enabled: &enabled,
 		}
 	}
 	return nil
