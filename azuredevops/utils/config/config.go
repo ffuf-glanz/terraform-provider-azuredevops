@@ -12,6 +12,7 @@ import (
 	"github.com/microsoft/azure-devops-go-api/azuredevops/graph"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/memberentitlementmanagement"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/operations"
+	"github.com/microsoft/azure-devops-go-api/azuredevops/release"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/serviceendpoint"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/taskagent"
 )
@@ -29,6 +30,7 @@ type AggregatedClient struct {
 	GitReposClient                git.Client
 	GraphClient                   graph.Client
 	OperationsClient              operations.Client
+	ReleaseClient                 release.Client
 	ServiceEndpointClient         serviceendpoint.Client
 	TaskAgentClient               taskagent.Client
 	MemberEntitleManagementClient memberentitlementmanagement.Client
@@ -68,6 +70,14 @@ func GetAzdoClient(azdoPAT string, organizationURL string) (*AggregatedClient, e
 	// client for these APIs (monitor async operations...):
 	//	https://docs.microsoft.com/en-us/rest/api/azure/devops/operations/operations?view=azure-devops-rest-5.1
 	operationsClient := operations.NewClient(ctx, connection)
+
+	// client for these APIs (includes CRUD for AzDO release pipelines...):
+	//	https://docs.microsoft.com/en-us/rest/api/azure/devops/release/?view=azure-devops-rest-5.1
+	releaseClient, err := release.NewClient(ctx, connection)
+	if err != nil {
+		log.Printf("getAzdoClient(): release.NewClient failed.")
+		return nil, err
+	}
 
 	// client for these APIs (includes CRUD for AzDO service endpoints a.k.a. service connections...):
 	//  https://docs.microsoft.com/en-us/rest/api/azure/devops/serviceendpoint/endpoints?view=azure-devops-rest-5.1
@@ -111,6 +121,7 @@ func GetAzdoClient(azdoPAT string, organizationURL string) (*AggregatedClient, e
 		GitReposClient:                gitReposClient,
 		GraphClient:                   graphClient,
 		OperationsClient:              operationsClient,
+		ReleaseClient:                 releaseClient,
 		ServiceEndpointClient:         serviceEndpointClient,
 		TaskAgentClient:               taskagentClient,
 		MemberEntitleManagementClient: memberentitlementmanagementClient,

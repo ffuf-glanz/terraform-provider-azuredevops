@@ -122,6 +122,7 @@ var testBuildDefinition = build.BuildDefinition{
 	Quality:        &build.DefinitionQualityValues.Definition,
 	Triggers:       &[]interface{}{},
 	VariableGroups: &[]build.VariableGroup{},
+	Tags:           &[]string{},
 }
 
 /**

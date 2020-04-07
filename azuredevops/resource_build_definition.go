@@ -20,6 +20,20 @@ import (
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/validate"
 )
 
+// RepoType the type of the repository
+type RepoType string
+
+type repoTypeValuesType struct {
+	GitHub RepoType
+	TfsGit RepoType
+}
+
+// RepoTypeValues enum of the type of the repository
+var RepoTypeValues = repoTypeValuesType{
+	GitHub: "GitHub",
+	TfsGit: "TfsGit",
+}
+
 func resourceBuildDefinition() *schema.Resource {
 	filterSchema := map[string]*schema.Schema{
 		"include": {
@@ -66,7 +80,7 @@ func resourceBuildDefinition() *schema.Resource {
 			State: func(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 				projectID, buildDefinitionID, err := ParseImportedProjectIDAndID(meta.(*config.AggregatedClient), d.Id())
 				if err != nil {
-					return nil, fmt.Errorf("Error parsing the build definition ID from the Terraform resource data: %v", err)
+					return nil, fmt.Errorf("error parsing the build definition ID from the Terraform resource data: %v", err)
 				}
 				d.Set("project_id", projectID)
 				d.SetId(fmt.Sprintf("%d", buildDefinitionID))
@@ -276,6 +290,7 @@ func resourceBuildDefinition() *schema.Resource {
 					},
 				},
 			},
+			"tags": TagsSchema,
 		},
 	}
 }
@@ -284,12 +299,12 @@ func resourceBuildDefinitionCreate(d *schema.ResourceData, m interface{}) error 
 	clients := m.(*config.AggregatedClient)
 	buildDefinition, projectID, err := expandBuildDefinition(d)
 	if err != nil {
-		return fmt.Errorf("Error creating resource Build Definition: %+v", err)
+		return fmt.Errorf("error creating resource Build Definition: %+v", err)
 	}
 
 	createdBuildDefinition, err := createBuildDefinition(clients, buildDefinition, projectID)
 	if err != nil {
-		return fmt.Errorf("Error creating resource Build Definition: %+v", err)
+		return fmt.Errorf("error creating resource Build Definition: %+v", err)
 	}
 
 	flattenBuildDefinition(d, createdBuildDefinition, projectID)
@@ -304,16 +319,17 @@ func flattenBuildDefinition(d *schema.ResourceData, buildDefinition *build.Build
 	d.Set("path", *buildDefinition.Path)
 	d.Set("repository", flattenRepository(buildDefinition))
 	d.Set("agent_pool_name", *buildDefinition.Queue.Pool.Name)
+	d.Set("path", *buildDefinition.Path)
 
 	d.Set("variable_groups", flattenVariableGroups(buildDefinition))
 	d.Set("process", flattenProcess(buildDefinition.Process))
 
 	if buildDefinition.Triggers != nil {
-		yamlCiTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.ContinuousIntegration, 2)
-		d.Set("ci_trigger", flattenReleaseDefinitionTriggers(buildDefinition.Triggers, yamlCiTrigger, build.DefinitionTriggerTypeValues.ContinuousIntegration))
+		//yamlCiTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.ContinuousIntegration, 2)
+		d.Set("ci_trigger", flattenReleaseDefinitionTriggers(buildDefinition.Triggers))
 
-		yamlPrTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.PullRequest, 2)
-		d.Set("pull_request_trigger", flattenReleaseDefinitionTriggers(buildDefinition.Triggers, yamlPrTrigger, build.DefinitionTriggerTypeValues.PullRequest))
+		//yamlPrTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.PullRequest, 2)
+		d.Set("pull_request_trigger", flattenReleaseDefinitionTriggers(buildDefinition.Triggers))
 	}
 
 	revision := 0
@@ -558,31 +574,6 @@ func hasSettingsSourceType(m *[]interface{}, t build.DefinitionTriggerType, sst 
 	return hasSetting
 }
 
-func flattenReleaseDefinitionTriggers(m *[]interface{}, isYaml bool, t build.DefinitionTriggerType) []interface{} {
-	ds := make([]interface{}, 0, len(*m))
-	for _, d := range *m {
-		f := flattenBuildDefinitionTrigger(d, isYaml, t)
-		if f != nil {
-			ds = append(ds, f)
-		}
-	}
-	return ds
-}
-
-func expandStringList(d []interface{}) []string {
-	vs := make([]string, 0, len(d))
-	for _, v := range d {
-		val, ok := v.(string)
-		if ok && val != "" {
-			vs = append(vs, v.(string))
-		}
-	}
-	return vs
-}
-func expandStringSet(d *schema.Set) []string {
-	return expandStringList(d.List())
-}
-
 func expandBuildDefinitionBranchOrPathFilter(d map[string]interface{}) []interface{} {
 	include := expandStringSet(d["include"].(*schema.Set))
 	exclude := expandStringSet(d["exclude"].(*schema.Set))
@@ -805,6 +796,8 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 		buildDefinitionReference = nil
 	}
 
+	tags := expandStringList(d.Get("tags").([]interface{}))
+
 	agentPoolName := d.Get("agent_pool_name").(string)
 
 	var process interface{}
@@ -858,7 +851,7 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 			Id:            &repoName,
 			Name:          &repoName,
 			DefaultBranch: converter.String(repository["branch_name"].(string)),
-			Type:          &repoType,
+			Type:          converter.String(string(repoType)),
 			Properties: &map[string]string{
 				"connectedServiceId": repository["service_connection_id"].(string),
 			},
@@ -875,6 +868,7 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 		Quality:        &build.DefinitionQualityValues.Definition,
 		VariableGroups: &variableGroups,
 		Triggers:       &buildTriggers,
+		Tags:           &tags,
 	}
 
 	body, _ := json.Marshal(&buildDefinition)
