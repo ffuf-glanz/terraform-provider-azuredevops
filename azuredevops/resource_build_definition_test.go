@@ -58,13 +58,45 @@ var testBuildDefinition = build.BuildDefinition{
 	VariableGroups: &[]build.VariableGroup{},
 }
 
+// This definition matches the overall structure of what a configured Bitbucket git repository would
+// look like.
+var testBuildDefinitionBitbucket = build.BuildDefinition{
+	Id:       converter.Int(100),
+	Revision: converter.Int(1),
+	Name:     converter.String("Name"),
+	Path:     converter.String("\\"),
+	Repository: &build.BuildRepository{
+		Url:           converter.String("https://bitbucket.com/RepoId.git"),
+		Id:            converter.String("RepoId"),
+		Name:          converter.String("RepoId"),
+		DefaultBranch: converter.String("RepoBranchName"),
+		Type:          converter.String("Bitbucket"),
+		Properties: &map[string]string{
+			"connectedServiceId": "ServiceConnectionID",
+		},
+	},
+	Process: &build.YamlProcess{
+		YamlFilename: converter.String("YamlFilename"),
+	},
+	Queue: &build.AgentPoolQueue{
+		Name: converter.String("BuildPoolName"),
+		Pool: &build.TaskAgentPoolReference{
+			Name: converter.String("BuildPoolName"),
+		},
+	},
+	QueueStatus:    &build.DefinitionQueueStatusValues.Enabled,
+	Type:           &build.DefinitionTypeValues.Build,
+	Quality:        &build.DefinitionQualityValues.Definition,
+	VariableGroups: &[]build.VariableGroup{},
+}
+
 /**
  * Begin unit tests
  */
 
 // validates that all supported repo types are allowed by the schema
 func TestAzureDevOpsBuildDefinition_RepoTypeListIsCorrect(t *testing.T) {
-	expectedRepoTypes := []string{"GitHub", "TfsGit"}
+	expectedRepoTypes := []string{"GitHub", "TfsGit", "Bitbucket"}
 	repoSchema := resourceBuildDefinition().Schema["repository"]
 	repoTypeSchema := repoSchema.Elem.(*schema.Resource).Schema["repo_type"]
 
@@ -90,6 +122,28 @@ func TestAzureDevOpsBuildDefinition_PathInvalidStartingSlashIsError(t *testing.T
 	pathSchema := resourceBuildDefinition().Schema["path"]
 	_, errors := pathSchema.ValidateFunc("dir\\dir", "")
 	require.Equal(t, "path must start with backslash", errors[0].Error())
+}
+
+// verifies that GitHub repo urls are expanded to URLs Azure DevOps expects
+func TestAzureDevOpsBuildDefinition_Expand_RepoUrl_Github(t *testing.T) {
+	resourceData := schema.TestResourceDataRaw(t, resourceBuildDefinition().Schema, nil)
+	flattenBuildDefinition(resourceData, &testBuildDefinition, testProjectID)
+	buildDefinitionAfterRoundTrip, projectID, err := expandBuildDefinition(resourceData)
+
+	require.Nil(t, err)
+	require.Equal(t, *buildDefinitionAfterRoundTrip.Repository.Url, "https://github.com/RepoId.git")
+	require.Equal(t, testProjectID, projectID)
+}
+
+// verifies that Bitbucket repo urls are expanded to URLs Azure DevOps expects
+func TestAzureDevOpsBuildDefinition_Expand_RepoUrl_Bitbucket(t *testing.T) {
+	resourceData := schema.TestResourceDataRaw(t, resourceBuildDefinition().Schema, nil)
+	flattenBuildDefinition(resourceData, &testBuildDefinitionBitbucket, testProjectID)
+	buildDefinitionAfterRoundTrip, projectID, err := expandBuildDefinition(resourceData)
+
+	require.Nil(t, err)
+	require.Equal(t, *buildDefinitionAfterRoundTrip.Repository.Url, "https://bitbucket.org/RepoId.git")
+	require.Equal(t, testProjectID, projectID)
 }
 
 // verifies that the flatten/expand round trip yields the same build definition
