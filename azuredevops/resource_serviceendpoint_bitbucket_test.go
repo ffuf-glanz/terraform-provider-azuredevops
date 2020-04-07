@@ -27,7 +27,7 @@ func TestAccAzureDevOpsServiceEndpointBitBucket_basic(t *testing.T) {
 		CheckDestroy: testAccServiceEndpointBitBucketCheckDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccServiceEndpointBitBucketResource_basic(projectName, serviceEndpointNameFirst),
+				Config: testAccServiceEndpointBitBucketResourceBasic(projectName, serviceEndpointNameFirst),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckServiceEndpointBitBucketResourceExists(serviceEndpointNameFirst),
 					resource.TestCheckResourceAttrSet(tfSvcEpNode, "project_id"),
@@ -52,7 +52,7 @@ func TestAccAzureDevOpsServiceEndpointBitBucket_complete(t *testing.T) {
 		CheckDestroy: testAccServiceEndpointBitBucketCheckDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccServiceEndpointBitBucketResource_complete(projectName, serviceEndpointNameFirst, description),
+				Config: testAccServiceEndpointBitBucketResourceComplete(projectName, serviceEndpointNameFirst, description),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckServiceEndpointBitBucketResourceExists(serviceEndpointNameFirst),
 					resource.TestCheckResourceAttrSet(tfSvcEpNode, "project_id"),
@@ -82,7 +82,7 @@ func TestAccAzureDevOpsServiceEndpointBitBucket_update(t *testing.T) {
 		CheckDestroy: testAccServiceEndpointBitBucketCheckDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccServiceEndpointBitBucketResource_basic(projectName, serviceEndpointNameFirst),
+				Config: testAccServiceEndpointBitBucketResourceBasic(projectName, serviceEndpointNameFirst),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckServiceEndpointBitBucketResourceExists(serviceEndpointNameFirst),
 					resource.TestCheckResourceAttrSet(tfSvcEpNode, "project_id"),
@@ -90,7 +90,7 @@ func TestAccAzureDevOpsServiceEndpointBitBucket_update(t *testing.T) {
 				),
 			},
 			{
-				Config: testAccServiceEndpointBitBucketResource_update(projectName, serviceEndpointNameSecond, description),
+				Config: testAccServiceEndpointBitBucketResourceUpdate(projectName, serviceEndpointNameSecond, description),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckServiceEndpointBitBucketResourceExists(serviceEndpointNameSecond),
 					resource.TestCheckResourceAttrSet(tfSvcEpNode, "project_id"),
@@ -117,7 +117,7 @@ func TestAccAzureDevOpsServiceEndpointBitBucket_requiresImportErrorStep(t *testi
 		CheckDestroy: testAccServiceEndpointBitBucketCheckDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccServiceEndpointBitBucketResource_basic(projectName, serviceEndpointName),
+				Config: testAccServiceEndpointBitBucketResourceBasic(projectName, serviceEndpointName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckServiceEndpointBitBucketResourceExists(serviceEndpointName),
 					resource.TestCheckResourceAttrSet(tfSvcEpNode, "project_id"),
@@ -125,7 +125,7 @@ func TestAccAzureDevOpsServiceEndpointBitBucket_requiresImportErrorStep(t *testi
 				),
 			},
 			{
-				Config:      testAccServiceEndpointBitBucketResource_requiresImport(projectName, serviceEndpointName),
+				Config:      testAccServiceEndpointBitBucketResourceRequiresImport(projectName, serviceEndpointName),
 				ExpectError: requiresImportError(serviceEndpointName),
 			},
 		},
@@ -192,7 +192,7 @@ func preCheck(t *testing.T) {
 	})
 }
 
-func testAccServiceEndpointBitBucketResource_basic(projectName string, serviceEndpointName string) string {
+func testAccServiceEndpointBitBucketResourceBasic(projectName string, serviceEndpointName string) string {
 	serviceEndpointResource := fmt.Sprintf(`
 resource "azuredevops_serviceendpoint_bitbucket" "test" {
 	project_id             = azuredevops_project.project.id
@@ -203,7 +203,7 @@ resource "azuredevops_serviceendpoint_bitbucket" "test" {
 	return fmt.Sprintf("%s\n%s", projectResource, serviceEndpointResource)
 }
 
-func testAccServiceEndpointBitBucketResource_complete(projectName string, serviceEndpointName string, description string) string {
+func testAccServiceEndpointBitBucketResourceComplete(projectName string, serviceEndpointName string, description string) string {
 	serviceEndpointResource := fmt.Sprintf(`
 resource "azuredevops_serviceendpoint_bitbucket" "test" {
 	project_id             = azuredevops_project.project.id
@@ -215,7 +215,7 @@ resource "azuredevops_serviceendpoint_bitbucket" "test" {
 	return fmt.Sprintf("%s\n%s", projectResource, serviceEndpointResource)
 }
 
-func testAccServiceEndpointBitBucketResource_update(projectName string, serviceEndpointName string, description string) string {
+func testAccServiceEndpointBitBucketResourceUpdate(projectName string, serviceEndpointName string, description string) string {
 	serviceEndpointResource := fmt.Sprintf(`
 resource "azuredevops_serviceendpoint_bitbucket" "test" {
 	project_id             = azuredevops_project.project.id
@@ -227,8 +227,8 @@ resource "azuredevops_serviceendpoint_bitbucket" "test" {
 	return fmt.Sprintf("%s\n%s", projectResource, serviceEndpointResource)
 }
 
-func testAccServiceEndpointBitBucketResource_requiresImport(projectName string, serviceEndpointName string) string {
-	template := testAccServiceEndpointBitBucketResource_basic(projectName, serviceEndpointName)
+func testAccServiceEndpointBitBucketResourceRequiresImport(projectName string, serviceEndpointName string) string {
+	template := testAccServiceEndpointBitBucketResourceBasic(projectName, serviceEndpointName)
 	return fmt.Sprintf(`
 %s
 resource "azuredevops_serviceendpoint_bitbucket" "import" {
