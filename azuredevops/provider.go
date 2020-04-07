@@ -13,9 +13,10 @@ func Provider() *schema.Provider {
 			"azuredevops_release_definition":        resourceReleaseDefinition(),
 			"azuredevops_project":                   resourceProject(),
 			"azuredevops_variable_group":            resourceVariableGroup(),
-			"azuredevops_serviceendpoint_github":    resourceServiceEndpointGitHub(),
-			"azuredevops_serviceendpoint_dockerhub": resourceServiceEndpointDockerHub(),
 			"azuredevops_serviceendpoint_azurerm":   resourceServiceEndpointAzureRM(),
+			"azuredevops_serviceendpoint_bitbucket": resourceServiceEndpointBitBucket(),
+			"azuredevops_serviceendpoint_dockerhub": resourceServiceEndpointDockerHub(),
+			"azuredevops_serviceendpoint_github":    resourceServiceEndpointGitHub(),
 			"azuredevops_git_repository":            resourceGitRepository(),
 			"azuredevops_user_entitlement":          resourceUserEntitlement(),
 			"azuredevops_group_membership":          resourceGroupMembership(),
@@ -26,6 +27,7 @@ func Provider() *schema.Provider {
 			"azuredevops_group":            dataGroup(),
 			"azuredevops_projects":         dataProjects(),
 			"azuredevops_git_repositories": dataGitRepositories(),
+			"azuredevops_users":            dataUsers(),
 		},
 		Schema: map[string]*schema.Schema{
 			"org_service_url": {
