@@ -325,11 +325,11 @@ func flattenBuildDefinition(d *schema.ResourceData, buildDefinition *build.Build
 	d.Set("process", flattenProcess(buildDefinition.Process))
 
 	if buildDefinition.Triggers != nil {
-		//yamlCiTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.ContinuousIntegration, 2)
-		d.Set("ci_trigger", flattenReleaseDefinitionTriggers(buildDefinition.Triggers))
+		yamlCiTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.ContinuousIntegration, 2)
+		d.Set("ci_trigger", flattenBuildDefinitionTrigger(buildDefinition.Triggers, yamlCiTrigger, build.DefinitionTriggerTypeValues.ContinuousIntegration))
 
-		//yamlPrTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.PullRequest, 2)
-		d.Set("pull_request_trigger", flattenReleaseDefinitionTriggers(buildDefinition.Triggers))
+		yamlPrTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.PullRequest, 2)
+		d.Set("pull_request_trigger", flattenBuildDefinitionTrigger(buildDefinition.Triggers, yamlPrTrigger, build.DefinitionTriggerTypeValues.PullRequest))
 	}
 
 	revision := 0
@@ -853,6 +853,7 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 			DefaultBranch: converter.String(repository["branch_name"].(string)),
 			Type:          converter.String(string(repoType)),
 			Properties: &map[string]string{
+				"apiUrl":             fmt.Sprintf("https://api.bitbucket.org/2.0/repositories/%s", repoName),
 				"connectedServiceId": repository["service_connection_id"].(string),
 			},
 		},
@@ -892,10 +893,10 @@ func buildStep(m map[string]interface{}) *build.BuildDefinitionStep {
 	tasks := m["task"].(*schema.Set).List()
 	if len(tasks) == 1 {
 
-		enabled := true;
+		enabled := true
 		return &build.BuildDefinitionStep{
-			Task:   buildTask(tasks[0].(map[string]interface{})),
-			Inputs: &inputStrings,
+			Task:    buildTask(tasks[0].(map[string]interface{})),
+			Inputs:  &inputStrings,
 			Enabled: &enabled,
 		}
 	}

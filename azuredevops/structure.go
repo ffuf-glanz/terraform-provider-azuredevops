@@ -222,7 +222,11 @@ func expandReleaseDefinitionPropertiesSet(d *schema.Set) interface{} {
 }
 
 func expandReleaseDefinitionTriggers(d map[string]interface{}) map[string]interface{} {
-	return map[string]interface{}{}
+	return map[string]interface{}{
+		"artifactAlias":     d["alias"].(string),
+		"triggerType":       "artifactSource",
+		"triggerConditions": make([]interface{}, 0, 0),
+	}
 }
 func expandReleaseDefinitionTriggersList(d []interface{}) []interface{} {
 	vs := make([]interface{}, 0, len(d))
@@ -262,7 +266,7 @@ func expandReleaseConditionSet(d *schema.Set) []release.Condition {
 
 // WIP
 func expandReleaseDefinitionEnvironment(d map[string]interface{}) release.ReleaseDefinitionEnvironment {
-	variableGroups := expandIntList(d["variable_groups"].([]interface{}))
+	variableGroups := flattenReleaseVariableGroups(d["variable_groups"].(*schema.Set).List())
 	deployStep := expandReleaseDefinitionDeployStepSet(d["deploy_step"].(*schema.Set))
 	variables := expandReleaseConfigurationVariableValueSet(d["variable"].(*schema.Set))
 	conditions := expandReleaseConditionSet(d["conditions"].(*schema.Set))
@@ -321,12 +325,21 @@ func expandReleaseArtifact(d map[string]interface{}) release.Artifact {
 	// NOTE : Might have to build a custom struct because AgentArtifactType doesn't equal comments in code. See below.
 	// It can have value as 'Build', 'Jenkins', 'GitHub', 'Nuget', 'Team Build (external)', 'ExternalTFSBuild', 'Git', 'TFVC', 'ExternalTfsXamlBuild'.
 	artifactType := release.AgentArtifactType(d["type"].(string))
+	reference := map[string]release.ArtifactSourceReference{
+		"definition": release.ArtifactSourceReference{
+			Id: converter.String(d["definition_reference"].(string)),
+		},
+		"project": release.ArtifactSourceReference{
+			Id: converter.String(d["project_reference"].(string)),
+		},
+	}
 	return release.Artifact{
-		Alias:      converter.String(d["Alias"].(string)),
-		IsPrimary:  converter.Bool(d["IsPrimary"].(bool)),
-		IsRetained: converter.Bool(d["IsRetained"].(bool)),
-		SourceId:   converter.String(d["SourceId"].(string)),
-		Type:       converter.String(string(artifactType)),
+		Alias:               converter.String(d["alias"].(string)),
+		IsPrimary:           converter.Bool(d["is_primary"].(bool)),
+		IsRetained:          converter.Bool(d["is_retained"].(bool)),
+		DefinitionReference: &reference,
+		SourceId:            converter.String(d["source_id"].(string)),
+		Type:                converter.String(string(artifactType)),
 	}
 }
 func expandReleaseArtifactList(d []interface{}) []release.Artifact {
@@ -735,7 +748,7 @@ func expandReleaseWorkFlowTask(d map[string]interface{}) release.WorkflowTask {
 		AlwaysRun:       converter.Bool(d["always_run"].(bool)),
 		Condition:       converter.String(d["condition"].(string)),
 		ContinueOnError: converter.Bool(d["continue_on_error"].(bool)),
-		DefinitionType:  converter.String("task"),
+		DefinitionType:  converter.String(d["definition_type"].(string)),
 		Enabled:         converter.Bool(d["enabled"].(bool)),
 		//Environment:      converter.String(d["environment"].(string)),
 		//Inputs:           converter.Int(d["inputs"].(int)),
@@ -1026,8 +1039,9 @@ func flattenReleaseDeployPhases(m interface{}, t release.DeployPhaseTypes) inter
 func flattenReleaseDeployPhasesList(m *[]interface{}, t release.DeployPhaseTypes) []interface{} {
 	ds := make([]interface{}, 0, 0)
 	for _, d := range *m {
-		d2 := d.(release.ReleaseDeployPhase)
-		if d2.PhaseType == &t {
+		d2 := d.(map[string]interface{})
+
+		if d2["phaseType"] == &t {
 			ds = append(ds, flattenReleaseDeploymentInput(d, t))
 		}
 	}
@@ -1035,6 +1049,7 @@ func flattenReleaseDeployPhasesList(m *[]interface{}, t release.DeployPhaseTypes
 }
 
 func flattenReleaseDefinitionEnvironment(m release.ReleaseDefinitionEnvironment) interface{} {
+
 	return map[string]interface{}{
 		"id":              m.Id,
 		"name":            m.Name,
@@ -1080,4 +1095,14 @@ func flattenReleaseDefinitionArtifactsList(m *[]release.Artifact) []interface{} 
 		ds = append(ds, flattenReleaseDefinitionArtifacts(d))
 	}
 	return ds
+}
+
+func flattenReleaseVariableGroups(m []interface{}) []int {
+	variableGroups := make([]int, len(m))
+
+	for i, variableGroup := range m {
+		variableGroups[i] = variableGroup.(int)
+	}
+
+	return variableGroups
 }

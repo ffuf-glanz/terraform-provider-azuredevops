@@ -1,6 +1,7 @@
 package azuredevops
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
@@ -29,15 +30,6 @@ func resourceReleaseDefinition() *schema.Resource {
 		Type:     schema.TypeInt,
 		Optional: true,
 		Default:  1,
-	}
-
-	variableGroups := &schema.Schema{
-		Type: schema.TypeList,
-		Elem: &schema.Schema{
-			Type:         schema.TypeInt,
-			ValidateFunc: validation.IntAtLeast(1),
-		},
-		Optional: true,
 	}
 
 	configurationVariableValue := map[string]*schema.Schema{
@@ -213,6 +205,10 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 		"inputs": {
 			Type:     schema.TypeMap,
+			Optional: true,
+		},
+		"definition_type": {
+			Type:     schema.TypeString,
 			Optional: true,
 		},
 		"task": {
@@ -554,10 +550,18 @@ func resourceReleaseDefinition() *schema.Resource {
 			Type:     schema.TypeString,
 			Required: true,
 			ValidateFunc: validation.StringInSlice([]string{
-				string(release.EnvironmentTriggerTypeValues.Undefined),
-				string(release.EnvironmentTriggerTypeValues.DeploymentGroupRedeploy),
-				string(release.EnvironmentTriggerTypeValues.RollbackRedeploy),
+				string(release.ReleaseTriggerTypeValues.Undefined),
+				string(release.ReleaseTriggerTypeValues.ArtifactSource),
+				string(release.ReleaseTriggerTypeValues.Schedule),
+				string(release.ReleaseTriggerTypeValues.SourceRepo),
+				string(release.ReleaseTriggerTypeValues.ContainerImage),
+				string(release.ReleaseTriggerTypeValues.Package),
+				string(release.ReleaseTriggerTypeValues.PullRequest),
 			}, false),
+		},
+		"alias": {
+			Type:     schema.TypeString,
+			Required: true,
 		},
 	}
 
@@ -606,11 +610,18 @@ func resourceReleaseDefinition() *schema.Resource {
 			Type:     schema.TypeString,
 			Optional: true,
 		},
-		// TODO : definition_reference
-		//"definition_reference": {
-		//	Type:     schema.TypeInt,
-		//	Optional: true,
-		//},
+		"definition_reference": {
+			Type:     schema.TypeString, //TODO this is not the way to handle this
+			Optional: true,
+		},
+		"project_reference": {
+			Type:     schema.TypeString, //TODO this is not the way to handle this
+			Optional: true,
+		},
+		"source_id": {
+			Type:     schema.TypeString,
+			Optional: true,
+		},
 		"is_primary": {
 			Type:     schema.TypeBool,
 			Optional: true,
@@ -979,8 +990,17 @@ func resourceReleaseDefinition() *schema.Resource {
 					Optional:     true,
 					ValidateFunc: validate.UUID,
 				},
-				"variable":             configurationVariables,
-				"variable_groups":      variableGroups,
+				"variable": configurationVariables,
+
+				"variable_groups": {
+					Type:     schema.TypeSet,
+					Optional: true,
+					MinItems: 1,
+					Elem: &schema.Schema{
+						Type:         schema.TypeInt,
+						ValidateFunc: validation.IntAtLeast(1),
+					},
+				},
 				"pre_deploy_approval":  releaseDefinitionApproval,
 				"post_deploy_approval": releaseDefinitionApproval,
 				"deploy_step":          releaseDefinitionDeployStep,
@@ -994,7 +1014,7 @@ func resourceReleaseDefinition() *schema.Resource {
 				// TODO : Rename this?
 				"artifacts_download_input": artifactsDownloadInput,
 				"environment_options":      environmentOptions,
-				"demands": &schema.Schema{
+				"demands": {
 					Type:       schema.TypeSet,
 					Optional:   true,
 					Deprecated: "Use DeploymentInput.Demands instead",
@@ -1055,7 +1075,16 @@ func resourceReleaseDefinition() *schema.Resource {
 				Default:      "\\",
 				ValidateFunc: validate.Path,
 			},
-			"variable_groups": variableGroups,
+
+			"variable_groups": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				MinItems: 1,
+				Elem: &schema.Schema{
+					Type:         schema.TypeInt,
+					ValidateFunc: validation.IntAtLeast(1),
+				},
+			},
 			"source": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -1117,12 +1146,12 @@ func flattenReleaseDefinition(d *schema.ResourceData, releaseDefinition *release
 	d.Set("is_deleted", *releaseDefinition.IsDeleted)
 	d.Set("tags", *releaseDefinition.Tags)
 	d.Set("properties", flattenReleaseDefinitionProperties(releaseDefinition.Properties))
-	d.Set("comment", *releaseDefinition.Comment)
+	//d.Set("comment", *releaseDefinition.Comment)
 	d.Set("created_on", releaseDefinition.CreatedOn.Time.Format(time.RFC3339))
 	d.Set("modified_on", releaseDefinition.ModifiedOn.Time.Format(time.RFC3339))
-	d.Set("stage", flattenReleaseDefinitionEnvironmentList(releaseDefinition.Environments))
-	d.Set("artifacts", flattenReleaseDefinitionArtifactsList(releaseDefinition.Artifacts))
-	d.Set("triggers", flattenReleaseDefinitionTriggersList(releaseDefinition.Triggers))
+	d.Set("environments", flattenReleaseDefinitionEnvironmentList(releaseDefinition.Environments))
+	//d.Set("artifacts", flattenReleaseDefinitionArtifactsList(releaseDefinition.Artifacts))
+	//d.Set("triggers", flattenReleaseDefinitionTriggersList(releaseDefinition.Triggers))
 
 	revision := 0
 	if releaseDefinition.Revision != nil {
@@ -1199,6 +1228,10 @@ func resourceReleaseDefinitionUpdate(d *schema.ResourceData, m interface{}) erro
 		Project:           &projectID,
 	})
 
+	body, _ := json.Marshal(*releaseDefinition)
+	s := string(body[:])
+	println(s)
+
 	if err != nil {
 		return err
 	}
@@ -1212,6 +1245,14 @@ func createReleaseDefinition(clients *config.AggregatedClient, releaseDefinition
 		ReleaseDefinition: releaseDefinition,
 		Project:           &project,
 	})
+
+	body, _ := json.Marshal(*releaseDefinition)
+	s := string(body[:])
+	println(s)
+
+	createdBuildBody, _ := json.Marshal(*releaseDefinition)
+	build := string(createdBuildBody[:])
+	println(build)
 
 	return createdBuild, err
 }
@@ -1230,7 +1271,13 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 	createdOn, _ := time.Parse(time.RFC3339, d.Get("created_on").(string))
 	modifiedOn, _ := time.Parse(time.RFC3339, d.Get("modified_on").(string))
 	source := expandReleaseDefinitionSource(d.Get("source").(string))
-	variableGroups := expandIntList(d.Get("variable_groups").([]interface{}))
+
+	variableGroupsInterface := d.Get("variable_groups").(*schema.Set).List()
+	variableGroups := make([]int, len(variableGroupsInterface))
+
+	for i, variableGroup := range variableGroupsInterface {
+		variableGroups[i] = variableGroup.(int)
+	}
 	environments := expandReleaseDefinitionEnvironmentSet(d.Get("stage").(*schema.Set))
 	variables := expandReleaseConfigurationVariableValueSet(d.Get("variable").(*schema.Set))
 	properties := expandReleaseDefinitionPropertiesSet(d.Get("properties").(*schema.Set))
@@ -1264,4 +1311,10 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 	//fmt.Println(string(data))
 
 	return &releaseDefinition, projectID, nil
+}
+
+func buildReleaseVariableGroup(id int) *release.VariableGroup {
+	return &release.VariableGroup{
+		Id: &id,
+	}
 }
