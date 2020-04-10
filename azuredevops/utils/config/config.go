@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"github.com/microsoft/azure-devops-go-api/azuredevops/pipelines"
 	"log"
 
 	"github.com/microsoft/azure-devops-go-api/azuredevops"
@@ -32,6 +33,7 @@ type AggregatedClient struct {
 	OperationsClient              operations.Client
 	ReleaseClient                 release.Client
 	ServiceEndpointClient         serviceendpoint.Client
+	Pipelines         			  pipelines.Client
 	TaskAgentClient               taskagent.Client
 	MemberEntitleManagementClient memberentitlementmanagement.Client
 	Ctx                           context.Context
@@ -87,6 +89,8 @@ func GetAzdoClient(azdoPAT string, organizationURL string) (*AggregatedClient, e
 		return nil, err
 	}
 
+	pipelinesEndpointClient := pipelines.NewClient(ctx, connection)
+
 	// client for these APIs (includes CRUD for AzDO variable groups):
 	taskagentClient, err := taskagent.NewClient(ctx, connection)
 	if err != nil {
@@ -125,6 +129,7 @@ func GetAzdoClient(azdoPAT string, organizationURL string) (*AggregatedClient, e
 		ServiceEndpointClient:         serviceEndpointClient,
 		TaskAgentClient:               taskagentClient,
 		MemberEntitleManagementClient: memberentitlementmanagementClient,
+		Pipelines: 					   pipelinesEndpointClient,
 		Ctx:                           ctx,
 	}
 

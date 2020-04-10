@@ -286,6 +286,9 @@ func resourceBuildDefinition() *schema.Resource {
 						"inputs": {
 							Type:     schema.TypeMap,
 							Optional: true,
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
 						},
 					},
 				},
@@ -307,6 +310,11 @@ func resourceBuildDefinitionCreate(d *schema.ResourceData, m interface{}) error 
 		return fmt.Errorf("error creating resource Build Definition: %+v", err)
 	}
 
+	body, _ := json.Marshal(*createdBuildDefinition)
+	s := string(body[:])
+	println("BUILD DEFINITION CREATE RESPONSE")
+	println(s)
+
 	flattenBuildDefinition(d, createdBuildDefinition, projectID)
 	return resourceBuildDefinitionRead(d, m)
 }
@@ -322,7 +330,7 @@ func flattenBuildDefinition(d *schema.ResourceData, buildDefinition *build.Build
 	d.Set("path", *buildDefinition.Path)
 
 	d.Set("variable_groups", flattenVariableGroups(buildDefinition))
-	d.Set("process", flattenProcess(buildDefinition.Process))
+	d.Set("step", flattenStep(buildDefinition.Process.(map[string]interface{})))
 
 	if buildDefinition.Triggers != nil {
 		yamlCiTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.ContinuousIntegration, 2)
@@ -338,6 +346,43 @@ func flattenBuildDefinition(d *schema.ResourceData, buildDefinition *build.Build
 	}
 
 	d.Set("revision", revision)
+}
+
+func flattenStep(process map[string]interface{}) *schema.Set {
+
+
+	phase := process["phases"].([]interface{})[0].(map[string]interface{})
+	steps := phase["steps"].([]interface{})
+	step := steps[0].(map[string]interface{})
+
+	inputs := step["inputs"].(map[string]interface{})
+
+	task := step["task"].(map[string]interface{})
+	/*
+	taskId := uuid.MustParse(m["identifier"].(string))
+	return &build.TaskDefinitionReference{
+		DefinitionType: converter.String(m["definition_type"].(string)),
+		Id:             &taskId,
+		VersionSpec:    converter.String(m["version"].(string)),
+	}
+	 */
+
+	taskMap := map[string]interface{}{
+		"definition_type": task["definitionType"].(string),
+		"version":         task["versionSpec"].(string),
+		"identifier":      task["id"].(string),
+	}
+	println(inputs)
+	println(taskMap)
+
+	set := schema.NewSet(schema.HashString, nil)
+	for _, _ = range steps {
+	}
+	return set
+	/*map[string]interface{} {
+		"inputs":              inputs,
+		"task": taskMap,
+	}*/
 }
 
 func flattenProcess(process interface{}) interface{} {
