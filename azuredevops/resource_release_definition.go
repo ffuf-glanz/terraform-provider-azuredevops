@@ -1149,7 +1149,8 @@ func flattenReleaseDefinition(d *schema.ResourceData, releaseDefinition *release
 	//d.Set("comment", *releaseDefinition.Comment)
 	d.Set("created_on", releaseDefinition.CreatedOn.Time.Format(time.RFC3339))
 	d.Set("modified_on", releaseDefinition.ModifiedOn.Time.Format(time.RFC3339))
-	d.Set("environments", flattenReleaseDefinitionEnvironmentList(releaseDefinition.Environments))
+	//d.Set("environments", flattenReleaseDefinitionEnvironmentList(releaseDefinition.Environments))
+	d.Set("stage", schema.NewSet(schema.HashString, nil))
 	//d.Set("artifacts", flattenReleaseDefinitionArtifactsList(releaseDefinition.Artifacts))
 	//d.Set("triggers", flattenReleaseDefinitionTriggersList(releaseDefinition.Triggers))
 
@@ -1230,6 +1231,7 @@ func resourceReleaseDefinitionUpdate(d *schema.ResourceData, m interface{}) erro
 
 	body, _ := json.Marshal(*releaseDefinition)
 	s := string(body[:])
+	println("TIMMM")
 	println(s)
 
 	if err != nil {

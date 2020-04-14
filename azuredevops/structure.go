@@ -244,10 +244,11 @@ func expandReleaseDefinitionTriggersSet(d *schema.Set) []interface{} {
 
 func expandReleaseCondition(d map[string]interface{}) release.Condition {
 	conditionType := release.ConditionType(d["condition_type"].(string))
+	conditionValue := ""
 	return release.Condition{
 		ConditionType: &conditionType,
 		Name:          converter.String(d["name"].(string)),
-		Value:         converter.String(d["value"].(string)),
+		Value:         &conditionValue,
 	}
 }
 func expandReleaseConditionList(d []interface{}) []release.Condition {
