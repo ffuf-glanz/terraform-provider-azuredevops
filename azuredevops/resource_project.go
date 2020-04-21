@@ -21,7 +21,7 @@ import (
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/validate"
 )
 
-var projectCreateTimeoutDuration time.Duration = 60
+var projectCreateTimeoutDuration time.Duration = 60 * 3
 var projectDeleteTimeoutDuration time.Duration = 60
 
 func resourceProject() *schema.Resource {
@@ -272,7 +272,7 @@ func expandProject(clients *config.AggregatedClient, d *schema.ResourceData, for
 }
 
 func convertVisibility(v string) *core.ProjectVisibility {
-	if strings.ToLower(v) == "public" {
+	if strings.EqualFold(v, "public") {
 		return &core.ProjectVisibilityValues.Public
 	}
 	return &core.ProjectVisibilityValues.Private
