@@ -4,7 +4,7 @@ set -euo pipefail
 
 . $(dirname $0)/commons.sh
 
-skipTest=0
+skipTest=1
 debugBuild=0
 doInstall=0
 

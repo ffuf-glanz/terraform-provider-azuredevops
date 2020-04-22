@@ -327,10 +327,10 @@ func expandReleaseArtifact(d map[string]interface{}) release.Artifact {
 	// It can have value as 'Build', 'Jenkins', 'GitHub', 'Nuget', 'Team Build (external)', 'ExternalTFSBuild', 'Git', 'TFVC', 'ExternalTfsXamlBuild'.
 	artifactType := release.AgentArtifactType(d["type"].(string))
 	reference := map[string]release.ArtifactSourceReference{
-		"definition": release.ArtifactSourceReference{
+		"definition": {
 			Id: converter.String(d["definition_reference"].(string)),
 		},
-		"project": release.ArtifactSourceReference{
+		"project": {
 			Id: converter.String(d["project_reference"].(string)),
 		},
 	}

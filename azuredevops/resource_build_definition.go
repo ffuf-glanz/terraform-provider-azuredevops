@@ -350,7 +350,6 @@ func flattenBuildDefinition(d *schema.ResourceData, buildDefinition *build.Build
 
 func flattenStep(process map[string]interface{}) *schema.Set {
 
-
 	phase := process["phases"].([]interface{})[0].(map[string]interface{})
 	steps := phase["steps"].([]interface{})
 	step := steps[0].(map[string]interface{})
@@ -359,13 +358,13 @@ func flattenStep(process map[string]interface{}) *schema.Set {
 
 	task := step["task"].(map[string]interface{})
 	/*
-	taskId := uuid.MustParse(m["identifier"].(string))
-	return &build.TaskDefinitionReference{
-		DefinitionType: converter.String(m["definition_type"].(string)),
-		Id:             &taskId,
-		VersionSpec:    converter.String(m["version"].(string)),
-	}
-	 */
+		taskId := uuid.MustParse(m["identifier"].(string))
+		return &build.TaskDefinitionReference{
+			DefinitionType: converter.String(m["definition_type"].(string)),
+			Id:             &taskId,
+			VersionSpec:    converter.String(m["version"].(string)),
+		}
+	*/
 
 	taskMap := map[string]interface{}{
 		"definition_type": task["definitionType"].(string),
@@ -376,7 +375,7 @@ func flattenStep(process map[string]interface{}) *schema.Set {
 	println(taskMap)
 
 	set := schema.NewSet(schema.HashString, nil)
-	for _, _ = range steps {
+	for range steps {
 	}
 	return set
 	/*map[string]interface{} {
