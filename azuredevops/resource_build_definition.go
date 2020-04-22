@@ -780,7 +780,7 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
  * returns an error if a service connection was needed but not provided
  */
 func validateServiceConnectionIDExistsIfNeeded(d *schema.ResourceData) error {
-	repositories := d.Get("repository").(*schema.Set).List()
+	repositories := d.Get("repository").([]interface{})
 	repository := repositories[0].(map[string]interface{})
 
 	repoType := repository["repo_type"].(string)
