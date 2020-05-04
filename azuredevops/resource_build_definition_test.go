@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+	"sort"
 	"strconv"
 	"testing"
 
@@ -20,6 +22,7 @@ import (
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/config"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/testhelper"
+	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/tfhelper"
 	"github.com/stretchr/testify/require"
 )
 
@@ -122,7 +125,40 @@ var testBuildDefinition = build.BuildDefinition{
 	Quality:        &build.DefinitionQualityValues.Definition,
 	Triggers:       &[]interface{}{},
 	VariableGroups: &[]build.VariableGroup{},
-	Tags:           &[]string{},
+}
+
+// This definition matches the overall structure of what a configured Bitbucket git repository would
+// look like.
+func testBuildDefinitionBitbucket() build.BuildDefinition {
+	return build.BuildDefinition{
+		Id:       converter.Int(100),
+		Revision: converter.Int(1),
+		Name:     converter.String("Name"),
+		Path:     converter.String("\\"),
+		Repository: &build.BuildRepository{
+			Url:           converter.String("https://bitbucket.com/RepoId.git"),
+			Id:            converter.String("RepoId"),
+			Name:          converter.String("RepoId"),
+			DefaultBranch: converter.String("RepoBranchName"),
+			Type:          converter.String("Bitbucket"),
+			Properties: &map[string]string{
+				"connectedServiceId": "ServiceConnectionID",
+			},
+		},
+		Process: &build.YamlProcess{
+			YamlFilename: converter.String("YamlFilename"),
+		},
+		Queue: &build.AgentPoolQueue{
+			Name: converter.String("BuildPoolName"),
+			Pool: &build.TaskAgentPoolReference{
+				Name: converter.String("BuildPoolName"),
+			},
+		},
+		QueueStatus:    &build.DefinitionQueueStatusValues.Enabled,
+		Type:           &build.DefinitionTypeValues.Build,
+		Quality:        &build.DefinitionQualityValues.Definition,
+		VariableGroups: &[]build.VariableGroup{},
+	}
 }
 
 /**
@@ -131,7 +167,7 @@ var testBuildDefinition = build.BuildDefinition{
 
 // validates that all supported repo types are allowed by the schema
 func TestAzureDevOpsBuildDefinition_RepoTypeListIsCorrect(t *testing.T) {
-	expectedRepoTypes := []string{"GitHub", "TfsGit"}
+	expectedRepoTypes := []string{"GitHub", "TfsGit", "Bitbucket"}
 	repoSchema := resourceBuildDefinition().Schema["repository"]
 	repoTypeSchema := repoSchema.Elem.(*schema.Resource).Schema["repo_type"]
 
@@ -159,6 +195,50 @@ func TestAzureDevOpsBuildDefinition_PathInvalidStartingSlashIsError(t *testing.T
 	require.Equal(t, "path must start with backslash", errors[0].Error())
 }
 
+// verifies that GitHub repo urls are expanded to URLs Azure DevOps expects
+func TestAzureDevOpsBuildDefinition_Expand_RepoUrl_Github(t *testing.T) {
+	resourceData := schema.TestResourceDataRaw(t, resourceBuildDefinition().Schema, nil)
+	flattenBuildDefinition(resourceData, &testBuildDefinition, testProjectID)
+	buildDefinitionAfterRoundTrip, projectID, err := expandBuildDefinition(resourceData)
+
+	require.Nil(t, err)
+	require.Equal(t, *buildDefinitionAfterRoundTrip.Repository.Url, "https://github.com/RepoId.git")
+	require.Equal(t, testProjectID, projectID)
+}
+
+// verifies that Bitbucket repo urls are expanded to URLs Azure DevOps expects
+func TestAzureDevOpsBuildDefinition_Expand_RepoUrl_Bitbucket(t *testing.T) {
+	resourceData := schema.TestResourceDataRaw(t, resourceBuildDefinition().Schema, nil)
+	bitBucketBuildDef := testBuildDefinitionBitbucket()
+	flattenBuildDefinition(resourceData, &bitBucketBuildDef, testProjectID)
+	buildDefinitionAfterRoundTrip, projectID, err := expandBuildDefinition(resourceData)
+
+	require.Nil(t, err)
+	require.Equal(t, *buildDefinitionAfterRoundTrip.Repository.Url, "https://bitbucket.org/RepoId.git")
+	require.Equal(t, testProjectID, projectID)
+}
+
+// verifies that a service connection is required for bitbucket repos
+func TestAzureDevOpsBuildDefinition_ValidatesServiceConnection_Bitbucket(t *testing.T) {
+	resourceData := schema.TestResourceDataRaw(t, resourceBuildDefinition().Schema, nil)
+	bitBucketBuildDef := testBuildDefinitionBitbucket()
+	(*bitBucketBuildDef.Repository.Properties)["connectedServiceId"] = ""
+	flattenBuildDefinition(resourceData, &bitBucketBuildDef, testProjectID)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	buildClient := azdosdkmocks.NewMockBuildClient(ctrl)
+	clients := &config.AggregatedClient{BuildClient: buildClient, Ctx: context.Background()}
+
+	err := resourceBuildDefinitionCreate(resourceData, clients)
+	require.NotNil(t, err)
+	require.Contains(t, err.Error(), "bitbucket repositories need a referenced service connection ID")
+
+	err = resourceBuildDefinitionUpdate(resourceData, clients)
+	require.NotNil(t, err)
+	require.Contains(t, err.Error(), "bitbucket repositories need a referenced service connection ID")
+}
+
 // verifies that the flatten/expand round trip yields the same build definition
 func TestAzureDevOpsBuildDefinition_ExpandFlatten_Roundtrip(t *testing.T) {
 	resourceData := schema.TestResourceDataRaw(t, resourceBuildDefinition().Schema, nil)
@@ -169,7 +249,7 @@ func TestAzureDevOpsBuildDefinition_ExpandFlatten_Roundtrip(t *testing.T) {
 		buildDefinitionYamlAfterRoundTrip, projectID, err := expandBuildDefinition(resourceData)
 
 		require.Nil(t, err)
-		require.Equal(t, testBuildDefinitionWithCustomTriggers, *buildDefinitionYamlAfterRoundTrip)
+		require.Equal(t, sortBuildDefinition(testBuildDefinitionWithCustomTriggers), sortBuildDefinition(*buildDefinitionYamlAfterRoundTrip))
 		require.Equal(t, testProjectID, projectID)
 	}
 }
@@ -280,7 +360,7 @@ func TestAzureDevOpsBuildDefinition_Update_DoesNotSwallowError(t *testing.T) {
 
 // validates that an apply followed by another apply (i.e., resource update) will be reflected in AzDO and the
 // underlying terraform state.
-func TestAccAzureDevOpsBuildDefinition_CreateAndUpdate(t *testing.T) {
+func TestAccAzureDevOpsBuildDefinition_Create_Update_Import(t *testing.T) {
 	projectName := testhelper.TestAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	buildDefinitionPathEmpty := `\`
 	buildDefinitionNameFirst := testhelper.TestAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
@@ -299,7 +379,7 @@ func TestAccAzureDevOpsBuildDefinition_CreateAndUpdate(t *testing.T) {
 		CheckDestroy: testAccBuildDefinitionCheckDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testhelper.TestAccBuildDefinitionResource(projectName, buildDefinitionNameFirst, buildDefinitionPathEmpty),
+				Config: testhelper.TestAccBuildDefinitionResourceGitHub(projectName, buildDefinitionNameFirst, buildDefinitionPathEmpty),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckBuildDefinitionResourceExists(buildDefinitionNameFirst),
 					resource.TestCheckResourceAttrSet(tfBuildDefNode, "project_id"),
@@ -308,7 +388,7 @@ func TestAccAzureDevOpsBuildDefinition_CreateAndUpdate(t *testing.T) {
 					resource.TestCheckResourceAttr(tfBuildDefNode, "path", buildDefinitionPathEmpty),
 				),
 			}, {
-				Config: testhelper.TestAccBuildDefinitionResource(projectName, buildDefinitionNameSecond, buildDefinitionPathEmpty),
+				Config: testhelper.TestAccBuildDefinitionResourceGitHub(projectName, buildDefinitionNameSecond, buildDefinitionPathEmpty),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckBuildDefinitionResourceExists(buildDefinitionNameSecond),
 					resource.TestCheckResourceAttrSet(tfBuildDefNode, "project_id"),
@@ -317,7 +397,7 @@ func TestAccAzureDevOpsBuildDefinition_CreateAndUpdate(t *testing.T) {
 					resource.TestCheckResourceAttr(tfBuildDefNode, "path", buildDefinitionPathEmpty),
 				),
 			}, {
-				Config: testhelper.TestAccBuildDefinitionResource(projectName, buildDefinitionNameFirst, buildDefinitionPathFirst),
+				Config: testhelper.TestAccBuildDefinitionResourceGitHub(projectName, buildDefinitionNameFirst, buildDefinitionPathFirst),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckBuildDefinitionResourceExists(buildDefinitionNameFirst),
 					resource.TestCheckResourceAttrSet(tfBuildDefNode, "project_id"),
@@ -326,7 +406,7 @@ func TestAccAzureDevOpsBuildDefinition_CreateAndUpdate(t *testing.T) {
 					resource.TestCheckResourceAttr(tfBuildDefNode, "path", buildDefinitionPathFirst),
 				),
 			}, {
-				Config: testhelper.TestAccBuildDefinitionResource(projectName, buildDefinitionNameFirst,
+				Config: testhelper.TestAccBuildDefinitionResourceGitHub(projectName, buildDefinitionNameFirst,
 					buildDefinitionPathSecond),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckBuildDefinitionResourceExists(buildDefinitionNameFirst),
@@ -336,7 +416,7 @@ func TestAccAzureDevOpsBuildDefinition_CreateAndUpdate(t *testing.T) {
 					resource.TestCheckResourceAttr(tfBuildDefNode, "path", buildDefinitionPathSecond),
 				),
 			}, {
-				Config: testhelper.TestAccBuildDefinitionResource(projectName, buildDefinitionNameFirst, buildDefinitionPathThird),
+				Config: testhelper.TestAccBuildDefinitionResourceGitHub(projectName, buildDefinitionNameFirst, buildDefinitionPathThird),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckBuildDefinitionResourceExists(buildDefinitionNameFirst),
 					resource.TestCheckResourceAttrSet(tfBuildDefNode, "project_id"),
@@ -345,7 +425,7 @@ func TestAccAzureDevOpsBuildDefinition_CreateAndUpdate(t *testing.T) {
 					resource.TestCheckResourceAttr(tfBuildDefNode, "path", buildDefinitionPathThird),
 				),
 			}, {
-				Config: testhelper.TestAccBuildDefinitionResource(projectName, buildDefinitionNameFirst, buildDefinitionPathFourth),
+				Config: testhelper.TestAccBuildDefinitionResourceGitHub(projectName, buildDefinitionNameFirst, buildDefinitionPathFourth),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckBuildDefinitionResourceExists(buildDefinitionNameFirst),
 					resource.TestCheckResourceAttrSet(tfBuildDefNode, "project_id"),
@@ -359,6 +439,25 @@ func TestAccAzureDevOpsBuildDefinition_CreateAndUpdate(t *testing.T) {
 				ImportStateIdFunc: testAccImportStateIDFunc(tfBuildDefNode),
 				ImportState:       true,
 				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+// Verifies a build for Bitbucket can happen. Note: the update/import logic is tested in other tests
+func TestAccAzureDevOpsBuildDefinitionBitbucket_Create(t *testing.T) {
+	projectName := testhelper.TestAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testhelper.TestAccPreCheck(t, nil) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccBuildDefinitionCheckDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:      testhelper.TestAccBuildDefinitionResourceBitbucket(projectName, "build-def-name", "\\", ""),
+				ExpectError: regexp.MustCompile("bitbucket repositories need a referenced service connection ID"),
+			}, {
+				Config: testhelper.TestAccBuildDefinitionResourceBitbucket(projectName, "build-def-name", "\\", "some-service-connection"),
+				Check:  testAccCheckBuildDefinitionResourceExists("build-def-name"),
 			},
 		},
 	})
@@ -416,6 +515,27 @@ func getBuildDefinitionFromResource(resource *terraform.ResourceState) (*build.B
 		Project:      &projectID,
 		DefinitionId: &buildDefID,
 	})
+}
+
+func sortBuildDefinition(b build.BuildDefinition) build.BuildDefinition {
+	if b.Triggers == nil {
+		return b
+	}
+	for _, t := range *b.Triggers {
+		if m, ok := t.(map[string]interface{}); ok {
+			if m2, ok := m["branchFilters"].([]interface{}); ok {
+				bf := tfhelper.ExpandStringList(m2)
+				sort.Strings(bf)
+				m["branchFilters"] = bf
+			}
+			if m3, ok := m["pathFilters"].([]interface{}); ok {
+				pf := tfhelper.ExpandStringList(m3)
+				sort.Strings(pf)
+				m["pathFilters"] = pf
+			}
+		}
+	}
+	return b
 }
 
 func init() {

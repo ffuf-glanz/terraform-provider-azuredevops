@@ -1,3 +1,10 @@
+---
+layout: "azuredevops"
+page_title: "AzureDevops: azuredevops_serviceendpoint_bitbucket"
+description: |-
+  Manages a Bitbucket service endpoint within Azure DevOps organization.
+---
+
 # azuredevops_serviceendpoint_bitbucket
 Manages a Bitbucket service endpoint within Azure DevOps.
 
@@ -11,7 +18,7 @@ resource "azuredevops_project" "project" {
   work_item_template = "Agile"
 }
 
-resource "azuredevops_serviceendpoint_github" "serviceendpoint" {
+resource "azuredevops_serviceendpoint_bitbucket" "serviceendpoint" {
     project_id             = azuredevops_project.project.id
     username               = "xxxx"
     password               = "xxxx"

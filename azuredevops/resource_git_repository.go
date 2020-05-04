@@ -3,8 +3,11 @@ package azuredevops
 import (
 	"fmt"
 	"log"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/core"
@@ -157,7 +160,7 @@ func resourceGitRepositoryCreate(d *schema.ResourceData, m interface{}) error {
 		return fmt.Errorf("Error creating repository in Azure DevOps: %+v", err)
 	}
 
-	if initialization != nil && initialization.initType == "Clean" {
+	if initialization != nil && strings.EqualFold(initialization.initType, "Clean") {
 		err = initializeGitRepository(clients, createdRepo)
 		if err != nil {
 			if err := deleteGitRepository(clients, createdRepo.Id.String()); err != nil {
@@ -166,9 +169,43 @@ func resourceGitRepositoryCreate(d *schema.ResourceData, m interface{}) error {
 			return fmt.Errorf("Error initializing repository in Azure DevOps: %+v", err)
 		}
 	}
+	if !(strings.EqualFold(initialization.initType, "uninitialized") && parentRepoRef == nil) {
+		err := waitForBranch(clients, repo.Name, projectID)
+		if err != nil {
+			return err
+		}
+	}
 
 	d.SetId(createdRepo.Id.String())
 	return resourceGitRepositoryRead(d, m)
+}
+
+func waitForBranch(clients *config.AggregatedClient, repoName *string, projectID fmt.Stringer) error {
+	stateConf := &resource.StateChangeConf{
+		Pending: []string{"Waiting"},
+		Target:  []string{"Synched"},
+		Refresh: func() (interface{}, string, error) {
+			state := "Waiting"
+			gitRepo, err := gitRepositoryRead(clients, "", *repoName, projectID.String())
+			if err != nil {
+				return nil, "", fmt.Errorf("Error reading repository: %+v", err)
+			}
+
+			if converter.ToString(gitRepo.DefaultBranch, "") != "" {
+				state = "Synched"
+			}
+
+			return state, state, nil
+		},
+		Timeout:                   60 * time.Second,
+		MinTimeout:                2 * time.Second,
+		Delay:                     1 * time.Second,
+		ContinuousTargetOccurence: 1,
+	}
+	if _, err := stateConf.WaitForState(); err != nil {
+		return fmt.Errorf("Error retrieving expected branch for repository [%s]: %+v", *repoName, err)
+	}
+	return nil
 }
 
 func createGitRepository(clients *config.AggregatedClient, repoName *string, projectID *uuid.UUID, parentRepo *git.GitRepositoryRef) (*git.GitRepository, error) {
@@ -298,7 +335,7 @@ func deleteGitRepository(clients *config.AggregatedClient, repoID string) error 
 // Lookup an Azure Git Repository using the ID, or name if the ID is not set.
 func gitRepositoryRead(clients *config.AggregatedClient, repoID string, repoName string, projectID string) (*git.GitRepository, error) {
 	identifier := repoID
-	if identifier == "" {
+	if strings.EqualFold(identifier, "") {
 		identifier = repoName
 	}
 
@@ -326,7 +363,7 @@ func expandGitRepository(d *schema.ResourceData) (*git.GitRepository, *repoIniti
 	// an "error" is OK here as it is expected in the case that the ID is not set in the resource data
 	var repoID *uuid.UUID
 	id := d.Id()
-	if id == "" {
+	if strings.EqualFold(id, "") {
 		log.Print("[DEBUG] expandGitRepository: ID is empty (not set)")
 	} else {
 		parsedID, err := uuid.Parse(id)
@@ -359,11 +396,11 @@ func expandGitRepository(d *schema.ResourceData) (*git.GitRepository, *repoIniti
 			sourceURL:  initValues["source_url"].(string),
 		}
 
-		if initialization.initType == "Import" {
+		if strings.EqualFold(initialization.initType, "import") {
 			return nil, nil, nil, fmt.Errorf("Initialization strategy not implemented: %s", initialization.initType)
 		}
 
-		if initialization.initType == "Clean" {
+		if strings.EqualFold(initialization.initType, "clean") {
 			initialization.sourceType = ""
 			initialization.sourceURL = ""
 		}

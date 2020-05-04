@@ -3,6 +3,7 @@ package azuredevops
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
@@ -99,7 +100,7 @@ func resourceUserEntitlementRead(d *schema.ResourceData, m interface{}) error {
 }
 
 func resourceUserEntitlementDelete(d *schema.ResourceData, m interface{}) error {
-	if d.Id() == "" {
+	if strings.EqualFold(d.Id(), "") {
 		return nil
 	}
 	userEntitlementID := d.Id()

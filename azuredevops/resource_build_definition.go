@@ -24,14 +24,16 @@ import (
 type RepoType string
 
 type repoTypeValuesType struct {
-	GitHub RepoType
-	TfsGit RepoType
+	GitHub    RepoType
+	TfsGit    RepoType
+	Bitbucket RepoType
 }
 
 // RepoTypeValues enum of the type of the repository
 var RepoTypeValues = repoTypeValuesType{
-	GitHub: "GitHub",
-	TfsGit: "TfsGit",
+	GitHub:    "GitHub",
+	TfsGit:    "TfsGit",
+	Bitbucket: "Bitbucket",
 }
 
 func resourceBuildDefinition() *schema.Resource {
@@ -152,6 +154,41 @@ func resourceBuildDefinition() *schema.Resource {
 							Type:     schema.TypeString,
 							Optional: true,
 							Default:  "",
+						},
+					},
+				},
+			},
+			"build_completion_trigger": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				MinItems: 1,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"use_yaml": {
+							Type:          schema.TypeBool,
+							Optional:      true,
+							Default:       false,
+							ConflictsWith: []string{"build_completion_trigger.0.override"},
+						},
+						"override": {
+							Type:     schema.TypeSet,
+							Optional: true,
+							MinItems: 1,
+							MaxItems: 1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"project_id": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"build_id": {
+										Type:     schema.TypeInt,
+										Required: true,
+									},
+									"branch_filter": branchFilter,
+								},
+							},
 						},
 					},
 				},
@@ -338,6 +375,9 @@ func flattenBuildDefinition(d *schema.ResourceData, buildDefinition *build.Build
 
 		yamlPrTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.PullRequest, 2)
 		d.Set("pull_request_trigger", flattenBuildDefinitionTrigger(buildDefinition.Triggers, yamlPrTrigger, build.DefinitionTriggerTypeValues.PullRequest))
+
+		yamlBuildTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.BuildCompletion, 2)
+		d.Set("build_completion_trigger", flattenBuildDefinitionTrigger(buildDefinition.Triggers, yamlBuildTrigger, build.DefinitionTriggerTypeValues.BuildCompletion))
 	}
 
 	revision := 0
@@ -589,6 +629,28 @@ func flattenBuildDefinitionPullRequestTrigger(m interface{}, isYaml bool) interf
 	return nil
 }
 
+func flattenBuildDefinitionBuildCompletionTrigger(m interface{}, isYaml bool) interface{} {
+	if ms, ok := m.(map[string]interface{}); ok {
+
+		f := map[string]interface{}{
+			"use_yaml": isYaml,
+		}
+		if !isYaml {
+
+			definition := ms["definition"].(map[string]interface{})
+			project := definition["project"].(map[string]interface{})
+
+			f["override"] = []map[string]interface{}{{
+				"project_id":    project["id"],
+				"build_id":      definition["id"],
+				"branch_filter": flattenBuildDefinitionBranchOrPathFilter(ms["branchFilters"].([]interface{})),
+			}}
+		}
+		return f
+	}
+	return nil
+}
+
 func flattenBuildDefinitionTrigger(m interface{}, isYaml bool, t build.DefinitionTriggerType) interface{} {
 	if ms, ok := m.(map[string]interface{}); ok {
 		if ms["triggerType"].(string) != string(t) {
@@ -599,6 +661,8 @@ func flattenBuildDefinitionTrigger(m interface{}, isYaml bool, t build.Definitio
 			return flattenBuildDefinitionContinuousIntegrationTrigger(ms, isYaml)
 		case build.DefinitionTriggerTypeValues.PullRequest:
 			return flattenBuildDefinitionPullRequestTrigger(ms, isYaml)
+		case build.DefinitionTriggerTypeValues.BuildCompletion:
+			return flattenBuildDefinitionBuildCompletionTrigger(ms, isYaml)
 		}
 	}
 	return nil
@@ -726,6 +790,37 @@ func expandBuildDefinitionManualContinuousIntegrationTriggerSet(configured *sche
 	return d2[0]
 }
 
+func expandBuildDefinitionManualBuildCompletionTriggerSet(configured *schema.Set) map[string]interface{} {
+	d2 := expandBuildDefinitionManualBuildCompletionTriggerList(configured.List())
+	if len(d2) != 1 {
+		return nil
+	}
+	return d2[0]
+}
+
+func expandBuildDefinitionManualBuildCompletionTriggerList(d []interface{}) []map[string]interface{} {
+	vs := make([]map[string]interface{}, 0, len(d))
+	for _, v := range d {
+		if val, ok := v.(map[string]interface{}); ok {
+			vs = append(vs, expandBuildDefinitionManualBuildCompletionTrigger(val))
+		}
+	}
+	return vs
+}
+
+func expandBuildDefinitionManualBuildCompletionTrigger(d map[string]interface{}) map[string]interface{} {
+	return map[string]interface{}{
+		"branchFilters": expandBuildDefinitionBranchOrPathFilterSet(d["branch_filter"].(*schema.Set)),
+		"definition": map[string]interface{}{
+			"id": d["build_id"].(int),
+			"project": map[string]interface{}{
+				"id": d["project_id"].(string),
+			},
+		},
+		"requiresSuccessfulBuild": true,
+	}
+}
+
 func expandBuildDefinitionTrigger(d map[string]interface{}, t build.DefinitionTriggerType) interface{} {
 	switch t {
 	case build.DefinitionTriggerTypeValues.ContinuousIntegration:
@@ -763,6 +858,21 @@ func expandBuildDefinitionTrigger(d map[string]interface{}, t build.DefinitionTr
 			vs["pathFilters"] = override["pathFilters"]
 			vs["autoCancel"] = override["autoCancel"]
 		}
+		return vs
+	case build.DefinitionTriggerTypeValues.BuildCompletion:
+		isYaml := d["use_yaml"].(bool)
+		if isYaml {
+			return map[string]interface{}{
+				"batchChanges":                 false,
+				"branchFilters":                []interface{}{},
+				"maxConcurrentBuildsPerBranch": 1,
+				"pathFilters":                  []interface{}{},
+				"triggerType":                  string(t),
+				"settingsSourceType":           float64(2),
+			}
+		}
+		vs := expandBuildDefinitionManualBuildCompletionTriggerSet(d["override"].(*schema.Set))
+		vs["triggerType"] = string(t)
 		return vs
 	}
 	return nil
@@ -827,8 +937,21 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 		d.Get("pull_request_trigger").(*schema.Set),
 		build.DefinitionTriggerTypeValues.PullRequest,
 	)
+	buildCompletionTriggers := expandBuildDefinitionTriggerSet(
+		d.Get("build_completion_trigger").(*schema.Set),
+		build.DefinitionTriggerTypeValues.BuildCompletion,
+	)
 
-	buildTriggers := append(ciTriggers, pullRequestTriggers...)
+	var buildTriggers []interface{}
+	if ciTriggers != nil && len(ciTriggers) > 0 {
+		buildTriggers = append(buildTriggers, ciTriggers[0])
+	}
+	if pullRequestTriggers != nil && len(pullRequestTriggers) > 0 {
+		buildTriggers = append(buildTriggers, pullRequestTriggers[0])
+	}
+	if buildCompletionTriggers != nil && len(buildCompletionTriggers) > 0 {
+		buildTriggers = append(buildTriggers, buildCompletionTriggers[0])
+	}
 
 	// Look for the ID. This may not exist if we are within the context of a "create" operation,
 	// so it is OK if it is missing.

@@ -20,6 +20,22 @@ resource "azuredevops_git_repository" "gitrepo" {
 	return fmt.Sprintf("%s\n%s", projectResource, azureGitRepoResource)
 }
 
+// TestAccAzureForkedGitRepoResource HCL describing an AzDO GIT repository resource
+func TestAccAzureForkedGitRepoResource(projectName string, gitRepoName string, gitForkedRepoName string, initType string, forkedInitType string) string {
+	azureGitRepoResource := fmt.Sprintf(`
+resource "azuredevops_git_repository" "gitforkedrepo" {
+	project_id      		= azuredevops_project.project.id
+	parent_repository_id    = azuredevops_git_repository.gitrepo.id
+	name            		= "%s"
+	initialization {
+		init_type = "%s"
+	}
+}`, gitForkedRepoName, forkedInitType)
+
+	gitRepoResource := TestAccAzureGitRepoResource(projectName, gitRepoName, initType)
+	return fmt.Sprintf("%s\n%s", gitRepoResource, azureGitRepoResource)
+}
+
 // TestAccGroupDataSource HCL describing an AzDO Group Data Source
 func TestAccGroupDataSource(projectName string, groupName string) string {
 	dataSource := fmt.Sprintf(`
@@ -34,7 +50,7 @@ data "azuredevops_group" "group" {
 
 // TestAccProjectResource HCL describing an AzDO project
 func TestAccProjectResource(projectName string) string {
-	if projectName == "" {
+	if strings.EqualFold(projectName, "") {
 		return ""
 	}
 	return fmt.Sprintf(`
@@ -45,6 +61,14 @@ resource "azuredevops_project" "project" {
 	version_control    = "Git"
 	work_item_template = "Agile"
 }`, projectName, projectName)
+}
+
+// TestAccProjectDataSource HCL describing a data source for an AzDO project
+func TestAccProjectDataSource(projectName string) string {
+	return fmt.Sprintf(`
+data "azuredevops_project" "project" {
+	project_name = "%s"
+}`, projectName)
 }
 
 // TestAccUserEntitlementResource HCL describing an AzDO UserEntitlement
@@ -157,8 +181,52 @@ resource "azuredevops_agent_pool" "pool" {
 	}`, poolName)
 }
 
+// TestAccBuildDefinitionResourceGitHub HCL describing an AzDO build definition sourced from GitHub
+func TestAccBuildDefinitionResourceGitHub(projectName string, buildDefinitionName string, buildPath string) string {
+	return TestAccBuildDefinitionResource(
+		projectName,
+		buildDefinitionName,
+		buildPath,
+		"GitHub",
+		"repoOrg/repoName",
+		"master",
+		"path/to/yaml",
+		"")
+}
+
+// TestAccBuildDefinitionResourceBitbucket HCL describing an AzDO build definition sourced from Bitbucket
+func TestAccBuildDefinitionResourceBitbucket(projectName string, buildDefinitionName string, buildPath string, serviceConnectionID string) string {
+	return TestAccBuildDefinitionResource(
+		projectName,
+		buildDefinitionName,
+		buildPath,
+		"Bitbucket",
+		"repoOrg/repoName",
+		"master",
+		"path/to/yaml",
+		serviceConnectionID)
+}
+
 // TestAccBuildDefinitionResource HCL describing an AzDO build definition
-func TestAccBuildDefinitionResource(projectName string, buildDefinitionName string, buildPath string) string {
+func TestAccBuildDefinitionResource(
+	projectName string,
+	buildDefinitionName string,
+	buildPath string,
+	repoType string,
+	repoName string,
+	branchName string,
+	yamlPath string,
+	serviceConnectionID string,
+) string {
+	repositoryBlock := fmt.Sprintf(`
+repository {
+	repo_type             = "%s"
+	repo_name             = "%s"
+	branch_name           = "%s"
+	yml_path              = "%s"
+	service_connection_id = "%s"
+}`, repoType, repoName, branchName, yamlPath, serviceConnectionID)
+
 	buildDefinitionResource := fmt.Sprintf(`
 resource "azuredevops_build_definition" "build" {
 	project_id      = azuredevops_project.project.id
@@ -166,13 +234,8 @@ resource "azuredevops_build_definition" "build" {
 	agent_pool_name = "Hosted Ubuntu 1604"
 	path			= "%s"
 
-	repository {
-	  repo_type             = "GitHub"
-	  repo_name             = "repoOrg/repoName"
-	  branch_name           = "branch"
-	  yml_path              = "path/to/yaml"
-	}
-}`, buildDefinitionName, strings.ReplaceAll(buildPath, `\`, `\\`))
+	%s
+}`, buildDefinitionName, strings.ReplaceAll(buildPath, `\`, `\\`), repositoryBlock)
 
 	projectResource := TestAccProjectResource(projectName)
 	return fmt.Sprintf("%s\n%s", projectResource, buildDefinitionResource)

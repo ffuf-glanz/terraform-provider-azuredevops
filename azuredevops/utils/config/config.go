@@ -3,6 +3,9 @@ package config
 import (
 	"context"
 	"fmt"
+	"log"
+	"strings"
+
 	"github.com/microsoft/azure-devops-go-api/azuredevops"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/build"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/core"
@@ -13,7 +16,6 @@ import (
 	"github.com/microsoft/azure-devops-go-api/azuredevops/release"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/serviceendpoint"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/taskagent"
-	"log"
 )
 
 // AggregatedClient aggregates all of the underlying clients into a single data
@@ -26,10 +28,10 @@ import (
 type AggregatedClient struct {
 	CoreClient                    core.Client
 	BuildClient                   build.Client
+	ReleaseClient                 release.Client
 	GitReposClient                git.Client
 	GraphClient                   graph.Client
 	OperationsClient              operations.Client
-	ReleaseClient                 release.Client
 	ServiceEndpointClient         serviceendpoint.Client
 	TaskAgentClient               taskagent.Client
 	MemberEntitleManagementClient memberentitlementmanagement.Client
@@ -40,11 +42,11 @@ type AggregatedClient struct {
 func GetAzdoClient(azdoPAT string, organizationURL string) (*AggregatedClient, error) {
 	ctx := context.Background()
 
-	if azdoPAT == "" {
+	if strings.EqualFold(azdoPAT, "") {
 		return nil, fmt.Errorf("the personal access token is required")
 	}
 
-	if organizationURL == "" {
+	if strings.EqualFold(organizationURL, "") {
 		return nil, fmt.Errorf("the url of the Azure DevOps is required")
 	}
 
@@ -66,17 +68,17 @@ func GetAzdoClient(azdoPAT string, organizationURL string) (*AggregatedClient, e
 		return nil, err
 	}
 
+	// client for these APIs (includes CRUD for AzDO build pipelines...):
+	//	https://docs.microsoft.com/en-us/rest/api/azure/devops/build/?view=azure-devops-rest-5.1
+	releaseClient, err := release.NewClient(ctx, connection)
+	if err != nil {
+		log.Printf("getAzdoClient(): build.NewClient failed.")
+		return nil, err
+	}
+
 	// client for these APIs (monitor async operations...):
 	//	https://docs.microsoft.com/en-us/rest/api/azure/devops/operations/operations?view=azure-devops-rest-5.1
 	operationsClient := operations.NewClient(ctx, connection)
-
-	// client for these APIs (includes CRUD for AzDO release pipelines...):
-	//	https://docs.microsoft.com/en-us/rest/api/azure/devops/release/?view=azure-devops-rest-5.1
-	releaseClient, err := release.NewClient(ctx, connection)
-	if err != nil {
-		log.Printf("getAzdoClient(): release.NewClient failed.")
-		return nil, err
-	}
 
 	// client for these APIs (includes CRUD for AzDO service endpoints a.k.a. service connections...):
 	//  https://docs.microsoft.com/en-us/rest/api/azure/devops/serviceendpoint/endpoints?view=azure-devops-rest-5.1
@@ -117,10 +119,10 @@ func GetAzdoClient(azdoPAT string, organizationURL string) (*AggregatedClient, e
 	aggregatedClient := &AggregatedClient{
 		CoreClient:                    coreClient,
 		BuildClient:                   buildClient,
+		ReleaseClient:                 releaseClient,
 		GitReposClient:                gitReposClient,
 		GraphClient:                   graphClient,
 		OperationsClient:              operationsClient,
-		ReleaseClient:                 releaseClient,
 		ServiceEndpointClient:         serviceEndpointClient,
 		TaskAgentClient:               taskagentClient,
 		MemberEntitleManagementClient: memberentitlementmanagementClient,

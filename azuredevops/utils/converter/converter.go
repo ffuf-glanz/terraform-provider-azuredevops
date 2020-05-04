@@ -1,8 +1,10 @@
 package converter
 
+import "strings"
+
 // String Get a pointer to a string
 func String(value string) *string {
-	if value == "" {
+	if strings.EqualFold(value, "") {
 		return nil
 	}
 	return &value

@@ -1,3 +1,10 @@
+---
+layout: "azuredevops"
+page_title: "AzureDevops: azuredevops_build_definition"
+description: |-
+  Manages a Build Definition within Azure DevOps organization.
+---
+
 # azuredevops_build_definition
 Manages a Build Definition within Azure DevOps.
 
@@ -32,6 +39,18 @@ resource "azuredevops_git_repository" "repository" {
   }
 }
 
+resource "azuredevops_variable_group" "vars" {
+  project_id   = local.project_id
+  name         = "Infrastructure Pipeline Variables"
+  description  = "Managed by Terraform"
+  allow_access = true
+
+  variable {
+    name  = "FOO"
+    value = "BAR"
+  }
+}
+
 resource "azuredevops_build_definition" "build" {
   project_id = azuredevops_project.project.id
   name       = "Sample Build Definition"
@@ -56,9 +75,9 @@ resource "azuredevops_build_definition" "build" {
     yml_path    = "azure-pipelines.yml"
   }
 
-  # Until https://github.com/microsoft/terraform-provider-azuredevops/issues/170, these are assumed
-  # to already exist in the project.
-  variables_groups = [1, 2, 3]
+  variable_groups = [
+    azuredevops_variable_group.vars.id
+  ]
 }
 ```
 
@@ -78,7 +97,7 @@ The following arguments are supported:
 
 * `branch_name` - (Optional) The branch name for which builds are triggered. Defaults to `master`.
 * `repo_name` - (Required) The name of the repository.
-* `repo_type` - (Optional) The repository type. Valid values: `GitHub` or `TfsGit`. Defaults to `Github`.
+* `repo_type` - (Optional) The repository type. Valid values: `GitHub` or `TfsGit` or `Bitbucket`. Defaults to `Github`.
 * `service_connection_id` - (Optional) The service connection ID. Used if the `repo_type` is `GitHub`.
 * `yml_path` - (Required) The path of the Yaml file describing the build definition.
 
@@ -99,6 +118,7 @@ The following arguments are supported:
 `pull_request_trigger` block supports the following:
 
 * `use_yaml` - (Optional) Use the azure-pipeline file for the build configuration. Defaults to `false`.
+* `initial_branch` - (Optional) When use_yaml is true set this to the name of the branch that the azure-pipelines.yml exists on. Defaults to `Managed by Terraform`.
 * `forks` - (Required) Set permissions for Forked repositories.
 * `override` - (Optional) Override the azure-pipeline file and use a this configuration for all builds.
 
