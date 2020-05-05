@@ -966,6 +966,7 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 	tags := expandStringList(d.Get("tags").([]interface{}))
 
 	agentPoolName := d.Get("agent_pool_name").(string)
+	agentPoolIsHosted := agentPoolName != "Default"
 
 	var process interface{}
 
@@ -995,16 +996,22 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 			*phase,
 		}
 
-		agentSpecificationId := "ubuntu-18.04"
-		var processTarget = &build.DesignerProcessTarget{
-			AgentSpecification: &build.AgentSpecification{
-				Identifier: &agentSpecificationId,
-			},
-		}
+		if agentPoolIsHosted {
+			agentSpecificationId := "ubuntu-18.04"
+			var processTarget = &build.DesignerProcessTarget{
+				AgentSpecification: &build.AgentSpecification{
+					Identifier: &agentSpecificationId,
+				},
+			}
 
-		process = &build.DesignerProcess{
-			Phases: &phases,
-			Target: processTarget,
+			process = &build.DesignerProcess{
+				Phases: &phases,
+				Target: processTarget,
+			}
+		} else {
+			process = &build.DesignerProcess{
+				Phases: &phases,
+			}
 		}
 	}
 
@@ -1028,7 +1035,8 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 		Queue: &build.AgentPoolQueue{
 			Name: &agentPoolName,
 			Pool: &build.TaskAgentPoolReference{
-				Name: &agentPoolName,
+				Name:     &agentPoolName,
+				IsHosted: &agentPoolIsHosted,
 			},
 		},
 		QueueStatus:    &build.DefinitionQueueStatusValues.Enabled,
