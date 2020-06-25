@@ -8,7 +8,6 @@ import (
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/crud/distributedtask"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
 	"log"
-	"strconv"
 	"strings"
 )
 
@@ -543,29 +542,36 @@ func expandReleaseParallelExecutionInputBaseSet(d *schema.Set) *release.Parallel
 	return &d2[0]
 }
 
-func expandReleaseAgentSpecification(d map[string]interface{}) release.AgentSpecification {
+func expandReleasePrivateAgentSpecification(d map[string]interface{}) (release.AgentSpecification, int) {
 	poolId := converter.Int(d["agent_pool_id"].(int))
-	poolIdStr := strconv.Itoa(*poolId)
+	return release.AgentSpecification{}, *poolId
+}
+
+func expandReleaseAgentSpecification(d map[string]interface{}) release.AgentSpecification {
 	return release.AgentSpecification{
-		Identifier: &poolIdStr,
+		Identifier: converter.String(d["agent_specification"].(string)),
 	}
 }
-func expandReleaseAgentSpecificationList(d []interface{}) []release.AgentSpecification {
+
+func expandReleasePrivateAgentSpecificationList(d []interface{}) ([]release.AgentSpecification, int) {
 	vs := make([]release.AgentSpecification, 0, len(d))
+	var queueId = 0
 	for _, v := range d {
 		val, ok := v.(map[string]interface{})
 		if ok {
-			vs = append(vs, expandReleaseAgentSpecification(val))
+			spec, priv := expandReleasePrivateAgentSpecification(val)
+			queueId = priv
+			vs = append(vs, spec)
 		}
 	}
-	return vs
+	return vs, queueId
 }
-func expandReleaseAgentSpecificationSet(d *schema.Set) (*release.AgentSpecification, string) {
-	d2 := expandReleaseAgentSpecificationList(d.List())
+func expandReleasePrivateAgentSpecificationSet(d *schema.Set) (*release.AgentSpecification, int) {
+	d2, queueId := expandReleasePrivateAgentSpecificationList(d.List())
 	if len(d2) != 1 {
-		return nil, "0"
+		return nil, 0
 	}
-	return &d2[0], *d2[0].Identifier
+	return &d2[0], queueId
 }
 
 func expandReleaseHostedAzurePipelines(d map[string]interface{}) ReleaseHostedAzurePipelines {
@@ -628,13 +634,13 @@ func expandReleaseAgentDeploymentInput(d map[string]interface{}) AgentDeployment
 	artifactsDownloadInput := expandReleaseArtifactsDownloadInputSet(d["artifact_download"].(*schema.Set))
 	demands := expandReleaseDefinitionDemandSet(d["demand"].(*schema.Set))
 
-	agentPoolPrivate, queueIdPrivate := expandReleaseAgentSpecificationSet(d["agent_pool_private"].(*schema.Set))
+	agentPoolPrivate, queueIdPrivate := expandReleasePrivateAgentSpecificationSet(d["agent_pool_private"].(*schema.Set))
 
 	log.Printf("QUEUE ID BEFORE")
 	agentPoolHostedAzurePipelines, queueID := expandReleaseHostedAzurePipelinesSet(d["agent_pool_hosted_azure_pipelines"].(*schema.Set))
 	if agentPoolPrivate != nil && agentPoolHostedAzurePipelines == nil { // TODO : how to solve
 		log.Printf("QUEUE ID BEFORE 7 %s", queueIdPrivate)
-		queueID, _ = strconv.Atoi(queueIdPrivate)
+		queueID = queueIdPrivate
 		log.Printf("QUEUE ID BEFORE 8 %d", queueID)
 	}
 
