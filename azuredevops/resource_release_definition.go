@@ -11,6 +11,7 @@ import (
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/tfhelper"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/validate"
+	"log"
 	"strconv"
 	"time"
 )
@@ -184,10 +185,10 @@ func resourceReleaseDefinition() *schema.Resource {
 		},
 		"override_input": overrideInputs,
 		// TODO : Remove ref_name
-		//"ref_name": {
-		//	Type:     schema.TypeString,
-		//	Required: true,
-		//},
+		"ref_name": {
+			Type:     schema.TypeString,
+			Optional: true,
+		},
 		// TODO : Remove task_id is going to be derived from task
 		//"task_id": {
 		//	Type:     schema.TypeString,
@@ -796,7 +797,7 @@ func resourceReleaseDefinition() *schema.Resource {
 					Elem: &schema.Resource{
 						Schema: map[string]*schema.Schema{
 							"agent_pool_id": {
-								Type:     schema.TypeString,
+								Type:     schema.TypeInt,
 								Required: true,
 							},
 						},
@@ -1231,8 +1232,8 @@ func resourceReleaseDefinitionUpdate(d *schema.ResourceData, m interface{}) erro
 
 	body, _ := json.Marshal(*releaseDefinition)
 	s := string(body[:])
-	println("TIMMM")
-	println(s)
+	log.Printf("TIMMM")
+	log.Printf(s)
 
 	if err != nil {
 		return err
@@ -1280,7 +1281,9 @@ func expandReleaseDefinition(d *schema.ResourceData) (*release.ReleaseDefinition
 	for i, variableGroup := range variableGroupsInterface {
 		variableGroups[i] = variableGroup.(int)
 	}
+	log.Printf("EXPAND RELEASE 1")
 	environments := expandReleaseDefinitionEnvironmentSet(d.Get("stage").(*schema.Set))
+	log.Printf("EXPAND RELEASE 2")
 	variables := expandReleaseConfigurationVariableValueSet(d.Get("variable").(*schema.Set))
 	properties := expandReleaseDefinitionPropertiesSet(d.Get("properties").(*schema.Set))
 	triggers := expandReleaseDefinitionTriggersSet(d.Get("triggers").(*schema.Set))

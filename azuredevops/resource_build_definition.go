@@ -320,6 +320,10 @@ func resourceBuildDefinition() *schema.Resource {
 								},
 							},
 						},
+						"ref_name": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
 						"inputs": {
 							Type:     schema.TypeMap,
 							Optional: true,
@@ -1074,6 +1078,7 @@ func buildStep(m map[string]interface{}) *build.BuildDefinitionStep {
 			Task:    buildTask(tasks[0].(map[string]interface{})),
 			Inputs:  &inputStrings,
 			Enabled: &enabled,
+			RefName: converter.String(m["ref_name"].(string)),
 		}
 	}
 	return nil

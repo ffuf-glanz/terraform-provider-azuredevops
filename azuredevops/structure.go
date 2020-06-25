@@ -7,6 +7,8 @@ import (
 	"github.com/microsoft/azure-devops-go-api/azuredevops/webapi"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/crud/distributedtask"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
+	"log"
+	"strconv"
 	"strings"
 )
 
@@ -542,8 +544,10 @@ func expandReleaseParallelExecutionInputBaseSet(d *schema.Set) *release.Parallel
 }
 
 func expandReleaseAgentSpecification(d map[string]interface{}) release.AgentSpecification {
+	poolId := converter.Int(d["agent_pool_id"].(int))
+	poolIdStr := strconv.Itoa(*poolId)
 	return release.AgentSpecification{
-		Identifier: converter.String(d["agent_specification"].(string)),
+		Identifier: &poolIdStr,
 	}
 }
 func expandReleaseAgentSpecificationList(d []interface{}) []release.AgentSpecification {
@@ -556,12 +560,12 @@ func expandReleaseAgentSpecificationList(d []interface{}) []release.AgentSpecifi
 	}
 	return vs
 }
-func expandReleaseAgentSpecificationSet(d *schema.Set) *release.AgentSpecification {
+func expandReleaseAgentSpecificationSet(d *schema.Set) (*release.AgentSpecification, string) {
 	d2 := expandReleaseAgentSpecificationList(d.List())
 	if len(d2) != 1 {
-		return nil
+		return nil, "0"
 	}
-	return &d2[0]
+	return &d2[0], *d2[0].Identifier
 }
 
 func expandReleaseHostedAzurePipelines(d map[string]interface{}) ReleaseHostedAzurePipelines {
@@ -623,12 +627,18 @@ func expandReleaseMachineGroupDeploymentInput(d map[string]interface{}) *release
 func expandReleaseAgentDeploymentInput(d map[string]interface{}) AgentDeploymentInput {
 	artifactsDownloadInput := expandReleaseArtifactsDownloadInputSet(d["artifact_download"].(*schema.Set))
 	demands := expandReleaseDefinitionDemandSet(d["demand"].(*schema.Set))
-	agentPoolPrivate := expandReleaseAgentSpecificationSet(d["agent_pool_private"].(*schema.Set))
 
+	agentPoolPrivate, queueIdPrivate := expandReleaseAgentSpecificationSet(d["agent_pool_private"].(*schema.Set))
+
+	log.Printf("QUEUE ID BEFORE")
 	agentPoolHostedAzurePipelines, queueID := expandReleaseHostedAzurePipelinesSet(d["agent_pool_hosted_azure_pipelines"].(*schema.Set))
-	//if agentPoolPrivate != nil && agentPoolHostedAzurePipelines != nil { // TODO : how to solve
-	//	return nil, fmt.Errorf("conflit %s and %s specify only one", "agent_pool_hosted_azure_pipelines", "agent_pool_private")
-	//}
+	if agentPoolPrivate != nil && agentPoolHostedAzurePipelines == nil { // TODO : how to solve
+		log.Printf("QUEUE ID BEFORE 7 %s", queueIdPrivate)
+		queueID, _ = strconv.Atoi(queueIdPrivate)
+		log.Printf("QUEUE ID BEFORE 8 %d", queueID)
+	}
+
+	log.Printf("QUEUE ID AGENT [%d]", queueID)
 	var agentSpecification *release.AgentSpecification
 	if agentPoolHostedAzurePipelines != nil {
 		agentSpecification = agentPoolHostedAzurePipelines
@@ -751,6 +761,7 @@ func expandReleaseWorkFlowTask(d map[string]interface{}) release.WorkflowTask {
 		ContinueOnError: converter.Bool(d["continue_on_error"].(bool)),
 		DefinitionType:  converter.String(d["definition_type"].(string)),
 		Enabled:         converter.Bool(d["enabled"].(bool)),
+		RefName:         converter.String(d["ref_name"].(string)),
 		//Environment:      converter.String(d["environment"].(string)),
 		//Inputs:           converter.Int(d["inputs"].(int)),
 		Name: converter.String(d["display_name"].(string)),
