@@ -912,8 +912,8 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 	for _, step := range stepsInterface {
 		stepBuilt := buildStep(step.(map[string]interface{}))
 		if stepBuilt != nil {
-			//steps = append(steps, *stepBuilt)
-			steps = append([]build.BuildDefinitionStep{*stepBuilt}, steps...)
+			steps = append(steps, *stepBuilt)
+			//steps = append([]build.BuildDefinitionStep{*stepBuilt}, steps...)
 		}
 	}
 
