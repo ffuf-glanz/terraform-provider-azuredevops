@@ -649,7 +649,7 @@ func expandReleaseAgentDeploymentInput(d map[string]interface{}) AgentDeployment
 	if agentPoolHostedAzurePipelines != nil {
 		agentSpecification = agentPoolHostedAzurePipelines
 	} else {
-		agentSpecification = agentPoolPrivate
+		agentSpecification = nil
 	}
 
 	var parallelExecution interface{} = &release.ExecutionInput{
