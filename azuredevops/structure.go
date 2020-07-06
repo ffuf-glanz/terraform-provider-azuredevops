@@ -817,7 +817,7 @@ func expandReleaseEnvironmentRetentionPolicySet(d *schema.Set) *release.Environm
 }
 
 func expandReleaseDefinitionApprovalStep(d map[string]interface{}) release.ReleaseDefinitionApprovalStep {
-	configurationApprover := d["approver"]
+	configurationApprover := d["approver_id"]
 	var approver *webapi.IdentityRef
 	if configurationApprover != nil {
 		approver = &webapi.IdentityRef{

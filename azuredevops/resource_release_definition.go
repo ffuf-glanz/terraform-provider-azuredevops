@@ -672,11 +672,11 @@ func resourceReleaseDefinition() *schema.Resource {
 				//	Default:  0,
 				//},
 				// TODO : approver_id
-				//"approver_id": {
-				//	Type:         schema.TypeString,
-				//	Optional:     true,
-				//	ValidateFunc: validate.UUID,
-				//},
+				"approver_id": {
+					Type:         schema.TypeString,
+					Optional:     true,
+					ValidateFunc: validate.UUID,
+				},
 				"rank": rank,
 				"is_automated": {
 					Type:     schema.TypeBool,
