@@ -155,6 +155,11 @@ func resourceBuildDefinition() *schema.Resource {
 							Optional: true,
 							Default:  "",
 						},
+						"report_build_status": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  true,
+						},
 					},
 				},
 			},
@@ -537,6 +542,7 @@ func flattenRepository(buildDefinition *build.BuildDefinition) interface{} {
 	if yamlProcess, ok := buildDefinition.Process.(*build.YamlProcess); ok {
 		yamlFilePath = *yamlProcess.YamlFilename
 	}
+	reportBuildStatus, _ := strconv.ParseBool((*buildDefinition.Repository.Properties)["reportBuildStatus"])
 
 	if yamlFilePath != "" {
 		return []map[string]interface{}{{
@@ -545,6 +551,7 @@ func flattenRepository(buildDefinition *build.BuildDefinition) interface{} {
 			"repo_type":             *buildDefinition.Repository.Type,
 			"branch_name":           *buildDefinition.Repository.DefaultBranch,
 			"service_connection_id": (*buildDefinition.Repository.Properties)["connectedServiceId"],
+			"report_build_status":   reportBuildStatus,
 		}}
 	} else {
 		return []map[string]interface{}{{
@@ -552,6 +559,7 @@ func flattenRepository(buildDefinition *build.BuildDefinition) interface{} {
 			"repo_type":             *buildDefinition.Repository.Type,
 			"branch_name":           *buildDefinition.Repository.DefaultBranch,
 			"service_connection_id": (*buildDefinition.Repository.Properties)["connectedServiceId"],
+			"report_build_status":   reportBuildStatus,
 		}}
 	}
 }
@@ -1034,6 +1042,7 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 			Properties: &map[string]string{
 				"apiUrl":             fmt.Sprintf("https://api.bitbucket.org/2.0/repositories/%s", repoName),
 				"connectedServiceId": repository["service_connection_id"].(string),
+				"reportBuildStatus":  strconv.FormatBool(repository["report_build_status"].(bool)),
 			},
 		},
 		Process: process,
