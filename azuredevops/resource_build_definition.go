@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/build"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils"
+	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/builddefinitionhelper"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/config"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/tfhelper"
@@ -340,6 +341,52 @@ func resourceBuildDefinition() *schema.Resource {
 				},
 			},
 			"tags": TagsSchema,
+			"schedules": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MinItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"branch_filter": branchFilter,
+						"days_to_build": {
+							Type:     schema.TypeList,
+							Required: true,
+							MinItems: 1,
+							Elem: &schema.Schema{
+								Type:         schema.TypeString,
+								ValidateFunc: validation.StringInSlice([]string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}, false),
+							},
+						},
+						"schedule_only_with_changes": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  true,
+						},
+						"start_hours": {
+							Type:         schema.TypeInt,
+							Optional:     true,
+							Default:      0,
+							ValidateFunc: validation.IntBetween(0, 23),
+						},
+						"start_minutes": {
+							Type:         schema.TypeInt,
+							Optional:     true,
+							Default:      0,
+							ValidateFunc: validation.IntBetween(0, 59),
+						},
+						"time_zone": {
+							Optional:     true,
+							Type:         schema.TypeString,
+							ValidateFunc: validation.StringInSlice(builddefinitionhelper.TimeZones, false),
+							Default:      "(UTC) Coordinated Universal Time",
+						},
+						"schedule_job_id": {
+							Computed: true,
+							Type:     schema.TypeString,
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -387,6 +434,9 @@ func flattenBuildDefinition(d *schema.ResourceData, buildDefinition *build.Build
 
 		yamlBuildTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.BuildCompletion, 2)
 		d.Set("build_completion_trigger", flattenBuildDefinitionTrigger(buildDefinition.Triggers, yamlBuildTrigger, build.DefinitionTriggerTypeValues.BuildCompletion))
+
+		yamlScheduleTrigger := hasSettingsSourceType(buildDefinition.Triggers, build.DefinitionTriggerTypeValues.Schedule, 2)
+		d.Set("schedules", flattenBuildDefinitionTrigger(buildDefinition.Triggers, yamlScheduleTrigger, build.DefinitionTriggerTypeValues.Schedule))
 	}
 
 	revision := 0
@@ -886,6 +936,17 @@ func expandBuildDefinitionTrigger(d map[string]interface{}, t build.DefinitionTr
 		vs := expandBuildDefinitionManualBuildCompletionTriggerSet(d["override"].(*schema.Set))
 		vs["triggerType"] = string(t)
 		return vs
+	case build.DefinitionTriggerTypeValues.Schedule:
+		scheduleConfig := map[string]interface{}{
+			"branchFilters":           expandBuildDefinitionBranchOrPathFilterSet(d["branch_filter"].(*schema.Set)),
+			"scheduleOnlyWithChanges": d["schedule_only_with_changes"],
+			"startHours":              d["start_hours"],
+			"startMinutes":            d["start_minutes"],
+			"timeZoneId":              builddefinitionhelper.TimeZoneToID[d["time_zone"].(string)],
+			"scheduleJobId":           nil,
+		}
+		scheduleConfig["daysToBuild"] = builddefinitionhelper.DateToDays(d["days_to_build"].([]interface{}))
+		return scheduleConfig
 	}
 	return nil
 }
@@ -964,6 +1025,18 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 	}
 	if buildCompletionTriggers != nil && len(buildCompletionTriggers) > 0 {
 		buildTriggers = append(buildTriggers, buildCompletionTriggers[0])
+	}
+
+	schedules := expandBuildDefinitionTriggerList(
+		d.Get("schedules").([]interface{}),
+		build.DefinitionTriggerTypeValues.Schedule,
+	)
+	if len(schedules) > 0 {
+		scheduleTriggers := map[string]interface{}{
+			"schedules":   schedules,
+			"triggerType": string(build.DefinitionTriggerTypeValues.Schedule),
+		}
+		buildTriggers = append(buildTriggers, scheduleTriggers)
 	}
 
 	// Look for the ID. This may not exist if we are within the context of a "create" operation,

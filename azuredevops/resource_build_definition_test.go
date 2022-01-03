@@ -22,6 +22,7 @@ import (
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/config"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/converter"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/testhelper"
+	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/testutils"
 	"github.com/microsoft/terraform-provider-azuredevops/azuredevops/utils/tfhelper"
 	"github.com/stretchr/testify/require"
 )
@@ -536,6 +537,83 @@ func sortBuildDefinition(b build.BuildDefinition) build.BuildDefinition {
 		}
 	}
 	return b
+}
+
+func TestAccBuildDefinition_Schedules(t *testing.T) {
+	name := testutils.GenerateResourceName()
+	tfNode := "azuredevops_build_definition.build"
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testutils.PreCheck(t, nil) },
+		Providers:    testutils.GetProviders(),
+		CheckDestroy: checkBuildDefinitionDestroyed,
+		Steps: []resource.TestStep{
+			{
+				Config: hclBuildDefinitionSchedules(name),
+				Check: resource.ComposeTestCheckFunc(
+					checkBuildDefinitionExists(name),
+					resource.TestCheckResourceAttrSet(tfNode, "project_id"),
+					resource.TestCheckResourceAttrSet(tfNode, "revision"),
+					resource.TestCheckResourceAttrSet(tfNode, "repository.0.repo_id"),
+					resource.TestCheckResourceAttr(tfNode, "schedules.#", "1"),
+					resource.TestCheckResourceAttr(tfNode, "schedules.0.days_to_build.#", "1"),
+					resource.TestCheckResourceAttr(tfNode, "name", name),
+				),
+			},
+		},
+	})
+}
+
+func hclBuildDefinitionSchedules(name string) string {
+	return fmt.Sprintf(`
+resource "azuredevops_project" "test" {
+  name               = "%[1]s"
+  description        = "%[1]s-description"
+  visibility         = "private"
+  version_control    = "Git"
+  work_item_template = "Agile"
+}
+resource "azuredevops_git_repository" "test" {
+  project_id = azuredevops_project.test.id
+  name       = "acc-%[1]s"
+  initialization {
+    init_type = "Clean"
+  }
+}
+resource "azuredevops_build_definition" "build" {
+  project_id = azuredevops_project.test.id
+  name       = "%[1]s"
+  path       = "\\ExampleFolder"
+  ci_trigger {
+    override {
+      batch = true
+      branch_filter {
+        include = ["master"]
+      }
+      path_filter {
+        include = ["*/**.ts"]
+      }
+      max_concurrent_builds_per_branch = 2
+      polling_interval                 = 0
+    }
+  }
+  schedules {
+    branch_filter {
+      include = ["master"]
+    }
+    days_to_build              = ["Mon"]
+    schedule_only_with_changes = true
+    start_hours                = 0
+    start_minutes              = 0
+    time_zone                  = "(UTC) Coordinated Universal Time"
+  }
+  repository {
+    repo_type   = "TfsGit"
+    repo_id     = azuredevops_git_repository.test.id
+    branch_name = azuredevops_git_repository.test.default_branch
+    yml_path    = "azure-pipelines.yml"
+  }
+}
+`, name)
 }
 
 func init() {
