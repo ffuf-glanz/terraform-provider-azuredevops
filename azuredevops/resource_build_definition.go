@@ -124,7 +124,24 @@ func resourceBuildDefinition() *schema.Resource {
 			"agent_pool_name": {
 				Type:     schema.TypeString,
 				Optional: true,
-				Default:  "Hosted Ubuntu 1604",
+				Default:  "Azure Pipelines",
+			},
+			"agent_specification": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "ubuntu-20.04",
+				ValidateFunc: validation.StringInSlice([]string{
+					"macOS-10.15",
+					"macOS-11",
+					"macOS-latest",
+					"ubuntu-18.04",
+					"ubuntu-18.04",
+					"ubuntu-latest",
+					"vs2017-win2016",
+					"windows-2019",
+					"windows-2022",
+					"windows-latest",
+				}, false),
 			},
 			"repository": {
 				Type:     schema.TypeSet,
@@ -1083,7 +1100,7 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 		}
 
 		if agentPoolIsHosted {
-			agentSpecificationId := "ubuntu-18.04"
+			agentSpecificationId := d.Get("agent_specification").(string)
 			var processTarget = &build.DesignerProcessTarget{
 				AgentSpecification: &build.AgentSpecification{
 					Identifier: &agentSpecificationId,
