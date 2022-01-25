@@ -779,7 +779,7 @@ func resourceReleaseDefinition() *schema.Resource {
 									"macOS-11",
 									"macOS-latest",
 									"ubuntu-18.04",
-									"ubuntu-18.04",
+									"ubuntu-20.04",
 									"ubuntu-latest",
 									"vs2017-win2016",
 									"windows-2019",
