@@ -129,13 +129,15 @@ func resourceBuildDefinition() *schema.Resource {
 			"agent_specification": {
 				Type:     schema.TypeString,
 				Optional: true,
-				Default:  "ubuntu-20.04",
+				Default:  "ubuntu-22.04",
 				ValidateFunc: validation.StringInSlice([]string{
 					"macOS-10.15",
 					"macOS-11",
+					"macOS-12",
 					"macOS-latest",
 					"ubuntu-18.04",
 					"ubuntu-20.04",
+					"ubuntu-22.04",
 					"ubuntu-latest",
 					"vs2017-win2016",
 					"windows-2019",

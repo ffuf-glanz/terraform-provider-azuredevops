@@ -777,9 +777,11 @@ func resourceReleaseDefinition() *schema.Resource {
 								ValidateFunc: validation.StringInSlice([]string{
 									"macOS-10.15",
 									"macOS-11",
+									"macOS-12",
 									"macOS-latest",
 									"ubuntu-18.04",
 									"ubuntu-20.04",
+									"ubuntu-22.04",
 									"ubuntu-latest",
 									"vs2017-win2016",
 									"windows-2019",
