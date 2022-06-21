@@ -1120,6 +1120,15 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 		}
 	}
 
+	apiUrl := ""
+
+    if strings.EqualFold(repoType, "github") {
+        apiUrl = fmt.Sprintf("https://api.github.com/repos/%s", repoName)
+    }
+    if strings.EqualFold(repoType, "bitbucket") {
+        apiUrl = fmt.Sprintf("https://api.bitbucket.org/2.0/repositories/%s", repoName)
+    }
+
 	buildDefinition := build.BuildDefinition{
 		Id:       buildDefinitionReference,
 		Name:     converter.String(d.Get("name").(string)),
@@ -1132,7 +1141,7 @@ func expandBuildDefinition(d *schema.ResourceData) (*build.BuildDefinition, stri
 			DefaultBranch: converter.String(repository["branch_name"].(string)),
 			Type:          converter.String(string(repoType)),
 			Properties: &map[string]string{
-				"apiUrl":             fmt.Sprintf("https://api.bitbucket.org/2.0/repositories/%s", repoName),
+				"apiUrl":  &apiUrl,
 				"connectedServiceId": repository["service_connection_id"].(string),
 				"reportBuildStatus":  strconv.FormatBool(repository["report_build_status"].(bool)),
 			},
