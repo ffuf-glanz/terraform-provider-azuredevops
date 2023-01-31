@@ -1,3 +1,4 @@
+//go:build all || resource_variable_group
 // +build all resource_variable_group
 
 package azuredevops

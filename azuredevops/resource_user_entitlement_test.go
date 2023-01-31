@@ -1,3 +1,4 @@
+//go:build all || resource_user_entitlement
 // +build all resource_user_entitlement
 
 package azuredevops

@@ -1,3 +1,4 @@
+//go:build all || resource_serviceendpoint_dockerhub
 // +build all resource_serviceendpoint_dockerhub
 
 package azuredevops

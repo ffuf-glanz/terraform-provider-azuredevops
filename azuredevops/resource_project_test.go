@@ -1,3 +1,4 @@
+//go:build all || core || resource_project
 // +build all core resource_project
 
 package azuredevops
@@ -279,13 +280,14 @@ func operationWithStatus(status operations.OperationStatus) operations.Operation
  */
 
 // Verifies that the following sequence of events occurrs without error:
-//	(1) TF apply creates project
-//	(2) TF state values are set
-//	(3) project can be queried by ID and has expected name
-//  (4) TF apply update project with changing name
-//  (5) project can be queried by ID and has expected name
-// 	(6) TF destroy deletes project
-//	(7) project can no longer be queried by ID
+//
+//		(1) TF apply creates project
+//		(2) TF state values are set
+//		(3) project can be queried by ID and has expected name
+//	 (4) TF apply update project with changing name
+//	 (5) project can be queried by ID and has expected name
+//		(6) TF destroy deletes project
+//		(7) project can no longer be queried by ID
 func TestAccAzureDevOpsProject_CreateAndUpdate(t *testing.T) {
 	projectNameFirst := testhelper.TestAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	projectNameSecond := testhelper.TestAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)

@@ -1,3 +1,4 @@
+//go:build all || core || data_group
 // +build all core data_group
 
 package azuredevops

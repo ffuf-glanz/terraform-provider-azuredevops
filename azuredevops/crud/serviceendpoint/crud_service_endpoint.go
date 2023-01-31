@@ -18,7 +18,7 @@ type flatFunc func(d *schema.ResourceData, serviceEndpoint *serviceendpoint.Serv
 type expandFunc func(d *schema.ResourceData) (*serviceendpoint.ServiceEndpoint, *string)
 type importFunc func(clients *config.AggregatedClient, id string) (string, string, error)
 
-//GenBaseServiceEndpointResource creates a Resource with the common parts
+// GenBaseServiceEndpointResource creates a Resource with the common parts
 // that all Service Endpoints require.
 func GenBaseServiceEndpointResource(f flatFunc, e expandFunc, i importFunc) *schema.Resource {
 	return &schema.Resource{

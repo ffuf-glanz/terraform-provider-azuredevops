@@ -1,3 +1,4 @@
+//go:build all || utils || strings
 // +build all utils strings
 
 package validate

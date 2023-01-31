@@ -1,3 +1,4 @@
+//go:build all || resource_agentpool
 // +build all resource_agentpool
 
 package azuredevops
@@ -180,13 +181,14 @@ func TestAzureDevOpsAgentPoolDefinition_WhenPoolTypeIsNotCorrect_ReturnsError(t 
  */
 
 // Verifies that the following sequence of events occurrs without error:
-//	(1) TF apply creates agent pool
-//	(2) TF state values are set
-//	(3) Agent pool can be queried by ID and has expected name
-//  (4) TF apply updates agent pool with new name
-//  (5) Agent pool can be queried by ID and has expected name
-// 	(6) TF destroy deletes agent pool
-//	(7) Agent pool can no longer be queried by ID
+//
+//		(1) TF apply creates agent pool
+//		(2) TF state values are set
+//		(3) Agent pool can be queried by ID and has expected name
+//	 (4) TF apply updates agent pool with new name
+//	 (5) Agent pool can be queried by ID and has expected name
+//		(6) TF destroy deletes agent pool
+//		(7) Agent pool can no longer be queried by ID
 func TestAccAzureDevOpsAgentPool_CreateAndUpdate(t *testing.T) {
 	poolNameFirst := testhelper.TestAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	poolNameSecond := testhelper.TestAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)

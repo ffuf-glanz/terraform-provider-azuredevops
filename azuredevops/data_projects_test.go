@@ -1,3 +1,4 @@
+//go:build all || core || data_projects
 // +build all core data_projects
 
 package azuredevops

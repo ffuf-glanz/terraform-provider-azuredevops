@@ -1,3 +1,4 @@
+//go:build all || core || resource_group_membership
 // +build all core resource_group_membership
 
 package azuredevops
@@ -104,13 +105,13 @@ func TestGroupMembership_Read_DoesNotSwallowErrors(t *testing.T) {
  */
 
 // Verifies that the following sequence of events occurrs without error:
+//
 //	(1) TF apply creates resource
 //	(2) TF state values are set
 //	(3) Group membership exists and can be queried for
-// 	(4) TF destroy removes group memberships
+//	(4) TF destroy removes group memberships
 //
 // Note: This will be uncommented in https://github.com/microsoft/terraform-provider-azuredevops/issues/174
-//
 func TestAccGroupMembership_CreateAndRemove(t *testing.T) {
 	projectName := testhelper.TestAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	userPrincipalName := os.Getenv("AZDO_TEST_AAD_USER_EMAIL")

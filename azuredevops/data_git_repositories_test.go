@@ -1,3 +1,4 @@
+//go:build all || core || data_git_repositories
 // +build all core data_git_repositories
 
 package azuredevops

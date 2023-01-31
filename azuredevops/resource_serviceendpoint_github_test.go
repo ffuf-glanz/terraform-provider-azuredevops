@@ -1,3 +1,4 @@
+//go:build all || resource_serviceendpoint_github
 // +build all resource_serviceendpoint_github
 
 package azuredevops

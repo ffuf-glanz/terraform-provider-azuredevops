@@ -1,3 +1,4 @@
+//go:build all || resource_build_definition
 // +build all resource_build_definition
 
 package azuredevops

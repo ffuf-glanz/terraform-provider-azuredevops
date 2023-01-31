@@ -1,3 +1,4 @@
+//go:build all || core || resource_git_repository
 // +build all core resource_git_repository
 
 package azuredevops
@@ -107,6 +108,7 @@ func configureCleanInitialization(d *schema.ResourceData) {
 }
 
 // verifies that a round-trip flatten/expand sequence will not result in data loss of non-computed properties.
+//
 //	Note: there is no need to expand computed properties, so they won't be tested here.
 func TestAzureGitRepo_FlattenExpand_RoundTrip(t *testing.T) {
 	projectID := uuid.New()
@@ -274,10 +276,11 @@ func TestAzureGitRepo_Read_UsesNameIfIdNotSet(t *testing.T) {
  */
 
 // Verifies that the following sequence of events occurrs without error:
+//
 //	(1) TF apply creates resource
 //	(2) TF state values are set
 //	(3) resource can be queried by ID and has expected name
-// 	(4) TF destroy deletes resource
+//	(4) TF destroy deletes resource
 //	(5) resource can no longer be queried by ID
 func TestAccAzureGitRepo_CreateAndUpdate(t *testing.T) {
 	projectName := testhelper.TestAccResourcePrefix + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)

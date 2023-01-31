@@ -1,3 +1,4 @@
+//go:build all || utils || uuid
 // +build all utils uuid
 
 package validate

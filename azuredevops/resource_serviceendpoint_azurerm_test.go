@@ -1,3 +1,4 @@
+//go:build all || resource_serviceendpoint_azurerm
 // +build all resource_serviceendpoint_azurerm
 
 package azuredevops
